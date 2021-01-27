@@ -10,8 +10,8 @@ class HarmonyRequest():
         self.params = params
 
 
-    def authenticate(self, username=None, method=None):
-        if username is not None:
+    def authenticate(self, username=None, password=None, netrc=None):
+        if username is not None and password is None:
             password = getpass('Password: ')
             self._creds = {'username': username, 'password': password}
             print('\'username\' and \'password\' accepted.')
@@ -40,4 +40,4 @@ class HarmonyRequest():
 
     @property
     def output(self):
-        return self._output
+        pass
