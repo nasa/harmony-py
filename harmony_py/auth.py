@@ -89,4 +89,3 @@ def authenticate(username=None, password=None, netrc_file=None):
             return SessionWithHeaderRedirection(cfg.EDL_USERNAME, cfg.EDL_PASSWORD)
         else:
             print('No credentials were found; replace with logging.')
-

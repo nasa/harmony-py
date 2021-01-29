@@ -56,11 +56,7 @@ class HarmonyRequest():
         self._params = value
 
 
-    def submit(self):
-        # spinner = Halo(text='Processing request... ', spinner='dots')
-        # spinner.start()
-        # time.sleep(5)
-        # spinner.stop()
+    def subset(self):
         print('Processing request:')
         for i in progressbar.progressbar(range(100)):
             time.sleep(0.08)
