@@ -1,9 +1,0 @@
-backports.shutil-get-terminal-size==1.0.0
-colorama==0.4.4
-halo==0.0.31
-log-symbols==0.0.14
-progressbar2==3.53.1
-python-utils==2.5.3
-six==1.15.0
-spinners==0.0.24
-termcolor==1.1.0
