@@ -1,0 +1,5 @@
+flake8 ~= 3.8
+progressbar2 ~= 3.53
+requests ~= 2.25
+setuptools ~= 44.0
+sphinx ~= 3.4
