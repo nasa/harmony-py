@@ -14,7 +14,7 @@ To allow us to incorporate your changes, please use the following process:
 
 ## Commits
 
-Our ticketing and CI/CD tools are configured to sync statuses amongst each other. Commits play an important role in this process. Please start all commits with the Harmony ticket number associated with your feature, task, or bug. All commit messages should follow the format "harmony-XXXX: [Your commit message here]"
+Our ticketing and CI/CD tools are configured to sync statuses amongst each other. Commits play an important role in this process. Please start all commits with the Harmony ticket number associated with your feature, task, or bug. All commit messages should follow the format "HARMONY-XXXX: [Your commit message here]"
 
 ## Disclaimer
 
