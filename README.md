@@ -6,6 +6,8 @@
 
 `harmony-py` is a work-in-progress, is not feature complete, and should only be used if you would like to test `harmony-py` functionality.
 
+![Python package](https://github.com/nasa/harmony-py/workflows/Python%20package/badge.svg)
+
 ---
 
 ## Installing
@@ -19,7 +21,7 @@ The library is available from Pypi and can be installed with pip:
 
 Install requirements:
 
-> pip install -r requirements/core.txt -r requirements/dev.txt 
+> pip install -r requirements/core.txt -r requirements/dev.txt
 
 Optionally register your local copy with pip:
 
@@ -47,4 +49,3 @@ Tests use `unittest` and can run with nose and coverage:
 Harmony-py uses `flake8`. To run manually:
 
 > flake8 ./harmony_py
-
