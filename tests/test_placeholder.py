@@ -8,3 +8,7 @@ class TestPlaceholder(unittest.TestCase):
     """
     def test_my_placholder(self):
         self.assertTrue(True)
+
+    def test_can_instantiate_request(self):
+        req = Request()
+        self.assertIsNotNone(req)
