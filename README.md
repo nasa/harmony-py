@@ -1,3 +1,5 @@
+WHADDYA THINK ABOUT THIS AT THE TOP OF THE READEMEME?
+
 # harmony-py
 
 `harmony-py` is a Python library for integrating with NASA's [Harmony](https://harmony.earthdata.nasa.gov/).
@@ -19,7 +21,7 @@ The library is available from Pypi and can be installed with pip:
 
 Install requirements:
 
-> pip install -r requirements/core.txt -r requirements/dev.txt 
+> pip install -r requirements/core.txt -r requirements/dev.txt
 
 Optionally register your local copy with pip:
 
@@ -47,4 +49,3 @@ Tests use `unittest` and can run with nose and coverage:
 Harmony-py uses `flake8`. To run manually:
 
 > flake8 ./harmony_py
-
