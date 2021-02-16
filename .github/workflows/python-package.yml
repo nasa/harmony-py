@@ -33,8 +33,10 @@ jobs:
 
     - name: Test
       run: |
+        coverage erase
         coverage run --source=harmony_py -m nose
         coverage report
+        coverage html
 
     - name: Archive code coverage results
       uses: actions/upload-artifact@v2
