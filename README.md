@@ -1,5 +1,3 @@
-TESTING
-
 # harmony-py
 
 `harmony-py` is a Python library for integrating with NASA's [Harmony](https://harmony.earthdata.nasa.gov/).
