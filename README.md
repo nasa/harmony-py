@@ -21,9 +21,9 @@ The library is available from Pypi and can be installed with pip:
 
 ## Developing
 
-Install requirements:
+Install dependencies:
 
-> pip install -r requirements/core.txt -r requirements/dev.txt
+> make install
 
 Optionally register your local copy with pip:
 
@@ -32,22 +32,27 @@ Optionally register your local copy with pip:
 
 ### Generating Documentation
 
-Documentation is formatted in reStructuredText (.rst) and generated with `sphinx`. To build the documentation, go to ./docs and issue the following command:
+Documentation is formatted in reStructuredText (.rst) and generated with `sphinx`. To build the documentation:
 
-> make html
+> make docs
 
 You can then view the documentation in a web browser under ./docs/_build/html/index.html
 
 
-### Running Tests
+### Running the Linter & Unit Tests
 
-Tests use `unittest` and can run with nose and coverage:
+Run the linter on the project source:
 
-> nosetests --with-coverage --cover-html --cover-branches --cover-package=harmony_py --cover-erase --nocapture --nologcapture
+> make lint
+
+Tests use `unittest` and can run with nose and generate test coverage
+which can be seen in HTML form in the `htmlcov` subdirectory.
+
+> make test
 
 
-### Running the Linter
+## CI
 
-Harmony-py uses `flake8`. To run manually:
-
-> flake8 ./harmony_py
+Harmony-py uses [GitHub
+Actions](https://github.com/nasa/harmony-py/actions) to run the Linter
+& Unit Tests. The test coverage output is saved as a build artifact.
