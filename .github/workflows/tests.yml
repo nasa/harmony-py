@@ -1,4 +1,4 @@
-name: Lint & Unit Tests
+name: Tests
 
 on: [push, pull_request]
 
@@ -21,6 +21,6 @@ jobs:
       run: |
         make install
 
-    - name: Lint & Unit Test
+    - name: Tests
       run: |
         make ci
