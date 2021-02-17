@@ -12,7 +12,7 @@ lint:
 	flake8 harmony_py --show-source --statistics
 
 test:
-	nosetests --with-coverage --cover-html --cover-branches --cover-package=harmony_py --cover-erase --nocapture --nologcapture
+	pytest --cov=harmony_py --cov-report=html --cov-branch tests
 
 ci: lint test
 
