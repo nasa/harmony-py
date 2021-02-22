@@ -4,9 +4,6 @@ from requests_futures.sessions import FuturesSession
 from harmony_py.auth import _authenticate, _is_edl_hostname, authenticate, BadAuthentication, \
                             MissingCredentials, SessionWithHeaderRedirection
 
-#
-### auth._is_edl_hostname()
-#
 
 @pytest.mark.parametrize('hostname,expected', [
     ('uat.urs.earthdata.nasa.gov', True),
@@ -18,9 +15,6 @@ from harmony_py.auth import _authenticate, _is_edl_hostname, authenticate, BadAu
 def test__is_edl_hostname(hostname, expected):
     assert _is_edl_hostname(hostname) is expected
 
-#
-### auth._authentication()
-#
 
 def test__authentication_no_args():
     with pytest.raises(MissingCredentials) as exc_info:
@@ -43,9 +37,6 @@ def test__authentication_with_username_password():
     session = _authenticate(username='foo', password='bar')
     assert session.auth == ('foo', 'bar')
 
-#
-### auth.authentication()
-#
 
 def test_authentication_no_args():
     with pytest.raises(MissingCredentials) as exc_info:
@@ -79,9 +70,6 @@ def test_authentication(mocker, futuressessions_mocker):
             futures_session = authenticate(netrc_file=True, verify=True)
             assert futures_session is fsm
 
-#
-### auth.SessionWithHeaderRedirection()
-#
 
 def test_SessionWithHeaderRedirection_with_no_edl(mocker):
     preparedrequest_mock = mocker.PropertyMock()

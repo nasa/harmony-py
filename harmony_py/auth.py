@@ -132,7 +132,7 @@ def authenticate(username: Optional[str] = None, password: Optional[str] = None,
                  netrc_file: Optional[bool] = False,
                  verify: Optional[bool] = True) -> Session:
     """
-    Create are requests-futures session for authenticated HTTP calls after optionally verifying
+    Create a requests-futures session for authenticated HTTP calls after optionally verifying
     credentials.
     Attempts to create an authenticated session in the following order:
     1) If ``username`` and ``password`` are not None, create a session.
@@ -174,24 +174,3 @@ def authenticate(username: Optional[str] = None, password: Optional[str] = None,
         else:
             raise BadAuthentication('Authentication: An unknown error occurred during credential '
                                     f'verification: HTTP {result.status_code}')
-
-
-# if __name__ == "__main__":
-#     x = _authenticate(username='foo')
-#     print('')
-
-# if __name__ == "__main__":
-#     from concurrent.futures import ThreadPoolExecutor
-#     from requests_futures.sessions import FuturesSession
-
-#     url = 'https://harmony.uat.earthdata.nasa.gov/jobs'
-#     s = FuturesSession(session=authenticate(netrc_file=True),
-#                        executor=ThreadPoolExecutor(max_workers=cfg.NUM_REQUESTS_WORKERS))
-#     r = (s.get(url)).result()
-
-#     if r.status_code == 200:
-#         print('authentication successful')
-#     elif r.status_code == 401:
-#         print('incorrect or missing credentials')
-#     else:
-#         print(f'An unknown error has occurred during authentication: HTTP {r.status_code}')
