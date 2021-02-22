@@ -1,67 +1,89 @@
-import datetime as dt
-
+from hypothesis import given, settings, strategies as st
 import pytest
 
-from harmony_py.harmony import Client, Collection, Request
+from harmony_py.harmony import Collection, Request
 
 
-# When a user supplies a lat lon bounding box data structure to the
-# library, it performs a bounding box query against the Harmony
-# coverages API
+def test_request_has_collection_with_id():
+    collection = Collection('foobar')
 
-def test_with_bounding_box():
+    request = Request(collection)
+
+    assert request.collection.id == 'foobar'
+
+
+def test_request_with_only_a_collection():
+    request = Request(collection=Collection('foobar'))
+    assert request.is_valid()
+
+
+@settings(max_examples=200)
+@given(key_a=st.one_of(st.none(), st.sampled_from(['ll', 'ur']), st.text()),
+       key_b=st.one_of(st.none(), st.sampled_from(['ll', 'ur']), st.text()),
+       tuple_a=st.tuples(st.floats(allow_infinity=True), st.floats(allow_infinity=True)),
+       tuple_b=st.tuples(st.floats(allow_infinity=True), st.floats(allow_infinity=True)))
+def test_request_spatial_bounding_box(key_a, key_b, tuple_a, tuple_b):
+    spatial = {
+        key_a: tuple_a,
+        key_b: tuple_b
+    }
     request = Request(
-        collection=Collection(id='C1940468263-POCLOUD'),
-        spatial={
-            'll': (40, -107),
-            'ur': (42, -105)
-        }
+        collection=Collection('foobar'),
+        spatial=spatial,
     )
 
-    client = Client()
-    job_id = client.submit(request)
+    if request.is_valid():
+        assert request.spatial is not None
+        assert 'll' in spatial
+        assert 'ur' in spatial
+        assert request.spatial[key_a] == tuple_a
+        assert request.spatial[key_b] == tuple_b
 
-    assert job_id is not None
+        lat_bottom, lon_left = request.spatial['ll']
+        lat_top, lon_right = request.spatial['ur']
+        assert lat_bottom < lat_top
+        assert lat_bottom >= -90.0
+        assert lat_top <= 90.0
+        assert lon_left < lon_right
+        assert lon_left >= -180.0
+        assert lon_right <= 180.0
 
 
-# When a user supplies a temporal range data structure to the library,
-# it performs a bounding box query against the Harmony coverages API
-# Test cases: omitted start date, omitted end date, start and end
-# supplied
-
-@pytest.mark.skip
-def test_with_temporal_range():
+@settings(max_examples=200)
+@given(key_a=st.one_of(st.none(), st.sampled_from(['start', 'stop']), st.text()),
+       key_b=st.one_of(st.none(), st.sampled_from(['start', 'stop']), st.text()),
+       datetime_a=st.datetimes(),
+       datetime_b=st.datetimes())
+def test_request_temporal_range(key_a, key_b, datetime_a, datetime_b):
+    temporal = {
+        key_a: datetime_a,
+        key_b: datetime_b
+    }
     request = Request(
-        collection=Collection(id='C1940468263-POCLOUD'),
-        temporal={
-            'start': dt.date(2020, 6, 1),
-            'stop': dt.date(2020, 6, 30)
-        },
+        collection=Collection('foobar'),
+        temporal=temporal
     )
 
-    client = Client()
-    job_id = client.submit(request)
+    if request.is_valid():
+        assert request.temporal is not None
+        assert 'start' in request.temporal or 'stop' in request.temporal
+        assert request.temporal['start'] < request.temporal['stop']
 
-    assert job_id is not None
+
+@pytest.mark.parametrize('key, value, message', [
+    ('spatial', {'ur': (-10, 10)}, 'Spatial parameter is missing the lower-left coordinate'),
+    ('spatial', {'ll': (-10, 10)}, 'Spatial parameter is missing the upper-right coordinate'),
+])
+def test_request_error_messages(key, value, message):
+    request = Request(Collection('foo'), **{key: value})
+    messages = request.error_messages()
+
+    assert not request.is_valid()
+    assert message in messages
 
 
-# Test combinations
-
-@pytest.mark.skip
-def test_with_bounding_box_and_temporal_range():
-    request = Request(
-        collection=Collection(id='C1940468263-POCLOUD'),
-        spatial={
-            'll': (40, -107),
-            'ur': (42, -105)
-        },
-        temporal={
-            'start': dt.date(2020, 6, 1),
-            'stop': dt.date(2020, 6, 30)
-        },
-    )
-
-    client = Client()
-    job_id = client.submit(request)
-
-    assert job_id is not None
+def test_request_has_format():
+    # NOTE: This test is temporary until HARMONY-708:
+    #       https://bugs.earthdata.nasa.gov/browse/HARMONY-708
+    request = Request(collection=Collection('foobar'))
+    assert request.format is not None
