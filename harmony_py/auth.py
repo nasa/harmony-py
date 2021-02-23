@@ -1,4 +1,4 @@
-from getpass import getpass
+from collections.abc import Iterable
 import re
 from urllib.parse import urlparse
 
@@ -7,7 +7,7 @@ from requests import Session
 from requests.models import PreparedRequest, Response
 from requests.utils import get_netrc_auth
 from requests_futures.sessions import FuturesSession
-from typing import cast, Optional
+from typing import cast, Optional, Tuple, Union
 
 from .config import Config
 
@@ -29,7 +29,7 @@ def _is_edl_hostname(hostname: str) -> bool:
     return re.fullmatch(edl_hostname_pattern, hostname, flags=re.IGNORECASE) is not None
 
 
-class MissingCredentials(Exception):
+class MalformedCredentials(Exception):
     pass
 
 
@@ -44,14 +44,13 @@ class SessionWithHeaderRedirection(Session):
         session = SessionWithHeaderRedirection(username, password)
 
     Parameters:
-        username (str, optional): An EDL username.
-        password (str, optional): An EDL password.
+        auth (Tuple(str, str)): A tuple of the format ('edl_username', 'edl_password')
     """
 
-    def __init__(self, username: Optional[str] = None, password: Optional[str] = None) -> None:
+    def __init__(self, auth: Optional[Union[Tuple[str, str], None]] = None) -> None:
         super().__init__()
-        if username and password:
-            self.auth = (username, password)
+        if auth:
+            self.auth = auth
         else:
             self.auth = None
 
@@ -90,87 +89,58 @@ class SessionWithHeaderRedirection(Session):
         return
 
 
-def _authenticate(username: Optional[str] = None, password: Optional[str] = None,
-                  netrc_file: Optional[bool] = False) -> Session:
+def authenticate(*, auth: Optional[Union[Tuple[str, str], None]] = None,
+                 validate: Optional[bool] = True) -> Session:
     """
-    Create a requests session for authenticated HTTP calls.
-    Attempts to create an authenticated session in the following order:
-    1) If ``username`` and ``password`` are not None, create a session.
-    2) If ``username`` is specified but not ``password``, prompt user for a password and create a
-    session.
-    3) If ``netrc_file`` is True, rely on the automatic behavior of requests to find relevant
-    credentials in a .netrc file.
-    4) Attempt to read a username and password from environment variables, either from the system
-    or from a .env file to return a session.
-
-    Parameters:
-        username (str, optional): The EDL username.
-        password (str, optional): The EDL password.
-        netrc_file (bool, optional): Whether a .netrc file should be preferred for credentials.
-
-    Returns:
-        (:obj:`SessionWithHeaderRedirection`): The authenticated requests session.
-
-    :raises MissingCredentials: No credentials were specified or found.
-    """
-
-    if username and password:
-        return SessionWithHeaderRedirection(username, password)
-    elif username and not password:
-        password = getpass()
-        return SessionWithHeaderRedirection(username, password)
-    elif netrc_file:
-        return SessionWithHeaderRedirection()
-    else:
-        if cfg.EDL_USERNAME and cfg.EDL_PASSWORD:
-            return SessionWithHeaderRedirection(cfg.EDL_USERNAME, cfg.EDL_PASSWORD)
-        else:
-            raise MissingCredentials('Authentication: No credentials found.')
-
-
-def authenticate(username: Optional[str] = None, password: Optional[str] = None,
-                 netrc_file: Optional[bool] = False,
-                 verify: Optional[bool] = True) -> Session:
-    """
-    Create a requests-futures session for authenticated HTTP calls after optionally verifying
+    Create a requests-futures session for authenticated HTTP calls after optionally validating
     credentials.
     Attempts to create an authenticated session in the following order:
-    1) If ``username`` and ``password`` are not None, create a session.
-    2) If ``username`` is specified but not ``password``, prompt user for a password and create a
-    session.
-    3) If ``netrc_file`` is True, rely on the automatic behavior of requests to find relevant
-    credentials in a .netrc file.
-    4) Attempt to read a username and password from environment variables, either from the system
+    1) If ``auth`` is a tuple of (username, password), create a session.
+    2) Attempt to read a username and password from environment variables, either from the system
     or from a .env file to return a session.
+    3) Return a session that attempts to read credentials from a .netrc file.
 
     Parameters:
-        username (str, optional): The EDL username.
-        password (str, optional): The EDL password.
-        netrc_file (bool, optional): Whether a .netrc file should be preferred for credentials.
-        verify (bool, optional): Whether EDL credentials will be verified.
+        auth (Tuple(str, str)): A tuple of the format ('edl_username', 'edl_password')
+        validate (bool, optional): Whether EDL credentials will be validated.
 
     Returns:
         (:obj:`SessionWithHeaderRedirection`): The authenticated requests session.
 
-    :raises MissingCredentials: No credentials were specified or found.
+    :raises MalformedCredentials: 'auth' credential not in the correct format.
     :raises BadAuthentication: Incorrect credentials or unknown error.
     """
-    edl_verification_url = cfg.EDL_VERIFICATION_URL
+    edl_validation_url = cfg.EDL_VALIDATION_URL
+    cfg_edl_username = cfg.EDL_USERNAME
+    cfg_edl_password = cfg.EDL_PASSWORD
     num_workers = int(cfg.NUM_REQUESTS_WORKERS)
 
-    session = _authenticate(username=username, password=password, netrc_file=netrc_file)
+    # create session
+    session = None
+    if isinstance(auth, Iterable) and len(auth) == 2 and [x for x in auth if isinstance(x, str)]:
+        session = SessionWithHeaderRedirection(auth=auth)
+    elif auth is not None:
+        raise MalformedCredentials('Authentication: `auth` argument requires tuple of '
+                                   '(username, password).')
+    elif cfg_edl_username and cfg_edl_password:
+        session = SessionWithHeaderRedirection(auth=(cfg_edl_username, cfg_edl_password))
+    else:
+        session = SessionWithHeaderRedirection()
+
+    # wrap in requests-futures
     futures_session = FuturesSession(session=session,
                                      executor=ThreadPoolExecutor(max_workers=num_workers))
 
-    if not verify:
+    # optionally validate
+    if not validate:
         return futures_session
     else:
-        result = (futures_session.get(edl_verification_url)).result()
+        result = (futures_session.get(edl_validation_url)).result()
         if result.status_code == 200:
             return futures_session
         elif result.status_code == 401:
             raise BadAuthentication('Authentication: incorrect or missing credentials during '
-                                    'credential verification.')
+                                    'credential validation.')
         else:
             raise BadAuthentication('Authentication: An unknown error occurred during credential '
-                                    f'verification: HTTP {result.status_code}')
+                                    f'validation: HTTP {result.status_code}')

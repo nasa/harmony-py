@@ -4,9 +4,6 @@ from dotenv import load_dotenv
 from typing import cast
 
 
-load_dotenv()
-
-
 class Config():
     """Runtime configuation variables including defaults and environment vars.
 
@@ -21,10 +18,11 @@ class Config():
 
     config = {
         'NUM_REQUESTS_WORKERS': '8',
-        'EDL_VERIFICATION_URL': 'https://harmony.earthdata.nasa.gov/jobs',
+        'EDL_VALIDATION_URL': 'https://harmony.earthdata.nasa.gov/jobs',
     }
 
     def __init__(self) -> None:
+        load_dotenv()
         for k, v in Config.config.items():
             setattr(self, k, v)
 
