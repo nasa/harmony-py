@@ -73,6 +73,16 @@ def test_request_temporal_range(key_a, key_b, datetime_a, datetime_b):
 @pytest.mark.parametrize('key, value, message', [
     ('spatial', {'ur': (-10, 10)}, 'Spatial parameter is missing the lower-left coordinate'),
     ('spatial', {'ll': (-10, 10)}, 'Spatial parameter is missing the upper-right coordinate'),
+    ('spatial', {'ll': (-10, 10), 'ur': (-20, 20)}, 'Southern latitude must be less than Northern latitude'),
+    ('spatial', {'ll': (-100, 10), 'ur': (20, 20)}, 'Southern latitude must be greater than -90.0'),
+    ('spatial', {'ll': (-110, 10), 'ur': (-100, 20)}, 'Northern latitude must be greater than -90.0'),
+    ('spatial', {'ll': (100, 10), 'ur': (110, 20)}, 'Southern latitude must be less than 90.0'),
+    ('spatial', {'ll': (-10, 10), 'ur': (100, 20)}, 'Northern latitude must be less than 90.0'),
+    ('spatial', {'ll': (-10, 10), 'ur': (20, -20)}, 'Western longitude must be less than Eastern longitude'),
+    ('spatial', {'ll': (10, -190), 'ur': (20, 20)}, 'Western longitude must be greater than -180.0'),
+    ('spatial', {'ll': (10, -200), 'ur': (20, -190)}, 'Eastern longitude must be greater than -180.0'),
+    ('spatial', {'ll': (10, 10), 'ur': (20, 190)}, 'Eastern longitude must be less than 180.0'),
+    ('spatial', {'ll': (10, 190), 'ur': (20, 200)}, 'Western longitude must be less than 180.0'),
 ])
 def test_request_error_messages(key, value, message):
     request = Request(Collection('foo'), **{key: value})

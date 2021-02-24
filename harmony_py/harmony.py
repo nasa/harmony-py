@@ -1,6 +1,8 @@
 from base64 import b64encode
 from enum import Enum
+from math import inf
 import re
+from typing import List
 from urllib.parse import urlparse
 
 import requests
@@ -62,25 +64,32 @@ class Request():
         # NOTE: The format is temporary until HARMONY-708:
         #       https://bugs.earthdata.nasa.gov/browse/HARMONY-708
         self.format = 'image/tiff'
+        self.validations = [
+            (lambda s: s is None or 'll' in s, 'Spatial parameter is missing the lower-left coordinate'),
+            (lambda s: s is None or 'ur' in s, 'Spatial parameter is missing the upper-right coordinate'),
+            (lambda s: s is None or s.get('ll', (inf, inf))[0] < s.get('ur', (-inf, -inf))[0], 'Southern latitude must be less than Northern latitude'),
+            (lambda s: s is None or s.get('ll', (inf, inf))[0] >= -90.0, 'Southern latitude must be greater than -90.0'),
+            (lambda s: s is None or s.get('ur', (inf, inf))[0] >= -90.0, 'Northern latitude must be greater than -90.0'),
+            (lambda s: s is None or s.get('ll', (inf, inf))[0] <= 90.0, 'Southern latitude must be less than 90.0'),
+            (lambda s: s is None or s.get('ur', (inf, inf))[0] <= 90.0, 'Northern latitude must be less than 90.0'),
+            (lambda s: s is None or s.get('ll', (inf, inf))[1] < s.get('ur', (-inf, -inf))[1], 'Western longitude must be less than Eastern longitude'),
+            (lambda s: s is None or s.get('ll', (inf, inf))[1] >= -180.0, 'Western longitude must be greater than -180.0'),
+            (lambda s: s is None or s.get('ur', (inf, inf))[1] >= -180.0, 'Eastern longitude must be greater than -180.0'),
+            (lambda s: s is None or s.get('ll', (inf, inf))[1] <= 180.0, 'Western longitude must be less than 180.0'),
+            (lambda s: s is None or s.get('ur', (inf, inf))[1] <= 180.0, 'Eastern longitude must be less than 180.0'),
+        ]
 
     def is_valid(self) -> bool:
         return (
-            (self.spatial is None or (('ll' in self.spatial) and
-                                      ('ur' in self.spatial) and
-                                      (self.spatial['ll'][0] < self.spatial['ur'][0]) and
-                                      (self.spatial['ll'][0] >= -90.0) and
-                                      (self.spatial['ur'][0] <= 90.0) and
-                                      (self.spatial['ll'][1] < self.spatial['ur'][1]) and
-                                      (self.spatial['ll'][1] >= -180.0) and
-                                      (self.spatial['ur'][1] <= 180.0)))
+            all([v(self.spatial) for v, _ in self.validations])
             and
             (self.temporal is None or (('start' in self.temporal) and
                                        ('stop' in self.temporal) and
                                        (self.temporal['start'] < self.temporal['stop'])))
         )
 
-    def error_messages(self) -> [str]:
-        return ['Hi']
+    def error_messages(self) -> List[str]:
+        return [m for v, m in self.validations if not v(self.spatial)]
 
 
 class Client():
