@@ -1,5 +1,3 @@
-import pytest
-
 from harmony_py.config import Config
 
 
@@ -17,5 +15,4 @@ def test_config_not_there():
 
 def test_config_built_in():
     config = Config()
-    assert config.EDL_VERIFICATION_URL is not None
-
+    assert config.EDL_VALIDATION_URL is not None
