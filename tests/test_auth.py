@@ -1,7 +1,7 @@
 import pytest
 from requests_futures.sessions import FuturesSession
 
-from harmony_py.auth import _is_edl_hostname, authenticate, BadAuthentication, \
+from harmony.auth import _is_edl_hostname, authenticate, BadAuthentication, \
                             MalformedCredentials, SessionWithHeaderRedirection
 
 
@@ -40,7 +40,7 @@ def futuressessions_mocker(mocker):
 def test_authentication(mocker, futuressessions_mocker):
     for status_code, should_error in [(200, False), (401, True), (500, True)]:
         fsm = futuressessions_mocker(status_code)
-        mocker.patch('harmony_py.auth.FuturesSession', return_value=fsm)
+        mocker.patch('harmony.auth.FuturesSession', return_value=fsm)
 
         if should_error:
             with pytest.raises(BadAuthentication) as exc_info:
@@ -63,8 +63,8 @@ def test_SessionWithHeaderRedirection_with_no_edl(mocker):
     response_mock = mocker.PropertyMock()
     response_mock.request.configure_mock(url='https://www.othersite.gov')
 
-    mocker.patch('harmony_py.auth.PreparedRequest', return_value=preparedrequest_mock)
-    mocker.patch('harmony_py.auth.Response', return_value=response_mock)
+    mocker.patch('harmony.auth.PreparedRequest', return_value=preparedrequest_mock)
+    mocker.patch('harmony.auth.Response', return_value=response_mock)
 
     session_with_creds = SessionWithHeaderRedirection(auth=('foo', 'bar'))
     session_with_creds.rebuild_auth(preparedrequest_mock, response_mock)
@@ -82,8 +82,8 @@ def test_SessionWithHeaderRedirection_with_edl(mocker):
     response_mock = mocker.PropertyMock()
     response_mock.request.configure_mock(url='https://www.othersite.gov')
 
-    mocker.patch('harmony_py.auth.PreparedRequest', return_value=preparedrequest_mock)
-    mocker.patch('harmony_py.auth.Response', return_value=response_mock)
+    mocker.patch('harmony.auth.PreparedRequest', return_value=preparedrequest_mock)
+    mocker.patch('harmony.auth.Response', return_value=response_mock)
 
     session_with_creds = SessionWithHeaderRedirection(auth=('foo', 'bar'))
     session_with_creds.rebuild_auth(preparedrequest_mock, response_mock)

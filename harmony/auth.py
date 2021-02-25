@@ -47,7 +47,7 @@ class SessionWithHeaderRedirection(Session):
         auth (Tuple(str, str)): A tuple of the format ('edl_username', 'edl_password')
     """
 
-    def __init__(self, auth: Optional[Union[Tuple[str, str], None]] = None) -> None:
+    def __init__(self, auth: Optional[Tuple[str, str]] = None) -> None:
         super().__init__()
         if auth:
             self.auth = auth
