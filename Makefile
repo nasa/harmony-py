@@ -9,7 +9,7 @@ clean:
 	rm -rf htmlcov
 
 lint:
-	flake8 harmony_py --show-source --statistics
+	flake8 harmony --show-source --statistics
 
 test:
 	pytest

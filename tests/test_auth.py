@@ -2,7 +2,7 @@ import pytest
 from requests_futures.sessions import FuturesSession
 
 from harmony.auth import _is_edl_hostname, authenticate, BadAuthentication, \
-                            MalformedCredentials, SessionWithHeaderRedirection
+                         MalformedCredentials, SessionWithHeaderRedirection
 
 
 @pytest.mark.parametrize('hostname,expected', [
