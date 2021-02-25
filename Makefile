@@ -9,10 +9,10 @@ clean:
 	rm -rf htmlcov
 
 lint:
-	flake8 harmony_py --show-source --statistics
+	flake8 harmony --show-source --statistics
 
 test:
-	nosetests --with-coverage --cover-html --cover-branches --cover-package=harmony_py --cover-erase --nocapture --nologcapture
+	pytest
 
 ci: lint test
 

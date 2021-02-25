@@ -1,3 +1,4 @@
+python-dotenv ~= 0.15
 progressbar2 ~= 3.53
 requests ~= 2.25
 requests-futures ~= 1.0
