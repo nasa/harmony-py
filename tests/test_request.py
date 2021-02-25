@@ -1,7 +1,7 @@
 from hypothesis import given, settings, strategies as st
 import pytest
 
-from harmony_py.harmony import Collection, Request
+from harmony_py.harmony import BBox, Collection, Request
 
 
 def test_request_has_collection_with_id():
@@ -18,15 +18,12 @@ def test_request_with_only_a_collection():
 
 
 @settings(max_examples=200)
-@given(key_a=st.one_of(st.none(), st.sampled_from(['ll', 'ur']), st.text()),
-       key_b=st.one_of(st.none(), st.sampled_from(['ll', 'ur']), st.text()),
-       tuple_a=st.tuples(st.floats(allow_infinity=True), st.floats(allow_infinity=True)),
-       tuple_b=st.tuples(st.floats(allow_infinity=True), st.floats(allow_infinity=True)))
-def test_request_spatial_bounding_box(key_a, key_b, tuple_a, tuple_b):
-    spatial = {
-        key_a: tuple_a,
-        key_b: tuple_b
-    }
+@given(west=st.floats(allow_infinity=True),
+       south=st.floats(allow_infinity=True),
+       east=st.floats(allow_infinity=True),
+       north=st.floats(allow_infinity=True))
+def test_request_spatial_bounding_box(west, south, east, north):
+    spatial = BBox(west, south, east, north)
     request = Request(
         collection=Collection('foobar'),
         spatial=spatial,
@@ -34,19 +31,24 @@ def test_request_spatial_bounding_box(key_a, key_b, tuple_a, tuple_b):
 
     if request.is_valid():
         assert request.spatial is not None
-        assert 'll' in spatial
-        assert 'ur' in spatial
-        assert request.spatial[key_a] == tuple_a
-        assert request.spatial[key_b] == tuple_b
+        w, s, e, n = request.spatial
+        assert w == west
+        assert s == south
+        assert e == east
+        assert n == north
 
-        lat_bottom, lon_left = request.spatial['ll']
-        lat_top, lon_right = request.spatial['ur']
-        assert lat_bottom < lat_top
-        assert lat_bottom >= -90.0
-        assert lat_top <= 90.0
-        assert lon_left < lon_right
-        assert lon_left >= -180.0
-        assert lon_right <= 180.0
+        assert south < north
+        assert west < east
+
+        assert south >= -90.0
+        assert north >= -90.0
+        assert south <= 90.0
+        assert north <= 90.0
+
+        assert west >= -180.0
+        assert east >= -180.0
+        assert west <= 180.0
+        assert east <= 180.0
 
 
 @settings(max_examples=200)
@@ -71,18 +73,16 @@ def test_request_temporal_range(key_a, key_b, datetime_a, datetime_b):
 
 
 @pytest.mark.parametrize('key, value, message', [
-    ('spatial', {'ur': (-10, 10)}, 'Spatial parameter is missing the lower-left coordinate'),
-    ('spatial', {'ll': (-10, 10)}, 'Spatial parameter is missing the upper-right coordinate'),
-    ('spatial', {'ll': (-10, 10), 'ur': (-20, 20)}, 'Southern latitude must be less than Northern latitude'),
-    ('spatial', {'ll': (-100, 10), 'ur': (20, 20)}, 'Southern latitude must be greater than -90.0'),
-    ('spatial', {'ll': (-110, 10), 'ur': (-100, 20)}, 'Northern latitude must be greater than -90.0'),
-    ('spatial', {'ll': (100, 10), 'ur': (110, 20)}, 'Southern latitude must be less than 90.0'),
-    ('spatial', {'ll': (-10, 10), 'ur': (100, 20)}, 'Northern latitude must be less than 90.0'),
-    ('spatial', {'ll': (-10, 10), 'ur': (20, -20)}, 'Western longitude must be less than Eastern longitude'),
-    ('spatial', {'ll': (10, -190), 'ur': (20, 20)}, 'Western longitude must be greater than -180.0'),
-    ('spatial', {'ll': (10, -200), 'ur': (20, -190)}, 'Eastern longitude must be greater than -180.0'),
-    ('spatial', {'ll': (10, 10), 'ur': (20, 190)}, 'Eastern longitude must be less than 180.0'),
-    ('spatial', {'ll': (10, 190), 'ur': (20, 200)}, 'Western longitude must be less than 180.0'),
+    ('spatial', BBox(10, -10, 20, -20), 'Southern latitude must be less than Northern latitude'),
+    ('spatial', BBox(10, -100, 20, 20), 'Southern latitude must be greater than -90.0'),
+    ('spatial', BBox(10, -110, 20, -100), 'Northern latitude must be greater than -90.0'),
+    ('spatial', BBox(10, 100, 20, 110), 'Southern latitude must be less than 90.0'),
+    ('spatial', BBox(10, 10, 20, 100), 'Northern latitude must be less than 90.0'),
+    ('spatial', BBox(100, 10, 20, 20), 'Western longitude must be less than Eastern longitude'),
+    ('spatial', BBox(-190, 10, 20, 20), 'Western longitude must be greater than -180.0'),
+    ('spatial', BBox(-200, 10, -190, 20), 'Eastern longitude must be greater than -180.0'),
+    ('spatial', BBox(10, 10, 190, 20), 'Eastern longitude must be less than 180.0'),
+    ('spatial', BBox(190, 10, 200, 20), 'Western longitude must be less than 180.0'),
 ])
 def test_request_error_messages(key, value, message):
     request = Request(Collection('foo'), **{key: value})

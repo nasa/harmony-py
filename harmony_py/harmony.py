@@ -1,6 +1,6 @@
 from base64 import b64encode
+from collections import namedtuple
 from enum import Enum
-from math import inf
 import re
 from typing import List
 from urllib.parse import urlparse
@@ -56,44 +56,33 @@ class Collection():
         self.id = id
 
 
+BBox = namedtuple('BBox', ['w', 's', 'e', 'n'])
+
+
 class Request():
-    def __init__(self, collection: Collection, spatial: dict = None, temporal: dict = None):
+    def __init__(self, collection: Collection, spatial: BBox = None, temporal: dict = None):
         self.collection = collection
         self.spatial = spatial
         self.temporal = temporal
         # NOTE: The format is temporary until HARMONY-708:
         #       https://bugs.earthdata.nasa.gov/browse/HARMONY-708
         self.format = 'image/tiff'
-        self.validations = [
-            (lambda s: s is None or 'll' in s,
-                'Spatial parameter is missing the lower-left coordinate'),
-            (lambda s: s is None or 'ur' in s,
-                'Spatial parameter is missing the upper-right coordinate'),
-            (lambda s: s is None or s.get('ll', (inf, inf))[0] < s.get('ur', (-inf, -inf))[0],
-                'Southern latitude must be less than Northern latitude'),
-            (lambda s: s is None or s.get('ll', (inf, inf))[0] >= -90.0,
-                'Southern latitude must be greater than -90.0'),
-            (lambda s: s is None or s.get('ur', (inf, inf))[0] >= -90.0,
-                'Northern latitude must be greater than -90.0'),
-            (lambda s: s is None or s.get('ll', (inf, inf))[0] <= 90.0,
-                'Southern latitude must be less than 90.0'),
-            (lambda s: s is None or s.get('ur', (inf, inf))[0] <= 90.0,
-                'Northern latitude must be less than 90.0'),
-            (lambda s: s is None or s.get('ll', (inf, inf))[1] < s.get('ur', (-inf, -inf))[1],
-                'Western longitude must be less than Eastern longitude'),
-            (lambda s: s is None or s.get('ll', (inf, inf))[1] >= -180.0,
-                'Western longitude must be greater than -180.0'),
-            (lambda s: s is None or s.get('ur', (inf, inf))[1] >= -180.0,
-                'Eastern longitude must be greater than -180.0'),
-            (lambda s: s is None or s.get('ll', (inf, inf))[1] <= 180.0,
-                'Western longitude must be less than 180.0'),
-            (lambda s: s is None or s.get('ur', (inf, inf))[1] <= 180.0,
-                'Eastern longitude must be less than 180.0'),
+        self.spatial_validations = [
+            (lambda bb: bb.s < bb.n, 'Southern latitude must be less than Northern latitude'),
+            (lambda bb: bb.s >= -90.0, 'Southern latitude must be greater than -90.0'),
+            (lambda bb: bb.n >= -90.0, 'Northern latitude must be greater than -90.0'),
+            (lambda bb: bb.s <= 90.0, 'Southern latitude must be less than 90.0'),
+            (lambda bb: bb.n <= 90.0, 'Northern latitude must be less than 90.0'),
+            (lambda bb: bb.w < bb.e, 'Western longitude must be less than Eastern longitude'),
+            (lambda bb: bb.w >= -180.0, 'Western longitude must be greater than -180.0'),
+            (lambda bb: bb.e >= -180.0, 'Eastern longitude must be greater than -180.0'),
+            (lambda bb: bb.w <= 180.0, 'Western longitude must be less than 180.0'),
+            (lambda bb: bb.e <= 180.0, 'Eastern longitude must be less than 180.0'),
         ]
 
     def is_valid(self) -> bool:
         return (
-            all([v(self.spatial) for v, _ in self.validations])
+            (self.spatial is None or all([v(self.spatial) for v, _ in self.spatial_validations]))
             and
             (self.temporal is None or (('start' in self.temporal) and
                                        ('stop' in self.temporal) and
@@ -101,7 +90,7 @@ class Request():
         )
 
     def error_messages(self) -> List[str]:
-        return [m for v, m in self.validations if not v(self.spatial)]
+        return [m for v, m in self.spatial_validations if not v(self.spatial)]
 
 
 class Client():
