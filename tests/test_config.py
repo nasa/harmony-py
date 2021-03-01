@@ -1,9 +1,9 @@
-from harmony_py.config import Config
+from harmony.config import Config
 
 
 def test_config_from_env(mocker):
     expected_value = 'bar'
-    mocker.patch('harmony_py.config.os.getenv', return_value=expected_value)
+    mocker.patch('harmony.config.os.getenv', return_value=expected_value)
     config = Config()
     assert config.FOO == expected_value
 
