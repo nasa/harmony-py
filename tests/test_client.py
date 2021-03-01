@@ -3,7 +3,7 @@ import datetime as dt
 import pytest
 import responses
 
-from harmony_py.harmony import Client, Collection, Request
+from harmony.harmony import Client, Collection, Request
 
 
 def expected_url(collection_id):
@@ -42,16 +42,13 @@ def test_with_bounding_box():
     collection = Collection(id='C1940468263-POCLOUD')
     request = Request(
         collection=collection,
-        spatial={
-            'll': (40, -107),
-            'ur': (42, -105)
-        }
+        spatial=(-107, 40, -105, 42)
     )
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
     responses.add(responses.GET, expected_url(collection.id),
                   status=200, json=expected_json(collection.id, job_id))
 
-    job = Client().submit(request)
+    job = Client(should_validate_auth=False).submit(request)
 
     assert job is not None
 
@@ -75,7 +72,7 @@ def test_with_temporal_range():
     responses.add(responses.GET, expected_url(collection.id),
                   status=200, json=expected_json(collection.id, job_id))
 
-    job = Client().submit(request)
+    job = Client(should_validate_auth=False).submit(request)
 
     assert job is not None
 
@@ -85,10 +82,7 @@ def test_with_bounding_box_and_temporal_range():
     collection = Collection(id='C1940468263-POCLOUD')
     request = Request(
         collection=collection,
-        spatial={
-            'll': (40, -107),
-            'ur': (42, -105)
-        },
+        spatial=(-107, 40, -105, 42),
         temporal={
             'start': dt.date(2020, 6, 1),
             'stop': dt.date(2020, 6, 30)
@@ -98,6 +92,6 @@ def test_with_bounding_box_and_temporal_range():
     responses.add(responses.GET, expected_url(collection.id),
                   status=200, json=expected_json(collection.id, job_id))
 
-    job = Client().submit(request)
+    job = Client(should_validate_auth=False).submit(request)
 
     assert job is not None

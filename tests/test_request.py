@@ -1,7 +1,7 @@
 from hypothesis import given, settings, strategies as st
 import pytest
 
-from harmony_py.harmony import BBox, Collection, Request
+from harmony.harmony import BBox, Collection, Request
 
 
 def test_request_has_collection_with_id():

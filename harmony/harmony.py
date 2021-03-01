@@ -2,10 +2,14 @@ from base64 import b64encode
 from collections import namedtuple
 from enum import Enum
 import re
-from typing import List
+from typing import Iterable, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import requests
+from requests_futures.sessions import FuturesSession
+
+from harmony.auth import create_session, validate_auth, SessionWithHeaderRedirection
+from harmony.config import Config
 
 
 Environment = Enum('Environment', ['SBX', 'SIT', 'UAT', 'PROD'])
@@ -16,27 +20,6 @@ Hostnames = {
     Environment.UAT: 'harmony.uat.earthdata.nasa.gov',
     Environment.PROD: 'harmony.earthdata.nasa.gov',
 }
-
-
-class SpecialSession(requests.Session):
-    """Temporary requests Session which adds Basic auth for EDl."""
-    EDL_URL_PATTERN = r""".*urs\.earthdata\.nasa\.gov$"""
-
-    def __init__(self, user, pwd):
-        super().__init__()
-        creds = b64encode(f"{user}:{pwd}".encode('utf-8')).decode('utf-8')
-        self.auth_header = f'Basic {creds}'
-
-    def _edl_url(self, url: str) -> bool:
-        """Determine if the given URL is for Earthdata Login."""
-        hostname = urlparse(url).hostname
-        return re.fullmatch(self.EDL_URL_PATTERN, hostname) is not None
-
-    def rebuild_auth(self, prepared_request, response):
-        if self._edl_url(prepared_request.url):
-            prepared_request.headers['Authorization'] = self.auth_header
-        else:
-            prepared_request.headers.pop('Authorization', None)
 
 
 class Collection():
@@ -94,14 +77,36 @@ class Request():
 
 
 class Client():
-    def __init__(self, env: Environment = Environment.UAT):
+    def __init__(self, *,
+            auth: Optional[Tuple[str, str]] = None, 
+            should_validate_auth: bool = True, 
+            env: Environment = Environment.UAT):
+        """Creates a Harmony Client that can be used to interact with Harmony.
+        
+        Parameters:
+            auth (Tuple[str, str]): A tuple of the format ('edl_username', 'edl_password')
+            should_validate_auth (bool, optional): Whether EDL credentials will be validated.
+        """
+        self.config = Config()
         self.hostname: str = Hostnames[env]
+        self.session = None
+        self.auth = auth
+
+        if should_validate_auth:
+            validate_auth(self.config, self._session())
+
+    def _session(self):
+        if self.session is None:
+            self.session = create_session(self.config, self.auth)
+        return self.session
 
     def _url(self, request: Request) -> str:
+        """Constructs the URL from the given request."""
         return (f'https://{self.hostname}/{request.collection.id}'
                 '/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset')
 
     def _params(self, request: Request) -> dict:
+        """Creates a dictionary of request query parameters from the given request."""
         params = {}
         params['subset'] = (self._spatial_subset_params(request)
                             + self._temporal_subset_params(request))
@@ -110,9 +115,9 @@ class Client():
         return params
 
     def _spatial_subset_params(self, request: Request) -> list:
+        """Creates a dictionary of spatial subset query parameters."""
         if request.spatial:
-            lat_lower, lon_left = request.spatial['ll']
-            lat_upper, lon_right = request.spatial['ur']
+            lon_left, lat_lower, lon_right, lat_upper = request.spatial
             return [
                 f'lat({lat_lower}:{lat_upper})',
                 f'lon({lon_left}:{lon_right})'
@@ -121,6 +126,7 @@ class Client():
             return []
 
     def _temporal_subset_params(self, request: Request) -> list:
+        """Creates a dictionary of temporal subset query parameters."""
         if request.temporal:
             s = request.temporal.get('start', None)
             if s:
@@ -132,9 +138,10 @@ class Client():
         else:
             return []
 
-    def submit(self, request: Request, user=None, pwd=None):
-        with SpecialSession(user, pwd) as session:
-            response = session.get(self._url(request), params=self._params(request))
+    def submit(self, request: Request):
+        """Submits a request to Harmony and returns the Harmony job details."""
+        with self._session() as session:
+            response = session.get(self._url(request), params=self._params(request)).result()
             if response.ok:
                 return response.json()
             else:
