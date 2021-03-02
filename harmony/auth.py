@@ -16,11 +16,11 @@ def _is_edl_hostname(hostname: str) -> bool:
     """
     Determine if a hostname matches an EDL hostname.
 
-    Parameters:
-        hostname (str): A fully-qualified domain name (FQDN).
+    Args:
+        hostname: A fully-qualified domain name (FQDN).
 
     Returns:
-        (boolean): True if the hostname is an EDL hostname, else False.
+        True if the hostname is an EDL hostname, else False.
     """
     edl_hostname_pattern = r'.*urs\.earthdata\.nasa\.gov$'
     return re.fullmatch(edl_hostname_pattern, hostname, flags=re.IGNORECASE) is not None
@@ -40,8 +40,8 @@ class SessionWithHeaderRedirection(Session):
     Example:
         session = SessionWithHeaderRedirection(username, password)
 
-    Parameters:
-        auth (Tuple(str, str)): A tuple of the format ('edl_username', 'edl_password')
+    Args:
+        auth: A tuple of the form ('edl_username', 'edl_password')
     """
 
     def __init__(self, auth: Optional[Tuple[str, str]] = None) -> None:
@@ -59,13 +59,9 @@ class SessionWithHeaderRedirection(Session):
         credentials if and only if a username and password weren't provided during
         object instantiation.
 
-        Parameters:
-            prepared_request (:obj:`PreparedRequest`): Object for the redirection
-            destination.
-            response (:obj:`PreparedRequest`): Object for the where we just came from.
-
-        Returns:
-            (boolean): True if the hostname is an EDL hostname, else False.
+        Args:
+            prepared_request: Object for the redirection destination.
+            response: Object for the where we just came from.
         """
 
         headers = prepared_request.headers
@@ -89,23 +85,23 @@ class SessionWithHeaderRedirection(Session):
 
 
 def create_session(config: Config, auth=None) -> FuturesSession:
-    """Creates a configured requests session.
+    """Creates a configured ``requests`` session.
 
     Attempts to create an authenticated session in the following order:
 
     1) If ``auth`` is a tuple of (username, password), create a session.
-    2) Attempt to read a username and password from environment variables, either from the  system
+    2) Attempt to read a username and password from environment variables, either from the system
        or from a .env file to return a session.
     3) Return a session that attempts to read credentials from a .netrc file.
 
-    Parameters:
+    Args:
         config: Configuration object with EDL and authentication context
-        auth: TODO
+        auth: A tuple of the form ('edl_username', 'edl_password')
 
     Returns:
-        (:obj:`SessionWithHeaderRedirection`): The authenticated requests session.
+        The authenticated ``requests`` session.
 
-    :raises MalformedCredentials: 'auth' credential not in the correct format.
+    :raises MalformedCredentials: ``auth`` credential not in the correct format.
     :raises BadAuthentication: Incorrect credentials or unknown error.
     """
     cfg_edl_username = config.EDL_USERNAME
