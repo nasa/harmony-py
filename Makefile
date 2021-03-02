@@ -12,7 +12,7 @@ lint:
 	flake8 harmony --show-source --statistics
 
 test:
-	pytest --cov=harmony_py --cov-report=html --cov-branch tests
+	pytest --cov=harmony --cov-report=term --cov-report=html --cov-branch tests
 
 ci: lint test
 
