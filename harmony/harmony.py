@@ -1,11 +1,7 @@
-from base64 import b64encode
 from collections import namedtuple
 from enum import Enum
-import re
-from typing import Iterable, List, Optional, Tuple
-from urllib.parse import urlparse
+from typing import List, Optional, Tuple
 
-import requests
 from requests_futures.sessions import FuturesSession
 
 from harmony.auth import create_session, validate_auth, SessionWithHeaderRedirection
@@ -22,7 +18,7 @@ Hostnames = {
 }
 
 
-class Collection():
+class Collection:
     """The identity of a CMR Collection."""
 
     def __init__(self, id: str):
@@ -42,7 +38,7 @@ class Collection():
 BBox = namedtuple('BBox', ['w', 's', 'e', 'n'])
 
 
-class Request():
+class Request:
     def __init__(self, collection: Collection, spatial: BBox = None, temporal: dict = None):
         self.collection = collection
         self.spatial = spatial
@@ -65,24 +61,30 @@ class Request():
 
     def is_valid(self) -> bool:
         return (
-            (self.spatial is None or all([v(self.spatial) for v, _ in self.spatial_validations]))
-            and
-            (self.temporal is None or (('start' in self.temporal) and
-                                       ('stop' in self.temporal) and
-                                       (self.temporal['start'] < self.temporal['stop'])))
+            self.spatial is None or all([v(self.spatial) for v, _ in self.spatial_validations])
+        ) and (
+            self.temporal is None
+            or (
+                ('start' in self.temporal)
+                and ('stop' in self.temporal)
+                and (self.temporal['start'] < self.temporal['stop'])
+            )
         )
 
     def error_messages(self) -> List[str]:
         return [m for v, m in self.spatial_validations if not v(self.spatial)]
 
 
-class Client():
-    def __init__(self, *,
-            auth: Optional[Tuple[str, str]] = None, 
-            should_validate_auth: bool = True, 
-            env: Environment = Environment.UAT):
+class Client:
+    def __init__(
+        self,
+        *,
+        auth: Optional[Tuple[str, str]] = None,
+        should_validate_auth: bool = True,
+        env: Environment = Environment.UAT,
+    ):
         """Creates a Harmony Client that can be used to interact with Harmony.
-        
+
         Parameters:
             auth (Tuple[str, str]): A tuple of the format ('edl_username', 'edl_password')
             should_validate_auth (bool, optional): Whether EDL credentials will be validated.
@@ -102,14 +104,17 @@ class Client():
 
     def _url(self, request: Request) -> str:
         """Constructs the URL from the given request."""
-        return (f'https://{self.hostname}/{request.collection.id}'
-                '/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset')
+        return (
+            f'https://{self.hostname}/{request.collection.id}'
+            '/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset'
+        )
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
-        params['subset'] = (self._spatial_subset_params(request)
-                            + self._temporal_subset_params(request))
+        params['subset'] = self._spatial_subset_params(request) + self._temporal_subset_params(
+            request
+        )
         params['format']: request.format
 
         return params
@@ -118,10 +123,7 @@ class Client():
         """Creates a dictionary of spatial subset query parameters."""
         if request.spatial:
             lon_left, lat_lower, lon_right, lat_upper = request.spatial
-            return [
-                f'lat({lat_lower}:{lat_upper})',
-                f'lon({lon_left}:{lon_right})'
-            ]
+            return [f'lat({lat_lower}:{lat_upper})', f'lon({lon_left}:{lon_right})']
         else:
             return []
 

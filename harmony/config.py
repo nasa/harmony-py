@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from typing import cast
 
 
-class Config():
+class Config:
     """Runtime configuation variables including defaults and environment vars.
 
     Example:

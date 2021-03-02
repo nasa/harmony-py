@@ -72,9 +72,11 @@ class SessionWithHeaderRedirection(Session):
         redirect_hostname = cast(str, urlparse(prepared_request.url).hostname)
         original_hostname = cast(str, urlparse(response.request.url).hostname)
 
-        if 'Authorization' in headers \
-                and (original_hostname != redirect_hostname) \
-                and not _is_edl_hostname(redirect_hostname):
+        if (
+            'Authorization' in headers
+            and (original_hostname != redirect_hostname)
+            and not _is_edl_hostname(redirect_hostname)
+        ):
             del headers['Authorization']
 
         if self.auth is None:
@@ -85,16 +87,17 @@ class SessionWithHeaderRedirection(Session):
 
         return
 
+
 def create_session(config: Config, auth=None) -> FuturesSession:
     """Creates a configured requests session.
-        
+
     Attempts to create an authenticated session in the following order:
 
     1) If ``auth`` is a tuple of (username, password), create a session.
     2) Attempt to read a username and password from environment variables, either from the  system
        or from a .env file to return a session.
     3) Return a session that attempts to read credentials from a .netrc file.
-        
+
     Parameters:
         config: Configuration object with EDL and authentication context
         auth: TODO
@@ -112,15 +115,15 @@ def create_session(config: Config, auth=None) -> FuturesSession:
     if isinstance(auth, Iterable) and len(auth) == 2 and all([isinstance(x, str) for x in auth]):
         session = SessionWithHeaderRedirection(auth=auth)
     elif auth is not None:
-        raise MalformedCredentials('Authentication: `auth` argument requires tuple of '
-                                   '(username, password).')
+        raise MalformedCredentials(
+            'Authentication: `auth` argument requires tuple of ' '(username, password).'
+        )
     elif cfg_edl_username and cfg_edl_password:
         session = SessionWithHeaderRedirection(auth=(cfg_edl_username, cfg_edl_password))
     else:
         session = SessionWithHeaderRedirection()
 
-    return FuturesSession(session=session,
-                          executor=ThreadPoolExecutor(max_workers=num_workers))
+    return FuturesSession(session=session, executor=ThreadPoolExecutor(max_workers=num_workers))
 
 
 def validate_auth(config, session):
@@ -131,8 +134,11 @@ def validate_auth(config, session):
     if result.status_code == 200:
         return
     elif result.status_code == 401:
-        raise BadAuthentication('Authentication: incorrect or missing credentials during '
-                                'credential validation.')
+        raise BadAuthentication(
+            'Authentication: incorrect or missing credentials during ' 'credential validation.'
+        )
     else:
-        raise BadAuthentication('Authentication: An unknown error occurred during credential '
-                                f'validation: HTTP {result.status_code}')
+        raise BadAuthentication(
+            'Authentication: An unknown error occurred during credential '
+            f'validation: HTTP {result.status_code}'
+        )
