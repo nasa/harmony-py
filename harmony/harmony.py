@@ -36,7 +36,9 @@ class Collection:
 
 
 class BBox(NamedTuple):
-    """A bounding box specified by western & eastern longitude, southern & northern latitude constraints."""
+    """A bounding box specified by western & eastern longitude,
+    southern & northern latitude constraints.
+    """
     w: float
     s: float
     e: float
@@ -68,15 +70,19 @@ class Request:
         ]
         self.temporal_validations = [
             (lambda tr: 'start' in tr or 'stop' in tr,
-             'When included in the request, the temporal range should include a start or stop attribute.'),
+             ('When included in the request, the temporal range should include a '
+              'start or stop attribute.')),
             (lambda tr: tr['start'] < tr['stop'] if 'start' in tr and 'stop' in tr else True,
              'The temporal range\'s start must be earlier than its stop datetime.')
         ]
 
     def is_valid(self) -> bool:
         return \
-            (self.spatial is None or all([v(self.spatial) for v, _ in self.spatial_validations])) \
-            and (self.temporal is None or all([v(self.temporal) for v, _ in self.temporal_validations]))
+            (self.spatial is None or all([v(self.spatial)
+                                          for v, _ in self.spatial_validations])) \
+            and \
+            (self.temporal is None or all([v(self.temporal)
+                                           for v, _ in self.temporal_validations]))
 
     def error_messages(self) -> List[str]:
         spatial_msgs = []
