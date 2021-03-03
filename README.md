@@ -26,6 +26,10 @@ The Jupyter Lab server will start and [open in your browser](http://localhost:88
 
 ## Developing
 
+Before installing dependencies, either create and activate a Python virtual environment, or if you have pyenv and pyenv-virtualenv installed, use the `virtualenv` make target to create and activate one for you (`harmony-py`):
+
+> make virtualenv
+
 Install dependencies:
 
 > make install

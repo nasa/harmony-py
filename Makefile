@@ -1,4 +1,16 @@
-.PHONY: install install-examples clean examples lint test test-watch ci docs
+.PHONY: virtualenv install install-examples clean examples lint test test-watch ci docs
+.SILENT: virtualenv
+
+virtualenv:
+	if ! type xxxpyenv > /dev/null; \
+	then \
+	    echo "\nUnable to create virtualenv: pyenv not found. Please install pyenv, pyenv-virtualenv, and Python 3.8.5."; \
+	    exit; \
+	else \
+	    pyenv virtualenv 3.8.5 harmony-py; \
+	    pyenv local harmony-py; \
+	    pyenv activate harmony-py; \
+	fi
 
 install:
 	python -m pip install --upgrade pip
