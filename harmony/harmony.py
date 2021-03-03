@@ -67,15 +67,16 @@ class Request:
             (lambda bb: bb.e <= 180.0, 'Eastern longitude must be less than 180.0'),
         ]
         self.temporal_validations = [
-            (lambda tr: 'start' in tr or 'stop' in tr, 'When included in the request, the temporal range should include a start or stop attribute.'),
-            (lambda tr: tr['start'] < tr['stop'] if 'start' in tr and 'stop' in tr else True, 'The temporal range\'s start must be earlier than its stop datetime.')
+            (lambda tr: 'start' in tr or 'stop' in tr,
+             'When included in the request, the temporal range should include a start or stop attribute.'),
+            (lambda tr: tr['start'] < tr['stop'] if 'start' in tr and 'stop' in tr else True,
+             'The temporal range\'s start must be earlier than its stop datetime.')
         ]
 
     def is_valid(self) -> bool:
         return \
             (self.spatial is None or all([v(self.spatial) for v, _ in self.spatial_validations])) \
             and (self.temporal is None or all([v(self.temporal) for v, _ in self.temporal_validations]))
-
 
     def error_messages(self) -> List[str]:
         spatial_msgs = []
@@ -86,7 +87,6 @@ class Request:
             temporal_msgs = [m for v, m in self.temporal_validations if not v(self.temporal)]
 
         return spatial_msgs + temporal_msgs
-
 
 
 class Client:
