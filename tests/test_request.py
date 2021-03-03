@@ -96,12 +96,18 @@ def test_request_spatial_error_messages(key, value, message):
 
 
 @pytest.mark.parametrize('key, value, message', [
-    ('temporal', {'foo': None}, 'When included in the request, the temporal range should include a start or stop attribute.'),
-    ('temporal', {
-        'start': dt.datetime(1969, 7, 20), 
-        'stop': dt.datetime(1941, 12, 7)
-     }, 
-     'The temporal range\'s start must be earlier than its stop datetime.')
+    (
+        'temporal', {
+            'foo': None
+        }, 
+        'When included in the request, the temporal range should include a start or stop attribute.'
+    ), (
+        'temporal', {
+            'start': dt.datetime(1969, 7, 20), 
+            'stop': dt.datetime(1941, 12, 7)
+        }, 
+        'The temporal range\'s start must be earlier than its stop datetime.'
+    )
 ])
 def test_request_temporal_error_messages(key, value, message):
     request = Request(Collection('foo'), **{key: value})

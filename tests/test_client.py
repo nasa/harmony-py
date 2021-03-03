@@ -1,8 +1,10 @@
 import datetime as dt
+import urllib.parse
 
+import pytest
 import responses
 
-from harmony.harmony import Client, Collection, Request
+from harmony.harmony import BBox, Client, Collection, Request
 
 
 def expected_url(collection_id):
@@ -10,7 +12,22 @@ def expected_url(collection_id):
             '/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset')
 
 
-def expected_json(collection_id, job_id):
+def expected_full_url(request):
+    spatial_params = []
+    temporal_params = []
+    if request.spatial:
+        w, s, e, n = request.spatial
+        spatial_params = [f'subset=lat({s}:{n})', f'subset=lon({w}:{e})']
+    if request.temporal:
+        start = request.temporal['start']
+        stop = request.temporal['stop']
+        temporal_params = [f'subset=time("{start.isoformat()}":"{stop.isoformat()}")']
+    query_params = '&'.join(spatial_params + temporal_params)
+
+    return f'{expected_url(request.collection.id)}?{query_params}'
+
+
+def expected_job(collection_id, job_id):
     return {
         'username': 'rfeynman',
         'status': 'running',
@@ -32,7 +49,7 @@ def expected_json(collection_id, job_id):
                     '&subset=lon(-165%3A-140)'
                     '&subset=time(%222010-01-01T00%3A00%3A00%22%3A%222020-12-30T00%3A00%3A00%22)'),
         'numInputGranules': 32,
-        'jobID': '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+        'jobID': '{job_id}'
     }
 
 
@@ -41,56 +58,84 @@ def test_with_bounding_box():
     collection = Collection(id='C1940468263-POCLOUD')
     request = Request(
         collection=collection,
-        spatial=(-107, 40, -105, 42)
+        spatial=BBox(-107, 40, -105, 42)
     )
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
-    responses.add(responses.GET, expected_url(collection.id),
-                  status=200, json=expected_json(collection.id, job_id))
+    responses.add(
+        responses.GET, 
+        expected_url(collection.id),
+        status=200, 
+        json=expected_job(collection.id, job_id)
+    )
 
     job = Client(should_validate_auth=False).submit(request)
 
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_url(request)
     assert job is not None
 
 
-# When a user supplies a temporal range data structure to the library,
-# it performs a bounding box query against the Harmony coverages API
-# Test cases: omitted start date, omitted end date, start and end
-# supplied
-
 @responses.activate
 def test_with_temporal_range():
-    collection = Collection(id='C1940468263-POCLOUD')
+    collection = Collection(id='C1234-TATOOINE')
     request = Request(
         collection=collection,
         temporal={
-            'start': dt.date(2020, 6, 1),
-            'stop': dt.date(2020, 6, 30)
+            'start': dt.datetime(2010, 12, 1),
+            'stop': dt.datetime(2010, 12, 31)
         },
     )
-    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
-    responses.add(responses.GET, expected_url(collection.id),
-                  status=200, json=expected_json(collection.id, job_id))
+    job_id = '1234abcd-deed-9876-c001-f00dbad'
+    responses.add(
+        responses.GET, 
+        expected_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, job_id)
+    )
 
     job = Client(should_validate_auth=False).submit(request)
 
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_url(request)
     assert job is not None
 
 
 @responses.activate
 def test_with_bounding_box_and_temporal_range():
-    collection = Collection(id='C1940468263-POCLOUD')
+    collection = Collection(id='C333666999-EOSDIS')
     request = Request(
         collection=collection,
-        spatial=(-107, 40, -105, 42),
+        spatial=BBox(-107, 40, -105, 42),
         temporal={
-            'start': dt.date(2020, 6, 1),
-            'stop': dt.date(2020, 6, 30)
+            'start': dt.datetime(2001, 1, 1),
+            'stop': dt.datetime(2003, 3, 31)
         },
     )
-    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
-    responses.add(responses.GET, expected_url(collection.id),
-                  status=200, json=expected_json(collection.id, job_id))
+    job_id = '1234abcd-1234-9876-6666-999999abcd'
+    responses.add(
+        responses.GET, 
+        expected_url(collection.id),
+        status=200, 
+        json=expected_job(collection.id, job_id)
+    )
 
     job = Client(should_validate_auth=False).submit(request)
 
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_url(request)
     assert job is not None
+
+
+def test_with_invalid_request():
+    collection = Collection(id='C333666999-EOSDIS')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-190, -100, 100, 190)
+    )
+
+    with pytest.raises(Exception):
+        Client(should_validate_auth=False).submit(request)
+

@@ -37,7 +37,36 @@ class Collection:
 
 class BBox(NamedTuple):
     """A bounding box specified by western & eastern longitude,
-    southern & northern latitude constraints.
+    southern & northern latitude constraints in degrees.
+
+    Example:
+      An area bounded by latitudes 30N and 60N and longitudes 
+      130W and 100W:
+
+          >>> spatial = BBox(-130, 30, -100, 60)
+
+      Important: When specified positionally, the parameters must 
+      be given in order: west, south, east, north.
+
+      Alternatively, one can explicitly set each bound using the
+      single-letter for each bound:
+
+          >>> spatial = BBox(n=60, s=30, e=-100, w=-130)
+
+      Print the spatial bounds:
+
+          >>> print(spatial)
+          BBox: West:-130, South:30, East:-100, North:60
+
+    Parameters:
+    -----------
+    w: The western longitude bounds (degrees)
+    s: The souther latitude bounds (degrees)
+    e: The easter longitude bounds (degrees)
+    n: The northern latitude bounds (degrees)
+
+    Returns:
+    A BBox instance with the provided bounds.
     """
     w: float
     s: float
@@ -49,6 +78,19 @@ class BBox(NamedTuple):
 
 
 class Request:
+    """A Harmony request with the CMR collection and various parameters expressing how the data is
+    to be transformed.
+
+    Parameters:
+    -----------
+    collection: The CMR collection that should be queried
+    spatial: Bounding box spatial constraints on the data
+    temporal: Date/time constraints on the data
+
+    Returns:
+    --------
+    A Harmony Request instance
+    """
     def __init__(self, collection: Collection, spatial: BBox = None, temporal: dict = None):
         self.collection = collection
         self.spatial = spatial
@@ -77,6 +119,7 @@ class Request:
         ]
 
     def is_valid(self) -> bool:
+        """Determines if the request and its parameters are valid."""
         return \
             (self.spatial is None or all([v(self.spatial)
                                           for v, _ in self.spatial_validations])) \
@@ -85,6 +128,7 @@ class Request:
                                            for v, _ in self.temporal_validations]))
 
     def error_messages(self) -> List[str]:
+        """A list of error messages, if any, for the request."""
         spatial_msgs = []
         temporal_msgs = []
         if self.spatial:
@@ -96,6 +140,25 @@ class Request:
 
 
 class Client:
+    """A Harmony client object which can be used to submit requests to Harmony.
+
+    Examples:
+
+    With no arguments
+
+        >>> client = Client()
+
+    will create a Harmony client that will either use the EDL_USERNAME & EDL_PASSWORD
+    environment variables to authenticate with Earthdata Login, or will use the credentials
+    in the user's `.netrc` file, if one is available.
+
+    To explicitly include the user's credentials:
+
+        >>> client = Client(auth=('rfeynman', 'quantumf1eld5'))
+
+    By default, the Client will validate the provided credentials immediately. This can be
+    disabled by passing `should_validate_auth=False`.
+    """
     def __init__(
         self,
         *,
@@ -106,8 +169,8 @@ class Client:
         """Creates a Harmony Client that can be used to interact with Harmony.
 
         Parameters:
-            auth (Tuple[str, str]): A tuple of the format ('edl_username', 'edl_password')
-            should_validate_auth (bool, optional): Whether EDL credentials will be validated.
+            auth : A tuple of the format ('edl_username', 'edl_password')
+            should_validate_auth: Whether EDL credentials will be validated.
         """
         self.config = Config()
         self.hostname: str = Hostnames[env]
@@ -150,18 +213,21 @@ class Client:
     def _temporal_subset_params(self, request: Request) -> list:
         """Creates a dictionary of temporal subset query parameters."""
         if request.temporal:
-            s = request.temporal.get('start', None)
-            if s:
-                s = s.isoformat()
-            e = request.temporal.get('stop', None)
-            if e:
-                e = e.isoformat()
-            return [f'time("{s}":"{e}")']
+            t = request.temporal
+            start = t['start'].isoformat() if 'start' in t else None
+            stop = t['stop'].isoformat() if 'stop' in t else None
+            start_quoted = f'"{start}"' if start else ''
+            stop_quoted = f'"{stop}"' if start else ''
+            return [f'time({start_quoted}:{stop_quoted})']
         else:
             return []
 
     def submit(self, request: Request):
         """Submits a request to Harmony and returns the Harmony job details."""
+        if not request.is_valid():
+            msgs = ', '.join(request.error_messages())
+            raise Exception(f"Cannot submit an invalid request: [{msgs}]")
+
         with self._session() as session:
             response = session.get(self._url(request), params=self._params(request)).result()
             if response.ok:
