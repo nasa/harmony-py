@@ -1,4 +1,4 @@
-from collections import namedtuple
+from typing import NamedTuple
 from enum import Enum
 from typing import List, Optional, Tuple
 
@@ -35,7 +35,15 @@ class Collection:
         self.id = id
 
 
-BBox = namedtuple('BBox', ['w', 's', 'e', 'n'])
+class BBox(NamedTuple):
+    """A bounding box specified by western & eastern longitude, southern & northern latitude constraints."""
+    w: float
+    s: float
+    e: float
+    n: float
+
+    def __repr__(self) -> str:
+        return f'BBox: West:{self.w}, South:{self.s}, East:{self.e}, North:{self.n}'
 
 
 class Request:
@@ -58,21 +66,27 @@ class Request:
             (lambda bb: bb.w <= 180.0, 'Western longitude must be less than 180.0'),
             (lambda bb: bb.e <= 180.0, 'Eastern longitude must be less than 180.0'),
         ]
+        self.temporal_validations = [
+            (lambda tr: 'start' in tr or 'stop' in tr, 'When included in the request, the temporal range should include a start or stop attribute.'),
+            (lambda tr: tr['start'] < tr['stop'] if 'start' in tr and 'stop' in tr else True, 'The temporal range\'s start must be earlier than its stop datetime.')
+        ]
 
     def is_valid(self) -> bool:
-        return (
-            self.spatial is None or all([v(self.spatial) for v, _ in self.spatial_validations])
-        ) and (
-            self.temporal is None
-            or (
-                ('start' in self.temporal)
-                and ('stop' in self.temporal)
-                and (self.temporal['start'] < self.temporal['stop'])
-            )
-        )
+        return \
+            (self.spatial is None or all([v(self.spatial) for v, _ in self.spatial_validations])) \
+            and (self.temporal is None or all([v(self.temporal) for v, _ in self.temporal_validations]))
+
 
     def error_messages(self) -> List[str]:
-        return [m for v, m in self.spatial_validations if not v(self.spatial)]
+        spatial_msgs = []
+        temporal_msgs = []
+        if self.spatial:
+            spatial_msgs = [m for v, m in self.spatial_validations if not v(self.spatial)]
+        if self.temporal:
+            temporal_msgs = [m for v, m in self.temporal_validations if not v(self.temporal)]
+
+        return spatial_msgs + temporal_msgs
+
 
 
 class Client:

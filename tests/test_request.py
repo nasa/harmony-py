@@ -1,3 +1,5 @@
+import datetime as dt
+
 from hypothesis import given, settings, strategies as st
 import pytest
 
@@ -69,7 +71,8 @@ def test_request_temporal_range(key_a, key_b, datetime_a, datetime_b):
     if request.is_valid():
         assert request.temporal is not None
         assert 'start' in request.temporal or 'stop' in request.temporal
-        assert request.temporal['start'] < request.temporal['stop']
+        if 'start' in request.temporal and 'stop' in request.temporal:
+            assert request.temporal['start'] < request.temporal['stop']
 
 
 @pytest.mark.parametrize('key, value, message', [
@@ -84,7 +87,23 @@ def test_request_temporal_range(key_a, key_b, datetime_a, datetime_b):
     ('spatial', BBox(10, 10, 190, 20), 'Eastern longitude must be less than 180.0'),
     ('spatial', BBox(190, 10, 200, 20), 'Western longitude must be less than 180.0'),
 ])
-def test_request_error_messages(key, value, message):
+def test_request_spatial_error_messages(key, value, message):
+    request = Request(Collection('foo'), **{key: value})
+    messages = request.error_messages()
+
+    assert not request.is_valid()
+    assert message in messages
+
+
+@pytest.mark.parametrize('key, value, message', [
+    ('temporal', {'foo': None}, 'When included in the request, the temporal range should include a start or stop attribute.'),
+    ('temporal', {
+        'start': dt.datetime(1969, 7, 20), 
+        'stop': dt.datetime(1941, 12, 7)
+     }, 
+     'The temporal range\'s start must be earlier than its stop datetime.')
+])
+def test_request_temporal_error_messages(key, value, message):
     request = Request(Collection('foo'), **{key: value})
     messages = request.error_messages()
 

@@ -1,6 +1,5 @@
 import datetime as dt
 
-import pytest
 import responses
 
 from harmony.harmony import Client, Collection, Request
