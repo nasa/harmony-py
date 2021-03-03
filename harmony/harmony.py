@@ -40,12 +40,12 @@ class BBox(NamedTuple):
     southern & northern latitude constraints in degrees.
 
     Example:
-      An area bounded by latitudes 30N and 60N and longitudes 
+      An area bounded by latitudes 30N and 60N and longitudes
       130W and 100W:
 
           >>> spatial = BBox(-130, 30, -100, 60)
 
-      Important: When specified positionally, the parameters must 
+      Important: When specified positionally, the parameters must
       be given in order: west, south, east, north.
 
       Alternatively, one can explicitly set each bound using the
