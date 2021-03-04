@@ -54,11 +54,11 @@ If you've setup pyenv with your shell properly, it should automatically activate
 > pyenv activate harmony-py
 > pyenv deactivate
 
-Install dependencies:
+2. Install dependencies:
 
 > make install
 
-Optionally register your local copy with pip:
+3. Optionally register your local copy with pip:
 
 > pip install -e ./path/to/harmony_py
 
