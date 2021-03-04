@@ -39,7 +39,7 @@ First, it's recommended that you create a Python virtualenv so that Harmony Py a
 
 1a. Create a virtualenv with venv:
 
-> make venv-virtualenv
+> make venv-setup
 > source .venv/bin/activate
 
 To deactivate it:
@@ -47,9 +47,9 @@ To deactivate it:
 
 1b. Use pyenv & pyenv-virtualenv. This will install Python 3.9 & create a virtualenv using that version of Python. Important: if this is your first time using pyenv to install Python, be sure that you have the [Python build requirements installed](https://github.com/pyenv/pyenv/wiki#suggested-build-environment) first.
 
-> make pyenv-virtualenv
+> make pyenv-setup
 
-If you've setup pyenv with your shell properly, it should automatically activate the environment. It does this by creating a `.python-version` file in the project directory. Most shells can be setup to automatically activate & deactivate virtual environments when cd'ing into & out of directories by using the value specified in `.python-version`. This is very convenient to it ensure that the correct virtualenv has been activated (and deactivated) when starting work on a project. See the pyenv docs for more details. If you need to manually activate & deactivate:
+If you've setup pyenv with your shell properly, it should automatically activate the environment. It does this by creating a `.python-version` file in the project directory. Most shells can be setup to automatically activate & deactivate virtual environments when cd'ing into & out of directories by using the value found in `.python-version`. This is convenient since it ensures that the correct virtualenv has been activated (and deactivated) when starting work on a project. See the pyenv docs for more details. If you need to manually activate & deactivate:
 
 > pyenv activate harmony-py
 > pyenv deactivate
