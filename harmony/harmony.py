@@ -84,14 +84,55 @@ class Request:
     Parameters:
     -----------
     collection: The CMR collection that should be queried
+
+    Keyword-Only:
+    -------------
     spatial: Bounding box spatial constraints on the data
+
     temporal: Date/time constraints on the data
+
+    outputcrs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
+      inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
+      (http://www.opengis.net/def/crs/...)
+
+    interpolation: specify the interpolation method used during reprojection and scaling
+
+    scale_extent: scale the resulting coverage either among one axis to a given extent
+
+    scale_size: scale the resulting coverage either among one axis to a given size
+
+    granule_id: The CMR Granule ID for the granule which should be retrieved
+
+    width: number of columns to return in the output coverage
+
+    height: number of rows to return in the output coverage
+
+    format: the output mime type to return
+
+    force_async: if "true", override the default API behavior and always treat the request as asynchronous
+
+    max_results: limits the number of input granules processed in the request
 
     Returns:
     --------
     A Harmony Request instance
     """
-    def __init__(self, collection: Collection, spatial: BBox = None, temporal: dict = None):
+    def __init__(self,
+            collection: Collection,
+            *,
+            spatial: BBox = None,
+            temporal: dict = None,
+            outputcrs: str,
+            interpolation: str,
+            scale_extent: list[float],
+            scale_size: list[float],
+            granule_id: list[str],
+            width: int,
+            height: int,
+            format: str,
+            force_async: bool,
+            max_results: int):
+
         self.collection = collection
         self.spatial = spatial
         self.temporal = temporal
