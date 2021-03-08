@@ -68,11 +68,9 @@ class SessionWithHeaderRedirection(Session):
         redirect_hostname = cast(str, urlparse(prepared_request.url).hostname)
         original_hostname = cast(str, urlparse(response.request.url).hostname)
 
-        if (
-            'Authorization' in headers
-            and (original_hostname != redirect_hostname)
-            and not _is_edl_hostname(redirect_hostname)
-        ):
+        if ('Authorization' in headers
+                and (original_hostname != redirect_hostname)
+                and not _is_edl_hostname(redirect_hostname)):
             del headers['Authorization']
 
         if self.auth is None:
@@ -111,9 +109,8 @@ def create_session(config: Config, auth=None) -> FuturesSession:
     if isinstance(auth, Iterable) and len(auth) == 2 and all([isinstance(x, str) for x in auth]):
         session = SessionWithHeaderRedirection(auth=auth)
     elif auth is not None:
-        raise MalformedCredentials(
-            'Authentication: `auth` argument requires tuple of ' '(username, password).'
-        )
+        raise MalformedCredentials('Authentication: `auth` argument requires tuple of '
+                                   '(username, password).')
     elif cfg_edl_username and cfg_edl_password:
         session = SessionWithHeaderRedirection(auth=(cfg_edl_username, cfg_edl_password))
     else:
@@ -130,11 +127,8 @@ def validate_auth(config, session):
     if result.status_code == 200:
         return
     elif result.status_code == 401:
-        raise BadAuthentication(
-            'Authentication: incorrect or missing credentials during ' 'credential validation.'
-        )
+        raise BadAuthentication('Authentication: incorrect or missing credentials during '
+                                'credential validation.')
     else:
-        raise BadAuthentication(
-            'Authentication: An unknown error occurred during credential '
-            f'validation: HTTP {result.status_code}'
-        )
+        raise BadAuthentication(f'Authentication: An unknown error occurred during credential '
+                                f'validation: HTTP {result.status_code}')
