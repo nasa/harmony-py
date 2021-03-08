@@ -109,7 +109,8 @@ class Request:
 
     format: the output mime type to return
 
-    force_async: if "true", override the default API behavior and always treat the request as asynchronous
+    force_async: if "true", override the default API behavior and always treat the request as
+      asynchronous
 
     max_results: limits the number of input granules processed in the request
 
@@ -118,20 +119,20 @@ class Request:
     A Harmony Request instance
     """
     def __init__(self,
-            collection: Collection,
-            *,
-            spatial: BBox = None,
-            temporal: dict = None,
-            outputcrs: str,
-            interpolation: str,
-            scale_extent: list[float],
-            scale_size: list[float],
-            granule_id: list[str],
-            width: int,
-            height: int,
-            format: str,
-            force_async: bool,
-            max_results: int):
+                 collection: Collection,
+                 *,
+                 spatial: BBox = None,
+                 temporal: dict = None,
+                 outputcrs: str,
+                 interpolation: str,
+                 scale_extent: list[float],
+                 scale_size: list[float],
+                 granule_id: list[str],
+                 width: int,
+                 height: int,
+                 format: str,
+                 force_async: bool,
+                 max_results: int):
 
         self.collection = collection
         self.spatial = spatial
