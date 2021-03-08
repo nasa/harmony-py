@@ -1,21 +1,10 @@
 from typing import NamedTuple
-from enum import Enum
 from typing import List, Optional, Tuple
 
 from requests_futures.sessions import FuturesSession
 
 from harmony.auth import create_session, validate_auth, SessionWithHeaderRedirection
-from harmony.config import Config
-
-
-Environment = Enum('Environment', ['SBX', 'SIT', 'UAT', 'PROD'])
-
-Hostnames = {
-    Environment.SBX: 'harmony.sbx.earthdata.nasa.gov',
-    Environment.SIT: 'harmony.sit.earthdata.nasa.gov',
-    Environment.UAT: 'harmony.uat.earthdata.nasa.gov',
-    Environment.PROD: 'harmony.earthdata.nasa.gov',
-}
+from harmony.config import Config, Environment
 
 
 class Collection:
@@ -97,7 +86,7 @@ class Request:
         self.temporal = temporal
         # NOTE: The format is temporary until HARMONY-708:
         #       https://bugs.earthdata.nasa.gov/browse/HARMONY-708
-        self.format = 'image/tiff'
+        self.format: str = 'image/tiff'
         self.spatial_validations = [
             (lambda bb: bb.s < bb.n, 'Southern latitude must be less than Northern latitude'),
             (lambda bb: bb.s >= -90.0, 'Southern latitude must be greater than -90.0'),
@@ -172,8 +161,8 @@ class Client:
             auth : A tuple of the format ('edl_username', 'edl_password')
             should_validate_auth: Whether EDL credentials will be validated.
         """
-        self.config = Config()
-        self.hostname: str = Hostnames[env]
+        self.config = Config(env)
+        self.hostname: str = self.config.hostname
         self.session = None
         self.auth = auth
 
@@ -195,9 +184,8 @@ class Client:
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
-        params['subset'] = self._spatial_subset_params(request) + self._temporal_subset_params(
-            request
-        )
+        params['subset'] = (self._spatial_subset_params(request)
+                            + self._temporal_subset_params(request))
         params['format']: request.format
 
         return params
@@ -222,15 +210,18 @@ class Client:
         else:
             return []
 
-    def submit(self, request: Request):
+    def submit(self, request: Request) -> Optional[dict]:
         """Submits a request to Harmony and returns the Harmony job details."""
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
             raise Exception(f"Cannot submit an invalid request: [{msgs}]")
 
+        job = None
         with self._session() as session:
             response = session.get(self._url(request), params=self._params(request)).result()
             if response.ok:
-                return response.json()
+                job = response.json()
             else:
                 response.raise_for_status()
+
+        return job

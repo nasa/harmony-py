@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 import re
 from typing import cast, Optional, Tuple
 from urllib.parse import urlparse
@@ -82,7 +81,7 @@ class SessionWithHeaderRedirection(Session):
         return
 
 
-def create_session(config: Config, auth=None) -> FuturesSession:
+def create_session(config: Config, auth: Tuple[str, str] = None) -> FuturesSession:
     """Creates a configured ``requests`` session.
 
     Attempts to create an authenticated session in the following order:
@@ -106,7 +105,7 @@ def create_session(config: Config, auth=None) -> FuturesSession:
     cfg_edl_password = config.EDL_PASSWORD
     num_workers = int(config.NUM_REQUESTS_WORKERS)
 
-    if isinstance(auth, Iterable) and len(auth) == 2 and all([isinstance(x, str) for x in auth]):
+    if isinstance(auth, tuple) and len(auth) == 2 and all([isinstance(x, str) for x in auth]):
         session = SessionWithHeaderRedirection(auth=auth)
     elif auth is not None:
         raise MalformedCredentials('Authentication: `auth` argument requires tuple of '
