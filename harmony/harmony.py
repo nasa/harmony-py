@@ -93,7 +93,6 @@ class Request:
             (lambda bb: bb.n >= -90.0, 'Northern latitude must be greater than -90.0'),
             (lambda bb: bb.s <= 90.0, 'Southern latitude must be less than 90.0'),
             (lambda bb: bb.n <= 90.0, 'Northern latitude must be less than 90.0'),
-            (lambda bb: bb.w < bb.e, 'Western longitude must be less than Eastern longitude'),
             (lambda bb: bb.w >= -180.0, 'Western longitude must be greater than -180.0'),
             (lambda bb: bb.e >= -180.0, 'Eastern longitude must be greater than -180.0'),
             (lambda bb: bb.w <= 180.0, 'Western longitude must be less than 180.0'),

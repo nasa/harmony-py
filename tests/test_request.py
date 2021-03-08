@@ -40,7 +40,6 @@ def test_request_spatial_bounding_box(west, south, east, north):
         assert n == north
 
         assert south < north
-        assert west < east
 
         assert south >= -90.0
         assert north >= -90.0
@@ -81,7 +80,6 @@ def test_request_temporal_range(key_a, key_b, datetime_a, datetime_b):
     ('spatial', BBox(10, -110, 20, -100), 'Northern latitude must be greater than -90.0'),
     ('spatial', BBox(10, 100, 20, 110), 'Southern latitude must be less than 90.0'),
     ('spatial', BBox(10, 10, 20, 100), 'Northern latitude must be less than 90.0'),
-    ('spatial', BBox(100, 10, 20, 20), 'Western longitude must be less than Eastern longitude'),
     ('spatial', BBox(-190, 10, 20, 20), 'Western longitude must be greater than -180.0'),
     ('spatial', BBox(-200, 10, -190, 20), 'Eastern longitude must be greater than -180.0'),
     ('spatial', BBox(10, 10, 190, 20), 'Eastern longitude must be less than 180.0'),
