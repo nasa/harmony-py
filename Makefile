@@ -13,8 +13,8 @@ pyenv-setup:
 	    echo "    https://github.com/pyenv/pyenv-virtualenv"; \
 	    exit; \
 	else \
-	    pyenv install 3.9.2; \
-	    pyenv virtualenv 3.9.2 harmony-py; \
+	    pyenv install 3.9.1; \
+	    pyenv virtualenv 3.9.1 harmony-py; \
 	    pyenv local harmony-py; \
 	fi
 

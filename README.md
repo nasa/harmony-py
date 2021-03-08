@@ -49,7 +49,11 @@ To deactivate it:
 
 > make pyenv-setup
 
-If you've setup pyenv with your shell properly, it should automatically activate the environment. It does this by creating a `.python-version` file in the project directory. Most shells can be setup to automatically activate & deactivate virtual environments when cd'ing into & out of directories by using the value found in `.python-version`. This is convenient since it ensures that the correct virtualenv has been activated (and deactivated) when starting work on a project. See the pyenv docs for more details. If you need to manually activate & deactivate:
+If you've setup pyenv with your shell properly, it should automatically activate the environment. You can check if it's activated by:
+
+> pyenv version
+
+It should show `harmony-py`. Pyenv does auto-activation by creating a `.python-version` file in the project directory. Most shells can be setup to automatically activate & deactivate virtual environments when cd'ing into & out of directories by using the value found in `.python-version`. This is convenient since it ensures that the correct virtualenv has been activated (and deactivated) when starting work on a project. See the pyenv docs for more details. If you need to manually activate & deactivate:
 
 > pyenv activate harmony-py
 > pyenv deactivate
