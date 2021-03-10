@@ -38,12 +38,12 @@ class Config:
         self.environment = environment
 
     @property
-    def hostname(self):
+    def harmony_hostname(self):
         return HOSTNAMES[self.environment]
 
     @property
     def edl_validation_url(self):
-        return f'https://{self.hostname}/jobs'
+        return f'https://{self.harmony_hostname}/jobs'
 
     def __getattribute__(self, name: str) -> str:
         """Overrides attribute retrieval for instances of this class. Attribute lookup follow this

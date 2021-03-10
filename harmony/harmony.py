@@ -161,7 +161,6 @@ class Client:
             should_validate_auth: Whether EDL credentials will be validated.
         """
         self.config = Config(env)
-        self.hostname: str = self.config.hostname
         self.session = None
         self.auth = auth
 
@@ -176,7 +175,7 @@ class Client:
     def _url(self, request: Request) -> str:
         """Constructs the URL from the given request."""
         return (
-            f'https://{self.hostname}/{request.collection.id}'
+            f'https://{self.config.harmony_hostname}/{request.collection.id}'
             '/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset'
         )
 
