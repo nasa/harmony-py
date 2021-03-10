@@ -4,7 +4,17 @@ from camel_case_switcher import camel_case_to_underscore
 import yaml
 
 
-def typed_param(yaml_param):
+def canonical_name(yaml_param):
+    name_map = {
+        'outputcrs': 'crs'
+    }
+
+    print(yaml_param)
+    name = yaml_param['name']
+    return name_map.get(name, camel_case_to_underscore(name))
+
+
+def canonical_type(yaml_param):
     type_map = {
         'string': 'str',
         'boolean': 'bool',
@@ -12,21 +22,19 @@ def typed_param(yaml_param):
         'number': 'float'
     }
 
-    yaml_type = yaml_param['schema']['type']
     py_type = None
-
+    yaml_type = yaml_param['schema']['type']
     if yaml_type == 'array':
         item_type = type_map[yaml_param['schema']['items']['type']]
         py_type = f"list[{item_type}]"
     else:
         py_type = type_map[yaml_type]
 
-    name = camel_case_to_underscore(yaml_param['name'])
-    return f"{name}: {py_type}"
+    return py_type
 
 
 def param_docstring(yaml_param):
-    name = camel_case_to_underscore(yaml_param['name'])
+    name = canonical_name(yaml_param)
     descr = yaml_param['description']
     return f'{name}: {descr}'
 
@@ -36,11 +44,13 @@ def main(schema_filename: str):
         api = yaml.load(schema, Loader=yaml.Loader)
 
         do_not_generate = ['collectionId', 'subset']
+
         params = api['paths']['/collections/{collectionId}/coverage/rangeset']['get']['parameters']
         refs = [p.get('$ref').split('/')[-1] for p in params]
-        param_types = [api['components']['parameters'][r] for r in refs if r not in do_not_generate]
+        param_types = [api['components']['parameters'][r] for
+                       r in refs if r not in do_not_generate]
 
-        params = [typed_param(pt) for pt in param_types]
+        params = [f'{canonical_name(pt)}: {canonical_type(pt)}' for pt in param_types]
         param_docstrings = [param_docstring(pt) for pt in param_types]
 
         print("def __init__(self, *, " + ", ".join(params) + "):")
