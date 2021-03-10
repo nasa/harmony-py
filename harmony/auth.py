@@ -120,7 +120,7 @@ def create_session(config: Config, auth: Tuple[str, str] = None) -> FuturesSessi
 
 def validate_auth(config, session):
     """Validates the credentials against the EDL authentication URL."""
-    url = config.EDL_VALIDATION_URL
+    url = config.edl_validation_url
     result = session.get(url).result()
 
     if result.status_code == 200:

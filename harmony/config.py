@@ -7,7 +7,7 @@ from typing import cast
 
 Environment = Enum('Environment', ['SBX', 'SIT', 'UAT', 'PROD'])
 
-Hostnames = {
+HOSTNAMES = {
     Environment.SBX: 'harmony.sbx.earthdata.nasa.gov',
     Environment.SIT: 'harmony.sit.earthdata.nasa.gov',
     Environment.UAT: 'harmony.uat.earthdata.nasa.gov',
@@ -29,7 +29,6 @@ class Config:
 
     config = {
         'NUM_REQUESTS_WORKERS': '8',
-        'EDL_VALIDATION_URL': 'https://harmony.earthdata.nasa.gov/jobs',
     }
 
     def __init__(self, environment: Environment = Environment.UAT) -> None:
@@ -40,7 +39,11 @@ class Config:
 
     @property
     def hostname(self):
-        return Hostnames[self.environment]
+        return HOSTNAMES[self.environment]
+
+    @property
+    def edl_validation_url(self):
+        return f'https://{self.hostname}/jobs'
 
     def __getattribute__(self, name: str) -> str:
         """Overrides attribute retrieval for instances of this class. Attribute lookup follow this

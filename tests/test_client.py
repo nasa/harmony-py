@@ -63,7 +63,7 @@ def test_when_multiple_submits_it_only_authenticates_once():
         spatial=BBox(-107, 40, -105, 42)
     )
     job_id = '3141592653-abcd-1234'
-    auth_url = 'https://harmony.earthdata.nasa.gov/jobs'
+    auth_url = 'https://harmony.uat.earthdata.nasa.gov/jobs'
     responses.add(
         responses.GET,
         auth_url,
