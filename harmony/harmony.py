@@ -1,21 +1,8 @@
 from typing import NamedTuple
-from enum import Enum
 from typing import List, Optional, Tuple
 
-from requests_futures.sessions import FuturesSession
-
-from harmony.auth import create_session, validate_auth, SessionWithHeaderRedirection
-from harmony.config import Config
-
-
-Environment = Enum('Environment', ['SBX', 'SIT', 'UAT', 'PROD'])
-
-Hostnames = {
-    Environment.SBX: 'harmony.sbx.earthdata.nasa.gov',
-    Environment.SIT: 'harmony.sit.earthdata.nasa.gov',
-    Environment.UAT: 'harmony.uat.earthdata.nasa.gov',
-    Environment.PROD: 'harmony.earthdata.nasa.gov',
-}
+from harmony.auth import create_session, validate_auth
+from harmony.config import Config, Environment
 
 
 class Collection:
@@ -118,6 +105,7 @@ class Request:
     --------
     A Harmony Request instance
     """
+
     def __init__(self,
                  collection: Collection,
                  *,
@@ -133,20 +121,18 @@ class Request:
                  format: str,
                  force_async: bool,
                  max_results: int):
-
         self.collection = collection
         self.spatial = spatial
         self.temporal = temporal
         # NOTE: The format is temporary until HARMONY-708:
         #       https://bugs.earthdata.nasa.gov/browse/HARMONY-708
-        self.format = 'image/tiff'
+        self.format: str = 'image/tiff'
         self.spatial_validations = [
             (lambda bb: bb.s < bb.n, 'Southern latitude must be less than Northern latitude'),
             (lambda bb: bb.s >= -90.0, 'Southern latitude must be greater than -90.0'),
             (lambda bb: bb.n >= -90.0, 'Northern latitude must be greater than -90.0'),
             (lambda bb: bb.s <= 90.0, 'Southern latitude must be less than 90.0'),
             (lambda bb: bb.n <= 90.0, 'Northern latitude must be less than 90.0'),
-            (lambda bb: bb.w < bb.e, 'Western longitude must be less than Eastern longitude'),
             (lambda bb: bb.w >= -180.0, 'Western longitude must be greater than -180.0'),
             (lambda bb: bb.e >= -180.0, 'Eastern longitude must be greater than -180.0'),
             (lambda bb: bb.w <= 180.0, 'Western longitude must be less than 180.0'),
@@ -201,6 +187,7 @@ class Client:
     By default, the Client will validate the provided credentials immediately. This can be
     disabled by passing `should_validate_auth=False`.
     """
+
     def __init__(
         self,
         *,
@@ -214,8 +201,8 @@ class Client:
             auth : A tuple of the format ('edl_username', 'edl_password')
             should_validate_auth: Whether EDL credentials will be validated.
         """
-        self.config = Config()
-        self.hostname: str = Hostnames[env]
+        self.config = Config(env)
+        self.hostname: str = self.config.hostname
         self.session = None
         self.auth = auth
 
@@ -237,9 +224,8 @@ class Client:
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
-        params['subset'] = self._spatial_subset_params(request) + self._temporal_subset_params(
-            request
-        )
+        params['subset'] = (self._spatial_subset_params(request)
+                            + self._temporal_subset_params(request))
         params['format']: request.format
 
         return params
@@ -264,15 +250,18 @@ class Client:
         else:
             return []
 
-    def submit(self, request: Request):
+    def submit(self, request: Request) -> Optional[dict]:
         """Submits a request to Harmony and returns the Harmony job details."""
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
             raise Exception(f"Cannot submit an invalid request: [{msgs}]")
 
-        with self._session() as session:
-            response = session.get(self._url(request), params=self._params(request)).result()
-            if response.ok:
-                return response.json()
-            else:
-                response.raise_for_status()
+        job = None
+        session = self._session()
+        response = session.get(self._url(request), params=self._params(request)).result()
+        if response.ok:
+            job = response.json()
+        else:
+            response.raise_for_status()
+
+        return job

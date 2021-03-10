@@ -1,15 +1,21 @@
-.PHONY: virtualenv install install-examples clean examples lint test test-watch ci docs
+.PHONY: venv-setup pyenv-setup install install-examples clean examples lint test test-watch ci docs
 .SILENT: virtualenv
 
-virtualenv:
-	if ! type xxxpyenv > /dev/null; \
+venv-setup:
+	python -m venv .venv
+
+pyenv-setup:
+	if ! type pyenv > /dev/null; \
 	then \
-	    echo "\nUnable to create virtualenv: pyenv not found. Please install pyenv, pyenv-virtualenv, and Python 3.8.5."; \
+	    echo "\nUnable to create virtualenv: pyenv not found. Please install pyenv & pyenv-virtualenv."; \
+	    echo "  See:"; \
+	    echo "    https://github.com/pyenv/pyenv"; \
+	    echo "    https://github.com/pyenv/pyenv-virtualenv"; \
 	    exit; \
 	else \
-	    pyenv virtualenv 3.8.5 harmony-py; \
+	    pyenv install 3.9.1; \
+	    pyenv virtualenv 3.9.1 harmony-py; \
 	    pyenv local harmony-py; \
-	    pyenv activate harmony-py; \
 	fi
 
 install:

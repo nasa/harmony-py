@@ -1,7 +1,6 @@
 import pytest
-from requests_futures.sessions import FuturesSession
 
-from harmony.auth import (_is_edl_hostname, validate_auth, create_session, validate_auth,
+from harmony.auth import (_is_edl_hostname, create_session, validate_auth,
                           BadAuthentication, MalformedCredentials, SessionWithHeaderRedirection)
 from harmony.config import Config
 
@@ -17,7 +16,7 @@ def futuressessions_mocker(mocker):
         FuturesSession_mock = mocker.PropertyMock()
         FuturesSession_mock.get().result().configure_mock(status_code=status_code)
         return FuturesSession_mock
-    
+
     return _futuresessions_mocker
 
 
@@ -38,7 +37,7 @@ def test__is_edl_hostname(hostname, expected):
 
 
 @pytest.mark.parametrize('auth', [
-    (None,), 
+    (None,),
     ('username'),
     ('username',),
     ('username', 333),
@@ -51,7 +50,7 @@ def test_authentication_with_malformed_auth(auth, config, mocker):
     assert 'Authentication: `auth` argument requires tuple' in str(exc_info.value)
 
 
-@pytest.mark.parametrize('status_code,should_error', 
+@pytest.mark.parametrize('status_code,should_error',
                          [(200, False), (401, True), (500, True)])
 def test_authentication(status_code, should_error, config, mocker, futuressessions_mocker):
     fsm = futuressessions_mocker(status_code)
@@ -74,7 +73,7 @@ def test_authentication(status_code, should_error, config, mocker, futuressessio
 def test_SessionWithHeaderRedirection_with_no_edl(mocker):
     preparedrequest_mock = mocker.PropertyMock()
     preparedrequest_props = {'url': 'https://www.example.gov',
-                              'headers': {'Authorization': 'lorem ipsum'}}
+                             'headers': {'Authorization': 'lorem ipsum'}}
     preparedrequest_mock.configure_mock(**preparedrequest_props)
 
     response_mock = mocker.PropertyMock()
@@ -93,7 +92,7 @@ def test_SessionWithHeaderRedirection_with_no_edl(mocker):
 def test_SessionWithHeaderRedirection_with_edl(mocker):
     preparedrequest_mock = mocker.PropertyMock()
     preparedrequest_props = {'url': 'https://uat.urs.earthdata.nasa.gov',
-                              'headers': {'Authorization': 'lorem ipsum'}}
+                             'headers': {'Authorization': 'lorem ipsum'}}
     preparedrequest_mock.configure_mock(**preparedrequest_props)
 
     response_mock = mocker.PropertyMock()

@@ -43,14 +43,48 @@ def expected_job(collection_id, job_id):
                 'type': 'application/json'
             }
         ],
-        'request': ('https://harmony.uat.earthdata.nasa.gov/{collection_id}/ogc-api-coverages/1.0.0'
-                    '/collections/all/coverage/rangeset'
-                    '?subset=lat(52%3A77)'
-                    '&subset=lon(-165%3A-140)'
-                    '&subset=time(%222010-01-01T00%3A00%3A00%22%3A%222020-12-30T00%3A00%3A00%22)'),
+        'request': (
+            'https://harmony.uat.earthdata.nasa.gov/{collection_id}/ogc-api-coverages/1.0.0'
+            '/collections/all/coverage/rangeset'
+            '?subset=lat(52%3A77)'
+            '&subset=lon(-165%3A-140)'
+            '&subset=time(%222010-01-01T00%3A00%3A00%22%3A%222020-12-30T00%3A00%3A00%22)'
+        ),
         'numInputGranules': 32,
         'jobID': '{job_id}'
     }
+
+
+@responses.activate
+def test_when_multiple_submits_it_only_authenticates_once():
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+    job_id = '3141592653-abcd-1234'
+    auth_url = 'https://harmony.uat.earthdata.nasa.gov/jobs'
+    responses.add(
+        responses.GET,
+        auth_url,
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        expected_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, job_id)
+    )
+
+    client = Client()
+    client.submit(request)
+    client.submit(request)
+
+    assert len(responses.calls) == 3
+    assert responses.calls[0].request.url == auth_url
+    assert urllib.parse.unquote(responses.calls[0].request.url) == auth_url
+    assert urllib.parse.unquote(responses.calls[1].request.url) == expected_full_url(request)
+    assert urllib.parse.unquote(responses.calls[2].request.url) == expected_full_url(request)
 
 
 @responses.activate
@@ -62,9 +96,9 @@ def test_with_bounding_box():
     )
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
     responses.add(
-        responses.GET, 
+        responses.GET,
         expected_url(collection.id),
-        status=200, 
+        status=200,
         json=expected_job(collection.id, job_id)
     )
 
