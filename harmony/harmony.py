@@ -1,9 +1,7 @@
 from typing import NamedTuple
 from typing import List, Optional, Tuple
 
-from requests_futures.sessions import FuturesSession
-
-from harmony.auth import create_session, validate_auth, SessionWithHeaderRedirection
+from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
 
 
@@ -80,6 +78,7 @@ class Request:
     --------
     A Harmony Request instance
     """
+
     def __init__(self, collection: Collection, spatial: BBox = None, temporal: dict = None):
         self.collection = collection
         self.spatial = spatial
@@ -147,6 +146,7 @@ class Client:
     By default, the Client will validate the provided credentials immediately. This can be
     disabled by passing `should_validate_auth=False`.
     """
+
     def __init__(
         self,
         *,
@@ -216,11 +216,11 @@ class Client:
             raise Exception(f"Cannot submit an invalid request: [{msgs}]")
 
         job = None
-        with self._session() as session:
-            response = session.get(self._url(request), params=self._params(request)).result()
-            if response.ok:
-                job = response.json()
-            else:
-                response.raise_for_status()
+        session = self._session()
+        response = session.get(self._url(request), params=self._params(request)).result()
+        if response.ok:
+            job = response.json()
+        else:
+            response.raise_for_status()
 
         return job
