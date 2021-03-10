@@ -1,5 +1,3 @@
-TESTING
-
 # harmony-py
 
 `harmony-py` is a Python library for integrating with NASA's [Harmony](https://harmony.earthdata.nasa.gov/).
@@ -11,24 +9,74 @@ TESTING
 ![Python package](https://github.com/nasa/harmony-py/workflows/Python%20package/badge.svg)
 
 ---
+# Using Harmony Py
+
+## Prerequisites
+
+* Python 3.7+
+
 
 ## Installing
 
-The library is available from Pypi and can be installed with pip:
+The library is available from [PyPI](#TODO) and can be installed with pip:
 
 > pip install -U harmony-py
 
+This will install harmony-py and its dependencies into your current Python environment. It's recommended that you install harmony-py into a virtualenv along with any other dependencies you may have.
 
-## Developing
 
-Install dependencies:
+# Running Examples & Developing on Harmony Py
+
+## Prerequisites
+
+* Python 3.7+
+* (optional,recommended) [pyenv](https://github.com/pyenv/pyenv) and [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv)
+
+
+## Installing Development & Example Dependencies
+
+First, it's recommended that you create a Python virtualenv so that Harmony Py and its dependencies are isolated in their own environment. To do so, you can either [create and activate a Python virtual environment with venv](https://docs.python.org/3/tutorial/venv.html), or--if you have pyenv and pyenv-virtualenv installed--use pyenv to create and activate one for you (`harmony-py`). There are `make` targets for both of these options--choose one.
+
+1a. Create a virtualenv with venv:
+
+> make venv-setup
+> source .venv/bin/activate
+
+To deactivate it:
+> source deactivate
+
+1b. Use pyenv & pyenv-virtualenv. This will install Python 3.9 & create a virtualenv using that version of Python. Important: if this is your first time using pyenv to install Python, be sure that you have the [Python build requirements installed](https://github.com/pyenv/pyenv/wiki#suggested-build-environment) first.
+
+> make pyenv-setup
+
+If you've setup pyenv with your shell properly, it should automatically activate the environment. You can check if it's activated by:
+
+> pyenv version
+
+It should show `harmony-py`. Pyenv does auto-activation by creating a `.python-version` file in the project directory. Most shells can be setup to automatically activate & deactivate virtual environments when cd'ing into & out of directories by using the value found in `.python-version`. This is convenient since it ensures that the correct virtualenv has been activated (and deactivated) when starting work on a project. See the pyenv docs for more details. If you need to manually activate & deactivate:
+
+> pyenv activate harmony-py
+> pyenv deactivate
+
+2. Install dependencies:
 
 > make install
 
-Optionally register your local copy with pip:
+3. Optionally register your local copy with pip:
 
 > pip install -e ./path/to/harmony_py
 
+
+## Running the Example Jupyter Notebooks
+
+Jupyter notebooks in the `examples` subdirectory show how to use the Harmony Py library. Start up the Jupyter Lab notebook server and run these examples: 
+
+The Jupyter Lab server will start and [open in your browser](http://localhost:8888/lab). Double-click on a notebook in the file-browser sidebar and run the notebook. Note that some notebooks may have cells which prompt for your EDL username and password. Be sure to use your UAT credentials since all of the example notebooks use the Harmony UAT environment.
+
+> make examples
+
+
+## Developing
 
 ### Generating Documentation
 
@@ -45,10 +93,13 @@ Run the linter on the project source:
 
 > make lint
 
-Tests use `unittest` and can run with nose and generate test coverage
-which can be seen in HTML form in the `htmlcov` subdirectory.
+Run unit tests and test coverage. This will display terminal output and generate an HTML coverage report in the `htmlcov` directory.
 
 > make test
+
+For development, you may want to run the unit tests continuously as you update tests and the code-under-test:
+
+> make test-watch
 
 
 ## CI

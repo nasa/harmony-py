@@ -1,10 +1,21 @@
+from enum import Enum
 import os
 
 from dotenv import load_dotenv
 from typing import cast
 
 
-class Config():
+Environment = Enum('Environment', ['SBX', 'SIT', 'UAT', 'PROD'])
+
+HOSTNAMES = {
+    Environment.SBX: 'harmony.sbx.earthdata.nasa.gov',
+    Environment.SIT: 'harmony.sit.earthdata.nasa.gov',
+    Environment.UAT: 'harmony.uat.earthdata.nasa.gov',
+    Environment.PROD: 'harmony.earthdata.nasa.gov',
+}
+
+
+class Config:
     """Runtime configuation variables including defaults and environment vars.
 
     Example:
@@ -18,13 +29,21 @@ class Config():
 
     config = {
         'NUM_REQUESTS_WORKERS': '8',
-        'EDL_VALIDATION_URL': 'https://harmony.earthdata.nasa.gov/jobs',
     }
 
-    def __init__(self) -> None:
+    def __init__(self, environment: Environment = Environment.UAT) -> None:
         load_dotenv()
         for k, v in Config.config.items():
             setattr(self, k, v)
+        self.environment = environment
+
+    @property
+    def hostname(self):
+        return HOSTNAMES[self.environment]
+
+    @property
+    def edl_validation_url(self):
+        return f'https://{self.hostname}/jobs'
 
     def __getattribute__(self, name: str) -> str:
         """Overrides attribute retrieval for instances of this class. Attribute lookup follow this

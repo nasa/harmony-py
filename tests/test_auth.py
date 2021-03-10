@@ -1,8 +1,28 @@
 import pytest
-from requests_futures.sessions import FuturesSession
 
-from harmony.auth import _is_edl_hostname, authenticate, BadAuthentication, \
-                         MalformedCredentials, SessionWithHeaderRedirection
+from harmony.auth import (_is_edl_hostname, create_session, validate_auth,
+                          BadAuthentication, MalformedCredentials, SessionWithHeaderRedirection)
+from harmony.config import Config
+
+
+@pytest.fixture
+def config():
+    return Config()
+
+
+@pytest.fixture
+def futuressessions_mocker(mocker):
+    def _futuresessions_mocker(status_code):
+        FuturesSession_mock = mocker.PropertyMock()
+        FuturesSession_mock.get().result().configure_mock(status_code=status_code)
+        return FuturesSession_mock
+
+    return _futuresessions_mocker
+
+
+def test_authentication_no_args_no_validate(config):
+    session = create_session(config)
+    assert session.auth is None
 
 
 @pytest.mark.parametrize('hostname,expected', [
@@ -16,48 +36,44 @@ def test__is_edl_hostname(hostname, expected):
     assert _is_edl_hostname(hostname) is expected
 
 
-def test_authentication_no_args_no_validate():
-    session = authenticate(validate=False)
-    assert session.auth is None
-
-
-def test_authentication_with_malformed_auth(mocker):
+@pytest.mark.parametrize('auth', [
+    (None,),
+    ('username'),
+    ('username',),
+    ('username', 333),
+    (999, 'secret'),
+])
+def test_authentication_with_malformed_auth(auth, config, mocker):
     with pytest.raises(MalformedCredentials) as exc_info:
-        session = authenticate(auth='username')
+        session = create_session(config, auth=auth)
+        validate_auth(config, session)
     assert 'Authentication: `auth` argument requires tuple' in str(exc_info.value)
 
 
-@pytest.fixture
-def futuressessions_mocker(mocker):
-    def _futuresessions_mocker(status_code):
-        FuturesSession_mock = mocker.PropertyMock()
-        FuturesSession_mock.get().result().configure_mock(status_code=status_code)
-        return FuturesSession_mock
-    
-    return _futuresessions_mocker
+@pytest.mark.parametrize('status_code,should_error',
+                         [(200, False), (401, True), (500, True)])
+def test_authentication(status_code, should_error, config, mocker, futuressessions_mocker):
+    fsm = futuressessions_mocker(status_code)
+    mocker.patch('harmony.auth.FuturesSession', return_value=fsm)
 
-
-def test_authentication(mocker, futuressessions_mocker):
-    for status_code, should_error in [(200, False), (401, True), (500, True)]:
-        fsm = futuressessions_mocker(status_code)
-        mocker.patch('harmony.auth.FuturesSession', return_value=fsm)
-
-        if should_error:
-            with pytest.raises(BadAuthentication) as exc_info:
-                futures_session = authenticate(validate=True)
-            if status_code == 401:
-                assert 'Authentication: incorrect or missing credentials' in str(exc_info.value)
-            elif status_code == 500:
-                assert 'Authentication: An unknown error occurred' in str(exc_info.value)
-        else:
-            futures_session = authenticate(validate=True)
-            assert futures_session is fsm
+    if should_error:
+        with pytest.raises(BadAuthentication) as exc_info:
+            futures_session = create_session(config)
+            validate_auth(config, futures_session)
+        if status_code == 401:
+            assert 'Authentication: incorrect or missing credentials' in str(exc_info.value)
+        elif status_code == 500:
+            assert 'Authentication: An unknown error occurred' in str(exc_info.value)
+    else:
+        futures_session = create_session(config)
+        validate_auth(config, futures_session)
+        assert futures_session is fsm
 
 
 def test_SessionWithHeaderRedirection_with_no_edl(mocker):
     preparedrequest_mock = mocker.PropertyMock()
     preparedrequest_props = {'url': 'https://www.example.gov',
-                              'headers': {'Authorization': 'lorem ipsum'}}
+                             'headers': {'Authorization': 'lorem ipsum'}}
     preparedrequest_mock.configure_mock(**preparedrequest_props)
 
     response_mock = mocker.PropertyMock()
@@ -76,7 +92,7 @@ def test_SessionWithHeaderRedirection_with_no_edl(mocker):
 def test_SessionWithHeaderRedirection_with_edl(mocker):
     preparedrequest_mock = mocker.PropertyMock()
     preparedrequest_props = {'url': 'https://uat.urs.earthdata.nasa.gov',
-                              'headers': {'Authorization': 'lorem ipsum'}}
+                             'headers': {'Authorization': 'lorem ipsum'}}
     preparedrequest_mock.configure_mock(**preparedrequest_props)
 
     response_mock = mocker.PropertyMock()

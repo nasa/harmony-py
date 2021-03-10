@@ -1,4 +1,5 @@
-python-dotenv ~= 0.15
-progressbar2 ~= 3.53
-requests ~= 2.25
+python-dotenv ~= 0.1
+progressbar2 ~= 3.5
+requests ~= 2.2
 requests-futures ~= 1.0
+sphinxcontrib-napoleon ~= 0.7
