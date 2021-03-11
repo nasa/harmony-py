@@ -78,7 +78,7 @@ class Request:
 
     temporal: Date/time constraints on the data
 
-    outputcrs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
+    crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
       inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
       (http://www.opengis.net/def/crs/...)
 
@@ -111,22 +111,31 @@ class Request:
                  *,
                  spatial: BBox = None,
                  temporal: dict = None,
-                 outputcrs: str,
-                 interpolation: str,
-                 scale_extent: list[float],
-                 scale_size: list[float],
-                 granule_id: list[str],
-                 width: int,
-                 height: int,
-                 format: str,
-                 force_async: bool,
-                 max_results: int):
+                 crs: str = None,
+                 interpolation: str = None,
+                 scale_extent: list[float] = None,
+                 scale_size: list[float] = None,
+                 granule_id: list[str] = None,
+                 width: int = None,
+                 height: int = None,
+                 format: str = None,
+                 force_async: bool = None,
+                 max_results: int = None):
+
         self.collection = collection
         self.spatial = spatial
         self.temporal = temporal
-        # NOTE: The format is temporary until HARMONY-708:
-        #       https://bugs.earthdata.nasa.gov/browse/HARMONY-708
-        self.format: str = 'image/tiff'
+        self.crs: Optional[str] = crs
+        self.interpolation: Optional[str] = interpolation
+        self.scale_extent: Optional[list[float]] = scale_extent
+        self.scale_size: Optional[list[float]] = scale_size
+        self.granule_id: Optional[list[str]] = granule_id
+        self.width: Optional[int] = width
+        self.height: Optional[int] = height
+        self.format: Optional[str] = format
+        self.force_async: Optional[bool] = force_async
+        self.max_results: Optional[int] = max_results
+
         self.spatial_validations = [
             (lambda bb: bb.s < bb.n, 'Southern latitude must be less than Northern latitude'),
             (lambda bb: bb.s >= -90.0, 'Southern latitude must be greater than -90.0'),
@@ -223,9 +232,36 @@ class Client:
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
-        params['subset'] = (self._spatial_subset_params(request)
-                            + self._temporal_subset_params(request))
-        params['format']: request.format
+
+        param_map = {
+            'crs': 'outputcrs',
+            'interpolation': 'interpolation',
+            'scale_extent': 'scaleExtent',
+            'scale_size': 'scaleSize',
+            'granule_id': 'granuleId',
+            'width': 'width',
+            'height': 'height',
+            'format': 'format',
+            'force_async': 'forceAsync',
+            'max_results': 'maxResults',
+        }
+
+        subset = self._spatial_subset_params(request) + self._temporal_subset_params(request)
+        if len(subset) > 0:
+            params['subset'] = subset
+
+        for p in param_map.keys():
+            value = getattr(request, p, None)
+            if value is not None:
+                if type(value) == str:
+                    params[param_map[p]] = f'"{value}"'
+                elif type(value) == bool:
+                    params[param_map[p]] = str(value).lower()
+                elif type(value) == list and type(value[0]) != str:
+                    params[param_map[p]] = ','.join([str(v) for v in value])
+                    print(params)
+                else:
+                    params[param_map[p]] = value
 
         return params
 
