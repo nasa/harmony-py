@@ -113,9 +113,9 @@ class Request:
                  temporal: dict = None,
                  crs: str = None,
                  interpolation: str = None,
-                 scale_extent: list[float] = None,
-                 scale_size: list[float] = None,
-                 granule_id: list[str] = None,
+                 scale_extent: List[float] = None,
+                 scale_size: List[float] = None,
+                 granule_id: List[str] = None,
                  width: int = None,
                  height: int = None,
                  format: str = None,
@@ -125,16 +125,16 @@ class Request:
         self.collection = collection
         self.spatial = spatial
         self.temporal = temporal
-        self.crs: Optional[str] = crs
-        self.interpolation: Optional[str] = interpolation
-        self.scale_extent: Optional[List[float]] = scale_extent
-        self.scale_size: Optional[List[float]] = scale_size
-        self.granule_id: Optional[List[str]] = granule_id
-        self.width: Optional[int] = width
-        self.height: Optional[int] = height
-        self.format: Optional[str] = format
-        self.force_async: Optional[bool] = force_async
-        self.max_results: Optional[int] = max_results
+        self.crs = crs
+        self.interpolation = interpolation
+        self.scale_extent = scale_extent
+        self.scale_size = scale_size
+        self.granule_id = granule_id
+        self.width = width
+        self.height = height
+        self.format = format
+        self.force_async = force_async
+        self.max_results = max_results
 
         self.spatial_validations = [
             (lambda bb: bb.s < bb.n, 'Southern latitude must be less than Northern latitude'),
