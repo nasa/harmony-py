@@ -1,5 +1,5 @@
 from typing import NamedTuple
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
@@ -172,12 +172,15 @@ class Client:
             self.session = create_session(self.config, self.auth)
         return self.session
 
-    def _url(self, request: Request) -> str:
+    def _submit_url(self, request: Request) -> str:
         """Constructs the URL from the given request."""
         return (
             f'https://{self.config.harmony_hostname}/{request.collection.id}'
             '/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset'
         )
+
+    def _status_url(self, job_id: str) -> str:
+        return f'https://{self.config.harmony_hostname}/jobs/{job_id}'
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
@@ -208,18 +211,49 @@ class Client:
         else:
             return []
 
-    def submit(self, request: Request) -> Optional[dict]:
+    def submit(self, request: Request) -> Optional[str]:
         """Submits a request to Harmony and returns the Harmony job details."""
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
             raise Exception(f"Cannot submit an invalid request: [{msgs}]")
 
-        job = None
+        job_id = None
         session = self._session()
-        response = session.get(self._url(request), params=self._params(request)).result()
+        response = session.get(self._submit_url(request), params=self._params(request)).result()
         if response.ok:
-            job = response.json()
+            job_id = (response.json())['jobID']
         else:
             response.raise_for_status()
 
-        return job
+        return job_id
+
+    def status(self, job_id: str, progress_only=False) -> Union[str, dict]:
+        """Returns job metadata from Harmony.
+
+        If ``progress_only`` is True, return the job's percent complete. If ``progress_only`` is
+        False, return dict containing job metadata.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            progress_only: An option to change the output format.
+
+        Returns:
+            Either the percent complete or a dict of metadata.
+
+        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
+        can't be reached.
+        """
+        session = self._session()
+        response = session.get(self._status_url(job_id)).result()
+        if response.ok:
+            if progress_only:
+                return (response.json())['progress']
+            else:
+                fields = [
+                    'status', 'message', 'progress', 'createdAt', 'updatedAt', 'request',
+                    'numInputGranules'
+                ]
+                info_subset = {k: v for k, v in response.json().items() if k in fields}
+                return info_subset
+        else:
+            response.raise_for_status()
