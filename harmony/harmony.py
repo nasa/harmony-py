@@ -259,7 +259,7 @@ class Client:
 
         for p, val in request.parameter_values():
             if type(val) == str:
-                params[p] = f"'{val}'"
+                params[p] = val
             elif type(val) == bool:
                 params[p] = str(val).lower()
             elif type(val) == list and type(val[0]) != str:
@@ -284,8 +284,8 @@ class Client:
             t = request.temporal
             start = t['start'].isoformat() if 'start' in t else None
             stop = t['stop'].isoformat() if 'stop' in t else None
-            start_quoted = f'"{start}"' if start else ''
-            stop_quoted = f'"{stop}"' if start else ''
+            start_quoted = f'\'{start}\'' if start else ''
+            stop_quoted = f'\'{stop}\'' if start else ''
             return [f'time({start_quoted}:{stop_quoted})']
         else:
             return []

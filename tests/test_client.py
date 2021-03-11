@@ -22,7 +22,7 @@ def expected_full_url(request):
     if request.temporal:
         start = request.temporal['start']
         stop = request.temporal['stop']
-        temporal_params = [f'subset=time("{start.isoformat()}":"{stop.isoformat()}")']
+        temporal_params = [f'subset=time(\'{start.isoformat()}\':\'{stop.isoformat()}\')']
 
     query_params = '&'.join(spatial_params + temporal_params)
     if request.format is not None:
@@ -179,14 +179,14 @@ def test_with_invalid_request():
 
 
 @pytest.mark.parametrize('param,expected', [
-    ({'crs': 'epsg:3141'}, 'outputcrs=\'epsg:3141\''),
-    ({'interpolation': 'nearest'}, 'interpolation=\'nearest\''),
+    ({'crs': 'epsg:3141'}, 'outputcrs=epsg:3141'),
+    ({'interpolation': 'nearest'}, 'interpolation=nearest'),
     ({'scale_extent': [1.0, 2.0, 1.0, 4.0]}, 'scaleExtent=1.0,2.0,1.0,4.0'),
     ({'scale_size': [1.0, 2.0]}, 'scaleSize=1.0,2.0'),
     ({'granule_id': ['G1', 'G2', 'G3']}, 'granuleId=G1&granuleId=G2&granuleId=G3'),
     ({'width': 100}, 'width=100'),
     ({'height': 200}, 'height=200'),
-    ({'format': 'r2d2/hologram'}, 'format=\'r2d2/hologram\''),
+    ({'format': 'r2d2/hologram'}, 'format=r2d2/hologram'),
     ({'force_async': True}, 'forceAsync=true'),
     ({'max_results': 7}, 'maxResults=7'),
 ])
