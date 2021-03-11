@@ -127,9 +127,9 @@ class Request:
         self.temporal = temporal
         self.crs: Optional[str] = crs
         self.interpolation: Optional[str] = interpolation
-        self.scale_extent: Optional[list[float]] = scale_extent
-        self.scale_size: Optional[list[float]] = scale_size
-        self.granule_id: Optional[list[str]] = granule_id
+        self.scale_extent: Optional[List[float]] = scale_extent
+        self.scale_size: Optional[List[float]] = scale_size
+        self.granule_id: Optional[List[str]] = granule_id
         self.width: Optional[int] = width
         self.height: Optional[int] = height
         self.format: Optional[str] = format
