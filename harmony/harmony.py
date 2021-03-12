@@ -112,29 +112,31 @@ class Request:
                  spatial: BBox = None,
                  temporal: dict = None,
                  crs: str = None,
+                 format: str = None,
+                 granule_id: List[str] = None,
+                 height: int = None,
                  interpolation: str = None,
+                 max_results: int = None,
                  scale_extent: List[float] = None,
                  scale_size: List[float] = None,
-                 granule_id: List[str] = None,
+                 variables: List[str] = ['all'],
                  width: int = None,
-                 height: int = None,
-                 format: str = None,
-                 force_async: bool = None,
-                 max_results: int = None):
+                 force_async: bool = None):
 
         self.collection = collection
         self.spatial = spatial
         self.temporal = temporal
         self.crs = crs
+        self.format = format
+        self.granule_id = granule_id
+        self.height = height
         self.interpolation = interpolation
+        self.max_results = max_results
         self.scale_extent = scale_extent
         self.scale_size = scale_size
-        self.granule_id = granule_id
+        self.variables = variables
         self.width = width
-        self.height = height
-        self.format = format
         self.force_async = force_async
-        self.max_results = max_results
 
         self.variable_name_to_query_param = {
             'crs': 'outputcrs',
@@ -244,9 +246,11 @@ class Client:
 
     def _url(self, request: Request) -> str:
         """Constructs the URL from the given request."""
+        variables = [v.replace('/', '%2F') for v in request.variables]
+        vars = ','.join(variables)
         return (
             f'https://{self.config.harmony_hostname}/{request.collection.id}'
-            '/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset'
+            f'/ogc-api-coverages/1.0.0/collections/{vars}/coverage/rangeset'
         )
 
     def _params(self, request: Request) -> dict:
@@ -264,7 +268,6 @@ class Client:
                 params[p] = str(val).lower()
             elif type(val) == list and type(val[0]) != str:
                 params[p] = ','.join([str(v) for v in val])
-                print(params)
             else:
                 params[p] = val
 
