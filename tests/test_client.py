@@ -2,6 +2,7 @@ import datetime as dt
 import json
 import urllib.parse
 
+import dateutil.parser
 import pytest
 from requests_futures.sessions import FuturesSession
 import responses
@@ -186,19 +187,13 @@ def test_status():
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
     exp_job = expected_job(collection.id, job_id)
     expected_status = {
-        'progress': exp_job['progress'],
         'status': exp_job['status'],
         'message': exp_job['message'],
-        'createdAt': exp_job['createdAt'],
-        'updatedAt': exp_job['updatedAt'],
+        'progress': exp_job['progress'],
+        'created_at': dateutil.parser.parse(exp_job['createdAt']),
+        'updated_at': dateutil.parser.parse(exp_job['updatedAt']),
         'request': exp_job['request'],
-        'numInputGranules': exp_job['numInputGranules']}
-    responses.add(
-        responses.GET,
-        expected_status_url(job_id),
-        status=200,
-        json=exp_job
-    )
+        'num_input_granules': exp_job['numInputGranules']}
     responses.add(
         responses.GET,
         expected_status_url(job_id),
@@ -206,13 +201,31 @@ def test_status():
         json=exp_job
     )
 
-    actual_status = []
-    actual_status.append(Client(should_validate_auth=False).status(job_id, progress_only=False))
-    actual_status.append(Client(should_validate_auth=False).status(job_id, progress_only=True))
+    actual_status = Client(should_validate_auth=False).status(job_id)
 
-    assert len(responses.calls) == 2
+    assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
     assert urllib.parse.unquote(responses.calls[0].request.url) == expected_status_url(job_id)
-    assert urllib.parse.unquote(responses.calls[1].request.url) == expected_status_url(job_id)
-    assert actual_status[0] == expected_status
-    assert actual_status[1] == expected_status['progress']
+    assert actual_status == expected_status
+
+
+
+@responses.activate
+def test_progress():
+    collection = Collection(id='C333666999-EOSDIS')
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    exp_job = expected_job(collection.id, job_id)
+    expected_progress = int(exp_job['progress'])
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=200,
+        json=exp_job
+    )
+
+    actual_progress = Client(should_validate_auth=False).progress(job_id)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_status_url(job_id)
+    assert actual_progress == expected_progress

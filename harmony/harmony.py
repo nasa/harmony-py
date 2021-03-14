@@ -1,5 +1,7 @@
 from typing import NamedTuple
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
+
+import dateutil.parser
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
@@ -227,18 +229,14 @@ class Client:
 
         return job_id
 
-    def status(self, job_id: str, progress_only=False) -> Union[str, dict]:
-        """Returns job metadata from Harmony.
-
-        If ``progress_only`` is True, return the job's percent complete. If ``progress_only`` is
-        False, return dict containing job metadata.
+    def status(self, job_id: str) -> dict:
+        """Retrieve a submitted job's metadata from Harmony.
 
         Args:
             job_id: UUID string for the job you wish to interrogate.
-            progress_only: An option to change the output format.
 
         Returns:
-            Either the percent complete or a dict of metadata.
+            A dict of metadata.
 
         :raises Exception: This can happen if an invalid job_id is provided or Harmony services
         can't be reached.
@@ -246,14 +244,38 @@ class Client:
         session = self._session()
         response = session.get(self._status_url(job_id)).result()
         if response.ok:
-            if progress_only:
-                return (response.json())['progress']
-            else:
-                fields = [
-                    'status', 'message', 'progress', 'createdAt', 'updatedAt', 'request',
-                    'numInputGranules'
-                ]
-                info_subset = {k: v for k, v in response.json().items() if k in fields}
-                return info_subset
+            fields = [
+                'status', 'message', 'progress', 'createdAt', 'updatedAt', 'request',
+                'numInputGranules'
+            ]
+            status_subset = {k: v for k, v in response.json().items() if k in fields}
+            return {
+                'status': status_subset['status'],
+                'message': status_subset['message'],
+                'progress': status_subset['progress'],
+                'created_at': dateutil.parser.parse(status_subset['createdAt']),
+                'updated_at': dateutil.parser.parse(status_subset['updatedAt']),
+                'request': status_subset['request'],
+                'num_input_granules': int(status_subset['numInputGranules']),
+            }
+        else:
+            response.raise_for_status()
+
+    def progress(self, job_id: str) -> int:
+        """Retrieve a submitted job's completion status in percent.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+
+        Returns:
+            The job's processing progress as a percentage.
+
+        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
+        can't be reached.
+        """
+        session = self._session()
+        response = session.get(self._status_url(job_id)).result()
+        if response.ok:
+            return int((response.json())['progress'])
         else:
             response.raise_for_status()
