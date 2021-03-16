@@ -1,5 +1,5 @@
 from typing import NamedTuple
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import dateutil.parser
 
@@ -73,21 +73,84 @@ class Request:
     Parameters:
     -----------
     collection: The CMR collection that should be queried
+
+    Keyword-Only:
+    -------------
     spatial: Bounding box spatial constraints on the data
+
     temporal: Date/time constraints on the data
+
+    crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
+      inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
+      (http://www.opengis.net/def/crs/...)
+
+    interpolation: specify the interpolation method used during reprojection and scaling
+
+    scale_extent: scale the resulting coverage either among one axis to a given extent
+
+    scale_size: scale the resulting coverage either among one axis to a given size
+
+    granule_id: The CMR Granule ID for the granule which should be retrieved
+
+    width: number of columns to return in the output coverage
+
+    height: number of rows to return in the output coverage
+
+    format: the output mime type to return
+
+    force_async: if "true", override the default API behavior and always treat the request as
+      asynchronous
+
+    max_results: limits the number of input granules processed in the request
 
     Returns:
     --------
     A Harmony Request instance
     """
 
-    def __init__(self, collection: Collection, spatial: BBox = None, temporal: dict = None):
+    def __init__(self,
+                 collection: Collection,
+                 *,
+                 spatial: BBox = None,
+                 temporal: dict = None,
+                 crs: str = None,
+                 interpolation: str = None,
+                 scale_extent: List[float] = None,
+                 scale_size: List[float] = None,
+                 granule_id: List[str] = None,
+                 width: int = None,
+                 height: int = None,
+                 format: str = None,
+                 force_async: bool = None,
+                 max_results: int = None):
+
         self.collection = collection
         self.spatial = spatial
         self.temporal = temporal
-        # NOTE: The format is temporary until HARMONY-708:
-        #       https://bugs.earthdata.nasa.gov/browse/HARMONY-708
-        self.format: str = 'image/tiff'
+        self.crs = crs
+        self.interpolation = interpolation
+        self.scale_extent = scale_extent
+        self.scale_size = scale_size
+        self.granule_id = granule_id
+        self.width = width
+        self.height = height
+        self.format = format
+        self.force_async = force_async
+        self.max_results = max_results
+
+        self.variable_name_to_query_param = {
+            'crs': 'outputcrs',
+            'interpolation': 'interpolation',
+            'scale_extent': 'scaleExtent',
+            'scale_size': 'scaleSize',
+            'granule_id': 'granuleId',
+            'width': 'width',
+            'height': 'height',
+            'format': 'format',
+            'force_async': 'forceAsync',
+            'max_results': 'maxResults',
+        }
+
         self.spatial_validations = [
             (lambda bb: bb.s < bb.n, 'Southern latitude must be less than Northern latitude'),
             (lambda bb: bb.s >= -90.0, 'Southern latitude must be greater than -90.0'),
@@ -106,6 +169,12 @@ class Request:
             (lambda tr: tr['start'] < tr['stop'] if 'start' in tr and 'stop' in tr else True,
              'The temporal range\'s start must be earlier than its stop datetime.')
         ]
+
+    def parameter_values(self) -> List[Tuple[str, Any]]:
+        """Returns tuples of each query parameter that has been set and its value."""
+        pvs = [(param, getattr(self, variable))
+               for variable, param in self.variable_name_to_query_param.items()]
+        return [(p, v) for p, v in pvs if v is not None]
 
     def is_valid(self) -> bool:
         """Determines if the request and its parameters are valid."""
@@ -170,6 +239,7 @@ class Client:
             validate_auth(self.config, self._session())
 
     def _session(self):
+        """Creates (if needed) and returns the Client's requests Session."""
         if self.session is None:
             self.session = create_session(self.config, self.auth)
         return self.session
@@ -187,9 +257,21 @@ class Client:
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
-        params['subset'] = (self._spatial_subset_params(request)
-                            + self._temporal_subset_params(request))
-        params['format']: request.format
+
+        subset = self._spatial_subset_params(request) + self._temporal_subset_params(request)
+        if len(subset) > 0:
+            params['subset'] = subset
+
+        for p, val in request.parameter_values():
+            if type(val) == str:
+                params[p] = val
+            elif type(val) == bool:
+                params[p] = str(val).lower()
+            elif type(val) == list and type(val[0]) != str:
+                params[p] = ','.join([str(v) for v in val])
+                print(params)
+            else:
+                params[p] = val
 
         return params
 
@@ -207,14 +289,19 @@ class Client:
             t = request.temporal
             start = t['start'].isoformat() if 'start' in t else None
             stop = t['stop'].isoformat() if 'stop' in t else None
-            start_quoted = f'"{start}"' if start else ''
-            stop_quoted = f'"{stop}"' if start else ''
+            start_quoted = f'\'{start}\'' if start else ''
+            stop_quoted = f'\'{stop}\'' if start else ''
             return [f'time({start_quoted}:{stop_quoted})']
         else:
             return []
 
     def submit(self, request: Request) -> Optional[str]:
-        """Submits a request to Harmony and returns the Harmony job details."""
+        """Submits a request to Harmony and returns the Harmony job details.
+
+        Parameters:
+        -----------
+        request: The Request to submit to Harmony (will be validated before sending)
+        """
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
             raise Exception(f"Cannot submit an invalid request: [{msgs}]")

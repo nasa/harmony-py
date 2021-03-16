@@ -97,11 +97,12 @@ def test_request_spatial_error_messages(key, value, message):
     (
         'temporal', {
             'foo': None
-        }, 
-        'When included in the request, the temporal range should include a start or stop attribute.'
+        },
+        ('When included in the request, the temporal range should include a '
+         'start or stop attribute.')
     ), (
         'temporal', {
-            'start': dt.datetime(1969, 7, 20), 
+            'start': dt.datetime(1969, 7, 20),
             'stop': dt.datetime(1941, 12, 7)
         }, 
         'The temporal range\'s start must be earlier than its stop datetime.'
@@ -113,10 +114,3 @@ def test_request_temporal_error_messages(key, value, message):
 
     assert not request.is_valid()
     assert message in messages
-
-
-def test_request_has_format():
-    # NOTE: This test is temporary until HARMONY-708:
-    #       https://bugs.earthdata.nasa.gov/browse/HARMONY-708
-    request = Request(collection=Collection('foobar'))
-    assert request.format is not None

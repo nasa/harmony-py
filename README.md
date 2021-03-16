@@ -102,6 +102,14 @@ For development, you may want to run the unit tests continuously as you update t
 > make test-watch
 
 
+### Generating Request Parameters
+
+The `harmony.Request` constructor can accept parameters that are defined in the [Harmony OGC API schema](). If this schema has been changed and the `Request` constructor needs to be updated, you may run the generator utility. This tool reads the Harmony schema and generates a partial constructor signature with docstrings:
+
+> python internal/genparams.py ${HARMONY_DIR}/app/schemas/ogc-api-coverages/1.0.0/ogc-api-coverages-v1.0.0.yml
+
+Either set HARMONY_DIR or replace it with your Harmony project directory path. You may then write standard output to a file and then use it to update the `harmony.Request` constructor and code.
+
 ## CI
 
 Harmony-py uses [GitHub

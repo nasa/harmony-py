@@ -21,15 +21,19 @@ def expected_status_url(job_id):
 
 def expected_full_submit_url(request):
     spatial_params = []
-    temporal_params = []
     if request.spatial:
         w, s, e, n = request.spatial
         spatial_params = [f'subset=lat({s}:{n})', f'subset=lon({w}:{e})']
+
+    temporal_params = []
     if request.temporal:
         start = request.temporal['start']
         stop = request.temporal['stop']
-        temporal_params = [f'subset=time("{start.isoformat()}":"{stop.isoformat()}")']
+        temporal_params = [f'subset=time(\'{start.isoformat()}\':\'{stop.isoformat()}\')']
+
     query_params = '&'.join(spatial_params + temporal_params)
+    if request.format is not None:
+        query_params += f'&format{request.format}'
 
     return f'{expected_submit_url(request.collection.id)}?{query_params}'
 
@@ -129,7 +133,7 @@ def test_with_temporal_range():
     )
     job_id = '1234abcd-deed-9876-c001-f00dbad'
     responses.add(
-        responses.GET, 
+        responses.GET,
         expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, job_id)
@@ -156,9 +160,9 @@ def test_with_bounding_box_and_temporal_range():
     )
     job_id = '1234abcd-1234-9876-6666-999999abcd'
     responses.add(
-        responses.GET, 
+        responses.GET,
         expected_submit_url(collection.id),
-        status=200, 
+        status=200,
         json=expected_job(collection.id, job_id)
     )
 
@@ -179,6 +183,38 @@ def test_with_invalid_request():
 
     with pytest.raises(Exception):
         Client(should_validate_auth=False).submit(request)
+
+
+@pytest.mark.parametrize('param,expected', [
+    ({'crs': 'epsg:3141'}, 'outputcrs=epsg:3141'),
+    ({'interpolation': 'nearest'}, 'interpolation=nearest'),
+    ({'scale_extent': [1.0, 2.0, 1.0, 4.0]}, 'scaleExtent=1.0,2.0,1.0,4.0'),
+    ({'scale_size': [1.0, 2.0]}, 'scaleSize=1.0,2.0'),
+    ({'granule_id': ['G1', 'G2', 'G3']}, 'granuleId=G1&granuleId=G2&granuleId=G3'),
+    ({'width': 100}, 'width=100'),
+    ({'height': 200}, 'height=200'),
+    ({'format': 'r2d2/hologram'}, 'format=r2d2/hologram'),
+    ({'force_async': True}, 'forceAsync=true'),
+    ({'max_results': 7}, 'maxResults=7'),
+])
+@responses.activate
+def test_request_has_query_param(param, expected):
+    collection = Collection('foobar')
+    request = Request(
+        collection=collection,
+        **param
+    )
+    responses.add(
+        responses.GET,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, 'abcd-1234'),
+    )
+
+    Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert urllib.parse.unquote(responses.calls[0].request.url).index(expected) >= 0
 
 
 @responses.activate
