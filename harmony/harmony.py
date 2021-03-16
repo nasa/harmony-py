@@ -1,6 +1,8 @@
 from typing import NamedTuple
 from typing import List, Optional, Tuple
 
+import dateutil.parser
+
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
 
@@ -161,7 +163,6 @@ class Client:
             should_validate_auth: Whether EDL credentials will be validated.
         """
         self.config = Config(env)
-        self.hostname: str = self.config.hostname
         self.session = None
         self.auth = auth
 
@@ -173,12 +174,15 @@ class Client:
             self.session = create_session(self.config, self.auth)
         return self.session
 
-    def _url(self, request: Request) -> str:
+    def _submit_url(self, request: Request) -> str:
         """Constructs the URL from the given request."""
         return (
-            f'https://{self.hostname}/{request.collection.id}'
+            f'https://{self.config.harmony_hostname}/{request.collection.id}'
             '/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset'
         )
+
+    def _status_url(self, job_id: str) -> str:
+        return f'https://{self.config.harmony_hostname}/jobs/{job_id}'
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
@@ -209,18 +213,69 @@ class Client:
         else:
             return []
 
-    def submit(self, request: Request) -> Optional[dict]:
+    def submit(self, request: Request) -> Optional[str]:
         """Submits a request to Harmony and returns the Harmony job details."""
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
             raise Exception(f"Cannot submit an invalid request: [{msgs}]")
 
-        job = None
+        job_id = None
         session = self._session()
-        response = session.get(self._url(request), params=self._params(request)).result()
+        response = session.get(self._submit_url(request), params=self._params(request)).result()
         if response.ok:
-            job = response.json()
+            job_id = (response.json())['jobID']
         else:
             response.raise_for_status()
 
-        return job
+        return job_id
+
+    def status(self, job_id: str) -> dict:
+        """Retrieve a submitted job's metadata from Harmony.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+
+        Returns:
+            A dict of metadata.
+
+        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
+        can't be reached.
+        """
+        session = self._session()
+        response = session.get(self._status_url(job_id)).result()
+        if response.ok:
+            fields = [
+                'status', 'message', 'progress', 'createdAt', 'updatedAt', 'request',
+                'numInputGranules'
+            ]
+            status_subset = {k: v for k, v in response.json().items() if k in fields}
+            return {
+                'status': status_subset['status'],
+                'message': status_subset['message'],
+                'progress': status_subset['progress'],
+                'created_at': dateutil.parser.parse(status_subset['createdAt']),
+                'updated_at': dateutil.parser.parse(status_subset['updatedAt']),
+                'request': status_subset['request'],
+                'num_input_granules': int(status_subset['numInputGranules']),
+            }
+        else:
+            response.raise_for_status()
+
+    def progress(self, job_id: str) -> int:
+        """Retrieve a submitted job's completion status in percent.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+
+        Returns:
+            The job's processing progress as a percentage.
+
+        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
+        can't be reached.
+        """
+        session = self._session()
+        response = session.get(self._status_url(job_id)).result()
+        if response.ok:
+            return int((response.json())['progress'])
+        else:
+            response.raise_for_status()

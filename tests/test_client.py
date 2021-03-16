@@ -1,18 +1,25 @@
 import datetime as dt
+import json
 import urllib.parse
 
+import dateutil.parser
 import pytest
+from requests_futures.sessions import FuturesSession
 import responses
 
 from harmony.harmony import BBox, Client, Collection, Request
 
 
-def expected_url(collection_id):
+def expected_submit_url(collection_id):
     return (f'https://harmony.uat.earthdata.nasa.gov/{collection_id}'
             '/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset')
 
 
-def expected_full_url(request):
+def expected_status_url(job_id):
+    return f'https://harmony.uat.earthdata.nasa.gov/jobs/{job_id}'
+
+
+def expected_full_submit_url(request):
     spatial_params = []
     temporal_params = []
     if request.spatial:
@@ -24,7 +31,7 @@ def expected_full_url(request):
         temporal_params = [f'subset=time("{start.isoformat()}":"{stop.isoformat()}")']
     query_params = '&'.join(spatial_params + temporal_params)
 
-    return f'{expected_url(request.collection.id)}?{query_params}'
+    return f'{expected_submit_url(request.collection.id)}?{query_params}'
 
 
 def expected_job(collection_id, job_id):
@@ -51,7 +58,7 @@ def expected_job(collection_id, job_id):
             '&subset=time(%222010-01-01T00%3A00%3A00%22%3A%222020-12-30T00%3A00%3A00%22)'
         ),
         'numInputGranules': 32,
-        'jobID': '{job_id}'
+        'jobID': f'{job_id}'
     }
 
 
@@ -71,7 +78,7 @@ def test_when_multiple_submits_it_only_authenticates_once():
     )
     responses.add(
         responses.GET,
-        expected_url(collection.id),
+        expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, job_id)
     )
@@ -83,8 +90,8 @@ def test_when_multiple_submits_it_only_authenticates_once():
     assert len(responses.calls) == 3
     assert responses.calls[0].request.url == auth_url
     assert urllib.parse.unquote(responses.calls[0].request.url) == auth_url
-    assert urllib.parse.unquote(responses.calls[1].request.url) == expected_full_url(request)
-    assert urllib.parse.unquote(responses.calls[2].request.url) == expected_full_url(request)
+    assert urllib.parse.unquote(responses.calls[1].request.url) == expected_full_submit_url(request)
+    assert urllib.parse.unquote(responses.calls[2].request.url) == expected_full_submit_url(request)
 
 
 @responses.activate
@@ -97,17 +104,17 @@ def test_with_bounding_box():
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
     responses.add(
         responses.GET,
-        expected_url(collection.id),
+        expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, job_id)
     )
 
-    job = Client(should_validate_auth=False).submit(request)
+    actual_job_id = Client(should_validate_auth=False).submit(request)
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_url(request)
-    assert job is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert actual_job_id == job_id
 
 
 @responses.activate
@@ -123,17 +130,17 @@ def test_with_temporal_range():
     job_id = '1234abcd-deed-9876-c001-f00dbad'
     responses.add(
         responses.GET, 
-        expected_url(collection.id),
+        expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, job_id)
     )
 
-    job = Client(should_validate_auth=False).submit(request)
+    actual_job_id = Client(should_validate_auth=False).submit(request)
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_url(request)
-    assert job is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert actual_job_id == job_id
 
 
 @responses.activate
@@ -150,17 +157,17 @@ def test_with_bounding_box_and_temporal_range():
     job_id = '1234abcd-1234-9876-6666-999999abcd'
     responses.add(
         responses.GET, 
-        expected_url(collection.id),
+        expected_submit_url(collection.id),
         status=200, 
         json=expected_job(collection.id, job_id)
     )
 
-    job = Client(should_validate_auth=False).submit(request)
+    actual_job_id = Client(should_validate_auth=False).submit(request)
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_url(request)
-    assert job is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert actual_job_id == job_id
 
 
 def test_with_invalid_request():
@@ -173,3 +180,52 @@ def test_with_invalid_request():
     with pytest.raises(Exception):
         Client(should_validate_auth=False).submit(request)
 
+
+@responses.activate
+def test_status():
+    collection = Collection(id='C333666999-EOSDIS')
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    exp_job = expected_job(collection.id, job_id)
+    expected_status = {
+        'status': exp_job['status'],
+        'message': exp_job['message'],
+        'progress': exp_job['progress'],
+        'created_at': dateutil.parser.parse(exp_job['createdAt']),
+        'updated_at': dateutil.parser.parse(exp_job['updatedAt']),
+        'request': exp_job['request'],
+        'num_input_granules': exp_job['numInputGranules']}
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=200,
+        json=exp_job
+    )
+
+    actual_status = Client(should_validate_auth=False).status(job_id)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_status_url(job_id)
+    assert actual_status == expected_status
+
+
+
+@responses.activate
+def test_progress():
+    collection = Collection(id='C333666999-EOSDIS')
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    exp_job = expected_job(collection.id, job_id)
+    expected_progress = int(exp_job['progress'])
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=200,
+        json=exp_job
+    )
+
+    actual_progress = Client(should_validate_auth=False).progress(job_id)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_status_url(job_id)
+    assert actual_progress == expected_progress
