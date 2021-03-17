@@ -1,10 +1,25 @@
+from concurrent.futures import Future, ThreadPoolExecutor
+from itertools import cycle, repeat
+import os
+import shutil
+import sys
+import time
 from typing import NamedTuple
 from typing import Any, List, Optional, Tuple
 
 import dateutil.parser
+import progressbar
+from requests import Session
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
+
+
+progressbar_widgets = [
+    ' [ Processing: ', progressbar.Percentage(), ' ] ',
+    progressbar.Bar(),
+    ' [', progressbar.RotatingMarker(), ']',
+]
 
 
 class Collection:
@@ -98,9 +113,6 @@ class Request:
 
     format: the output mime type to return
 
-    force_async: if "true", override the default API behavior and always treat the request as
-      asynchronous
-
     max_results: limits the number of input granules processed in the request
 
     Returns:
@@ -122,8 +134,7 @@ class Request:
                  scale_extent: List[float] = None,
                  scale_size: List[float] = None,
                  variables: List[str] = ['all'],
-                 width: int = None,
-                 force_async: bool = None):
+                 width: int = None):
 
         self.collection = collection
         self.spatial = spatial
@@ -138,7 +149,6 @@ class Request:
         self.scale_size = scale_size
         self.variables = variables
         self.width = width
-        self.force_async = force_async
 
         self.variable_name_to_query_param = {
             'crs': 'outputcrs',
@@ -149,7 +159,6 @@ class Request:
             'width': 'width',
             'height': 'height',
             'format': 'format',
-            'force_async': 'forceAsync',
             'max_results': 'maxResults',
         }
 
@@ -237,6 +246,9 @@ class Client:
         self.session = None
         self.auth = auth
 
+        num_workers = int(self.config.NUM_REQUESTS_WORKERS)
+        self.executor = executor = ThreadPoolExecutor(max_workers=num_workers)
+
         if should_validate_auth:
             validate_auth(self.config, self._session())
 
@@ -260,7 +272,7 @@ class Client:
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
-        params = {}
+        params = {'forceAsync': True}
 
         subset = self._spatial_subset_params(request) + self._temporal_subset_params(request)
         if len(subset) > 0:
@@ -311,7 +323,7 @@ class Client:
 
         job_id = None
         session = self._session()
-        response = session.get(self._submit_url(request), params=self._params(request)).result()
+        response = session.get(self._submit_url(request), params=self._params(request))
         if response.ok:
             job_id = (response.json())['jobID']
         else:
@@ -332,7 +344,7 @@ class Client:
         can't be reached.
         """
         session = self._session()
-        response = session.get(self._status_url(job_id)).result()
+        response = session.get(self._status_url(job_id))
         if response.ok:
             fields = [
                 'status', 'message', 'progress', 'createdAt', 'updatedAt', 'request',
@@ -364,8 +376,73 @@ class Client:
         can't be reached.
         """
         session = self._session()
-        response = session.get(self._status_url(job_id)).result()
+        response = session.get(self._status_url(job_id))
         if response.ok:
             return int((response.json())['progress'])
         else:
             response.raise_for_status()
+
+
+    def wait_for_processing(self, job_id: str, show_progress=False) -> None:
+        check_interval = 3.0  # in seconds
+        sleep_interval = 0.33  # in seconds
+        intervals = int(check_interval / sleep_interval)
+        if show_progress:
+            with progressbar.ProgressBar(max_value=100, widgets=progressbar_widgets) as bar:
+                progress = None
+                check_cycle = cycle([True] + list(repeat(False, intervals - 1)))
+                for should_get in check_cycle:
+                    if should_get:
+                        progress = self.progress(job_id)
+                    bar.update(progress)
+                    sys.stdout.flush()  # ensures correct behavior in Jupyter notebooks
+                    if progress >= 100:
+                        break
+                    else:
+                        time.sleep(sleep_interval)
+        else:
+            while self.progress(job_id) < 100:
+                time.sleep(check_interval)
+
+
+    def result_json(self, job_id: str, show_progress=False) -> str:
+        self.wait_for_processing(job_id, show_progress)
+        response = self._session().get(self._status_url(job_id))
+        return response.json()
+
+
+    def result_urls(self, job_id: str, show_progress=False) -> List:
+        data = self.result_json(job_id, show_progress)
+        urls = [x['href'] for x in data['links'] if x['rel'] == 'data']
+        return urls
+
+
+    def _download_file(self, url, directory=None, overwrite=False) -> str:
+        chunksize = int(self.config.DOWNLOAD_CHUNK_SIZE)
+        session = self._session()
+        filename = url.split('/')[-1]
+
+        if directory:
+            filename = os.path.join(directory, local_filename)
+
+        if not overwrite and os.path.isfile(filename):
+            return filename
+        else:
+            with session.get(url, stream=True) as r:
+                with open(filename, 'wb') as f:
+                    shutil.copyfileobj(r.raw, f, length=chunksize)
+            return filename
+
+
+    def download(self, url, directory=None, overwrite=False) -> Future:
+        future = self.executor.submit(self._download_file, url, directory, overwrite)
+        return future
+
+
+    def download_all(self, job_id: str, directory=None, overwrite=False) -> List[Future]:
+        urls = self.result_urls(job_id, show_progress=False) or []
+        file_names = []
+        for url in urls:
+            future = self.executor.submit(self._download_file, url, directory, overwrite)
+            file_names.append(future)
+        return file_names
