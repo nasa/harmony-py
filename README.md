@@ -20,7 +20,7 @@
 
 The library is available from [PyPI](#TODO) and can be installed with pip:
 
-> pip install -U harmony-py
+        $ pip install -U harmony-py
 
 This will install harmony-py and its dependencies into your current Python environment. It's recommended that you install harmony-py into a virtualenv along with any other dependencies you may have.
 
@@ -39,32 +39,33 @@ First, it's recommended that you create a Python virtualenv so that Harmony Py a
 
 1a. Create a virtualenv with venv:
 
-> make venv-setup
-> source .venv/bin/activate
+        $ make venv-setup
+        $ source .venv/bin/activate
 
 To deactivate it:
-> source deactivate
+
+        $ source deactivate
 
 1b. Use pyenv & pyenv-virtualenv. This will install Python 3.9 & create a virtualenv using that version of Python. Important: if this is your first time using pyenv to install Python, be sure that you have the [Python build requirements installed](https://github.com/pyenv/pyenv/wiki#suggested-build-environment) first.
 
-> make pyenv-setup
+        $ make pyenv-setup
 
 If you've setup pyenv with your shell properly, it should automatically activate the environment. You can check if it's activated by:
 
-> pyenv version
+        $ pyenv version
 
 It should show `harmony-py`. Pyenv does auto-activation by creating a `.python-version` file in the project directory. Most shells can be setup to automatically activate & deactivate virtual environments when cd'ing into & out of directories by using the value found in `.python-version`. This is convenient since it ensures that the correct virtualenv has been activated (and deactivated) when starting work on a project. See the pyenv docs for more details. If you need to manually activate & deactivate:
 
-> pyenv activate harmony-py
-> pyenv deactivate
+        $ pyenv activate harmony-py
+        $ pyenv deactivate
 
 2. Install dependencies:
 
-> make install
+        $ make install
 
 3. Optionally register your local copy with pip:
 
-> pip install -e ./path/to/harmony_py
+        $ pip install -e ./path/to/harmony_py
 
 
 ## Running the Example Jupyter Notebooks
@@ -73,7 +74,7 @@ Jupyter notebooks in the `examples` subdirectory show how to use the Harmony Py 
 
 The Jupyter Lab server will start and [open in your browser](http://localhost:8888/lab). Double-click on a notebook in the file-browser sidebar and run the notebook. Note that some notebooks may have cells which prompt for your EDL username and password. Be sure to use your UAT credentials since all of the example notebooks use the Harmony UAT environment.
 
-> make examples
+        $ make examples
 
 
 ## Developing
@@ -82,7 +83,7 @@ The Jupyter Lab server will start and [open in your browser](http://localhost:88
 
 Documentation is formatted in reStructuredText (.rst) and generated with `sphinx`. To build the documentation:
 
-> make docs
+        $ make docs
 
 You can then view the documentation in a web browser under ./docs/_build/html/index.html
 
@@ -91,24 +92,24 @@ You can then view the documentation in a web browser under ./docs/_build/html/in
 
 Run the linter on the project source:
 
-> make lint
+        $ make lint
 
 Run unit tests and test coverage. This will display terminal output and generate an HTML coverage report in the `htmlcov` directory.
 
-> make test
+        $ make test
 
 For development, you may want to run the unit tests continuously as you update tests and the code-under-test:
 
-> make test-watch
+        $ make test-watch
 
 
 ### Generating Request Parameters
 
 The `harmony.Request` constructor can accept parameters that are defined in the [Harmony OGC API schema](). If this schema has been changed and the `Request` constructor needs to be updated, you may run the generator utility. This tool reads the Harmony schema and generates a partial constructor signature with docstrings:
 
-> python internal/genparams.py ${HARMONY_DIR}/app/schemas/ogc-api-coverages/1.0.0/ogc-api-coverages-v1.0.0.yml
+        $ python internal/genparams.py ${HARMONY_DIR}/app/schemas/ogc-api-coverages/1.0.0/ogc-api-coverages-v1.0.0.yml
 
-Either set HARMONY_DIR or replace it with your Harmony project directory path. You may then write standard output to a file and then use it to update the `harmony.Request` constructor and code.
+Either set `HARMONY_DIR` or replace it with your Harmony project directory path. You may then write standard output to a file and then use it to update the `harmony.Request` constructor and code.
 
 ## CI
 
