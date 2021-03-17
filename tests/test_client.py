@@ -20,6 +20,8 @@ def expected_status_url(job_id):
 
 
 def expected_full_submit_url(request):
+    async_params = ['forceAsync=True']
+
     spatial_params = []
     if request.spatial:
         w, s, e, n = request.spatial
@@ -31,7 +33,7 @@ def expected_full_submit_url(request):
         stop = request.temporal['stop']
         temporal_params = [f'subset=time("{start.isoformat()}":"{stop.isoformat()}")']
 
-    query_params = '&'.join(spatial_params + temporal_params)
+    query_params = '&'.join(async_params + spatial_params + temporal_params)
     if request.format is not None:
         query_params += f'&format{request.format}'
 
@@ -57,7 +59,8 @@ def expected_job(collection_id, job_id):
         'request': (
             'https://harmony.uat.earthdata.nasa.gov/{collection_id}/ogc-api-coverages/1.0.0'
             '/collections/all/coverage/rangeset'
-            '?subset=lat(52%3A77)'
+            '?forceAsync=True'
+            '&subset=lat(52%3A77)'
             '&subset=lon(-165%3A-140)'
             '&subset=time(%222010-01-01T00%3A00%3A00%22%3A%222020-12-30T00%3A00%3A00%22)'
         ),
@@ -187,7 +190,6 @@ def test_with_invalid_request():
 
 @pytest.mark.parametrize('param,expected', [
     ({'crs': 'epsg:3141'}, 'outputcrs=epsg:3141'),
-    ({'force_async': True}, 'forceAsync=true'),
     ({'format': 'r2d2/hologram'}, 'format=r2d2/hologram'),
     ({'granule_id': ['G1', 'G2', 'G3']}, 'granuleId=G1&granuleId=G2&granuleId=G3'),
     ({'height': 200}, 'height=200'),

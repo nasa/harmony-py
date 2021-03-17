@@ -1,8 +1,13 @@
 import pytest
+import responses
 
 from harmony.auth import (_is_edl_hostname, create_session, validate_auth,
                           BadAuthentication, MalformedCredentials, SessionWithHeaderRedirection)
 from harmony.config import Config
+
+
+class Object(object):
+    pass
 
 
 @pytest.fixture
@@ -10,18 +15,11 @@ def config():
     return Config()
 
 
-@pytest.fixture
-def futuressessions_mocker(mocker):
-    def _futuresessions_mocker(status_code):
-        FuturesSession_mock = mocker.PropertyMock()
-        FuturesSession_mock.get().result().configure_mock(status_code=status_code)
-        return FuturesSession_mock
-
-    return _futuresessions_mocker
-
-
-def test_authentication_no_args_no_validate(config):
-    session = create_session(config)
+def test_authentication_no_args_no_validate():
+    fake_config = Object()
+    fake_config.EDL_USERNAME = None
+    fake_config.EDL_PASSWORD = None
+    session = create_session(fake_config)
     assert session.auth is None
 
 
@@ -50,24 +48,31 @@ def test_authentication_with_malformed_auth(auth, config, mocker):
     assert 'Authentication: `auth` argument requires tuple' in str(exc_info.value)
 
 
+@responses.activate
 @pytest.mark.parametrize('status_code,should_error',
                          [(200, False), (401, True), (500, True)])
-def test_authentication(status_code, should_error, config, mocker, futuressessions_mocker):
-    fsm = futuressessions_mocker(status_code)
-    mocker.patch('harmony.auth.FuturesSession', return_value=fsm)
+def test_authentication(status_code, should_error, config, mocker):
+    auth_url = 'https://harmony.uat.earthdata.nasa.gov/jobs'
+    responses.add(
+        responses.GET,
+        auth_url,
+        status=status_code
+    )
 
     if should_error:
         with pytest.raises(BadAuthentication) as exc_info:
-            futures_session = create_session(config)
-            validate_auth(config, futures_session)
+            actual_session = create_session(config)
+            validate_auth(config, actual_session)
         if status_code == 401:
             assert 'Authentication: incorrect or missing credentials' in str(exc_info.value)
         elif status_code == 500:
             assert 'Authentication: An unknown error occurred' in str(exc_info.value)
     else:
-        futures_session = create_session(config)
-        validate_auth(config, futures_session)
-        assert futures_session is fsm
+        actual_session = create_session(config)
+        validate_auth(config, actual_session)
+        assert actual_session is not None
+
+
 
 
 def test_SessionWithHeaderRedirection_with_no_edl(mocker):
