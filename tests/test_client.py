@@ -1,5 +1,7 @@
 import datetime as dt
+import io
 import json
+import os
 import urllib.parse
 
 import dateutil.parser
@@ -386,3 +388,69 @@ def test_result_urls(mocker, show_progress):
     assert result_json_mock.called_with(client, job_id, show_progress)
 
 
+@pytest.mark.parametrize('overwrite', [
+    (True),
+    (False),
+])
+def test__download_file(overwrite):
+    # On first iteration, the local file is created with 'incorrect' data
+    #   - overwrite is True so local file is overwritten with expected_data
+    #   - assert filename and data are correct
+    # On second iteration, the local file is not overwritten
+    #   - AssertionError is thrown by pytest responses because no GET is actually performed
+    #   - assert filename and data are still correct
+    #   - local test file is deleted
+    expected_data = bytes('abcde', encoding='utf-8')
+    unexpected_data = bytes('vwxyz', encoding='utf-8')
+    expected_filename = 'pytest_tempfile.temp'
+    url = 'http://example.com/' + expected_filename
+    actual_output = None
+
+    with io.BytesIO() as file_obj:
+        file_obj.write(expected_data)
+        file_obj.seek(0)
+
+        if overwrite:
+            with open(expected_filename, 'wb') as f:
+                f.write(unexpected_data)
+
+            with responses.RequestsMock() as resp_mock:
+                resp_mock.add(responses.GET, url, body=file_obj.read(), stream=True)
+                client = Client(should_validate_auth=False)
+                actual_output = client._download_file(url, overwrite=overwrite)
+        else:
+            with pytest.raises(AssertionError):
+                # throws AssertionError because requests GET is never actually called here
+                with responses.RequestsMock() as resp_mock:
+                    resp_mock.add(responses.GET, url, body=file_obj.read(), stream=True)
+                    client = Client(should_validate_auth=False)
+                    actual_output = client._download_file(url, overwrite=overwrite)
+    
+    assert actual_output == expected_filename
+    with open(expected_filename, 'rb') as temp_file:
+        data = temp_file.read()
+        assert data == expected_data
+    
+    if not overwrite:
+        os.unlink(expected_filename)
+
+
+def test_download_all(mocker):
+    expected_urls = [
+        'http://www.example.com/1',
+        'http://www.example.com/2',
+        'http://www.example.com/3',
+    ]
+    expected_file_names = ['1', '2', '3']
+
+    result_urls_mock = mocker.Mock(return_value=expected_urls)
+    mocker.patch('harmony.harmony.Client.result_urls', result_urls_mock)
+    mocker.patch(
+        'harmony.harmony.Client._download_file',
+        lambda self, url, a, b: url.split('/')[-1]
+    )
+
+    client = Client(should_validate_auth=False)
+    actual_file_names = [f.result() for f in client.download_all('abcd-1234')]
+    
+    assert actual_file_names == expected_file_names
