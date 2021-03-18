@@ -247,7 +247,7 @@ class Client:
         self.auth = auth
 
         num_workers = int(self.config.NUM_REQUESTS_WORKERS)
-        self.executor = executor = ThreadPoolExecutor(max_workers=num_workers)
+        self.executor = ThreadPoolExecutor(max_workers=num_workers)
 
         if should_validate_auth:
             validate_auth(self.config, self._session())
@@ -382,7 +382,6 @@ class Client:
         else:
             response.raise_for_status()
 
-
     def wait_for_processing(self, job_id: str, show_progress=False) -> None:
         check_interval = 3.0  # in seconds
         ui_update_interval = 0.33  # in seconds
@@ -404,18 +403,15 @@ class Client:
             while self.progress(job_id) < 100:
                 time.sleep(check_interval)
 
-
     def result_json(self, job_id: str, show_progress=False) -> str:
         self.wait_for_processing(job_id, show_progress)
         response = self._session().get(self._status_url(job_id))
         return response.json()
 
-
     def result_urls(self, job_id: str, show_progress=False) -> List:
         data = self.result_json(job_id, show_progress)
         urls = [x['href'] for x in data['links'] if x['rel'] == 'data']
         return urls
-
 
     def _download_file(self, url, directory=None, overwrite=False) -> str:
         chunksize = int(self.config.DOWNLOAD_CHUNK_SIZE)
@@ -423,7 +419,7 @@ class Client:
         filename = url.split('/')[-1]
 
         if directory:
-            filename = os.path.join(directory, local_filename)
+            filename = os.path.join(directory, filename)
 
         if not overwrite and os.path.isfile(filename):
             return filename
@@ -433,11 +429,9 @@ class Client:
                     shutil.copyfileobj(r.raw, f, length=chunksize)
             return filename
 
-
     def download(self, url, directory=None, overwrite=False) -> Future:
         future = self.executor.submit(self._download_file, url, directory, overwrite)
         return future
-
 
     def download_all(self, job_id: str, directory=None, overwrite=False) -> List[Future]:
         urls = self.result_urls(job_id, show_progress=False) or []
