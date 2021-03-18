@@ -58,7 +58,6 @@ def test_authentication(status_code, should_error, config, mocker):
         auth_url,
         status=status_code
     )
-
     if should_error:
         with pytest.raises(BadAuthentication) as exc_info:
             actual_session = create_session(config)
@@ -71,8 +70,6 @@ def test_authentication(status_code, should_error, config, mocker):
         actual_session = create_session(config)
         validate_auth(config, actual_session)
         assert actual_session is not None
-
-
 
 
 def test_SessionWithHeaderRedirection_with_no_edl(mocker):

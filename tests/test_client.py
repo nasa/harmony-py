@@ -4,7 +4,6 @@ import urllib.parse
 
 import dateutil.parser
 import pytest
-from requests_futures.sessions import FuturesSession
 import responses
 
 from harmony.harmony import BBox, Client, Collection, Request
@@ -51,10 +50,32 @@ def expected_job(collection_id, job_id):
         'links': [
             {
                 'title': 'Job Status',
-                'href': 'https://harmony.uat.earthdata.nasa.gov/jobs/{job_id)',
+                'href': f'https://harmony.uat.earthdata.nasa.gov/jobs/{job_id}',
                 'rel': 'self',
                 'type': 'application/json'
-            }
+            },
+            {
+                'title': 'STAC catalog',
+                'href': f'https://harmony.uat.earthdata.nasa.gov/stac/{job_id}/',
+                'rel': 'stac-catalog-json',
+                'type': 'application/json'
+            },
+            {
+                'href': 'https://harmony.uat.earthdata.nasa.gov/service-results/fake.tif',
+                'title': '2020_01_15_fake.nc.tif',
+                'type': 'image/tiff',
+                'rel': 'data',
+                'bbox': [
+                    -179.95,
+                    -89.95,
+                    179.95,
+                    89.95
+                ],
+                'temporal': {
+                    'start': '2020-01-15T00:00:00.000Z',
+                    'end': '2020-01-15T23:59:59.000Z'
+                }
+            },
         ],
         'request': (
             'https://harmony.uat.earthdata.nasa.gov/{collection_id}/ogc-api-coverages/1.0.0'
@@ -219,12 +240,12 @@ def test_request_has_query_param(param, expected):
     assert urllib.parse.unquote(responses.calls[0].request.url).index(expected) >= 0
 
 
+@responses.activate
 @pytest.mark.parametrize('variables,expected', [
     (['one'], 'one'),
     (['red_var', 'green_var', 'blue_var'], 'red_var,green_var,blue_var'),
     (['/var/with/a/path'], '%2Fvar%2Fwith%2Fa%2Fpath')
 ])
-@responses.activate
 def test_request_has_variables(variables, expected):
     collection = Collection('foobar')
     request = Request(
@@ -269,7 +290,6 @@ def test_status():
     assert actual_status == expected_status
 
 
-
 @responses.activate
 def test_progress():
     collection = Collection(id='C333666999-EOSDIS')
@@ -289,3 +309,80 @@ def test_progress():
     assert responses.calls[0].request is not None
     assert urllib.parse.unquote(responses.calls[0].request.url) == expected_status_url(job_id)
     assert actual_progress == expected_progress
+
+
+@pytest.mark.parametrize('show_progress', [
+    (True),
+    (False),
+])
+def test_wait_for_processing_with_show_progress(mocker, show_progress):
+    expected_progress = [80, 90, 100]
+    job_id = '12345'
+
+    progressbar_mock = mocker.Mock()
+    progressbar_mock.__enter__ = lambda _: progressbar_mock
+    progressbar_mock.__exit__ = lambda a, b, d, c: None
+    mocker.patch('harmony.harmony.progressbar.ProgressBar', return_value=progressbar_mock)
+
+    sleep_mock = mocker.Mock()
+    mocker.patch('harmony.harmony.time.sleep', sleep_mock)
+
+    progress_mock = mocker.Mock(side_effect=expected_progress)
+    mocker.patch('harmony.harmony.Client.progress', progress_mock)
+
+    client = Client(should_validate_auth=False)
+    client.wait_for_processing(job_id, show_progress=show_progress)
+
+    assert progress_mock.called_with(client, job_id)
+    if show_progress:
+        for n in expected_progress:
+            progressbar_mock.update.assert_any_call(int(n))
+    else:
+        assert sleep_mock.call_count == len(expected_progress) - 1
+
+
+@responses.activate
+@pytest.mark.parametrize('show_progress', [
+    (True),
+    (False),
+])
+def test_result_json(mocker, show_progress):
+    expected_json = '{}'
+    job_id = '1234'
+
+    wait_mock = mocker.Mock()
+    mocker.patch('harmony.harmony.Client.wait_for_processing', wait_mock)
+
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=200,
+        json=expected_json
+    )
+    client = Client(should_validate_auth=False)
+    actual_json = client.result_json(job_id, show_progress=show_progress)
+    
+    assert actual_json == expected_json
+    assert wait_mock.called_with(client, job_id, show_progress)
+
+
+@pytest.mark.parametrize('show_progress', [
+    (True),
+    (False),
+])
+def test_result_urls(mocker, show_progress):
+    collection = Collection(id='C1940468263-POCLOUD')
+    job_id = '1234'
+    expected_json = expected_job(collection.id, job_id)
+    expected_urls = ['https://harmony.uat.earthdata.nasa.gov/service-results/fake.tif']
+
+    result_json_mock = mocker.Mock(return_value=expected_json)
+    mocker.patch('harmony.harmony.Client.result_json', result_json_mock)
+
+    client = Client(should_validate_auth=False)
+    actual_urls = client.result_urls(job_id, show_progress=show_progress)
+    
+    assert actual_urls == expected_urls
+    assert result_json_mock.called_with(client, job_id, show_progress)
+
+

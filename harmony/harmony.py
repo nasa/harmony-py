@@ -385,8 +385,8 @@ class Client:
 
     def wait_for_processing(self, job_id: str, show_progress=False) -> None:
         check_interval = 3.0  # in seconds
-        sleep_interval = 0.33  # in seconds
-        intervals = int(check_interval / sleep_interval)
+        ui_update_interval = 0.33  # in seconds
+        intervals = int(check_interval / ui_update_interval)
         if show_progress:
             with progressbar.ProgressBar(max_value=100, widgets=progressbar_widgets) as bar:
                 progress = None
@@ -399,7 +399,7 @@ class Client:
                     if progress >= 100:
                         break
                     else:
-                        time.sleep(sleep_interval)
+                        time.sleep(ui_update_interval)
         else:
             while self.progress(job_id) < 100:
                 time.sleep(check_interval)
