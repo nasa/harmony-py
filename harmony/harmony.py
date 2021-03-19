@@ -468,7 +468,7 @@ class Client:
 
         Performance should be close to native with an appropriate chunk size. This can be changed
         via environment variable DOWNLOAD_CHUNK_SIZE.
-        
+
         Filenames are automatically determined by using the latter portion of the provided URL.
 
         Args:
@@ -501,7 +501,7 @@ class Client:
 
         Performance should be close to native with an appropriate chunk size. This can be changed
         via environment variable DOWNLOAD_CHUNK_SIZE.
-        
+
         Filenames are automatically determined by using the latter portion of the provided URL.
 
         Will wait for an unfinished job to finish before downloading.
