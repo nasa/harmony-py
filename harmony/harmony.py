@@ -382,7 +382,18 @@ class Client:
         else:
             response.raise_for_status()
 
-    def wait_for_processing(self, job_id: str, show_progress=False) -> None:
+    def wait_for_processing(self, job_id: str, show_progress: bool = False) -> None:
+        """Retrieve a submitted job's completion status in percent.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+
+        Returns:
+            The job's processing progress as a percentage.
+
+        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
+        can't be reached.
+        """
         check_interval = 3.0  # in seconds
         ui_update_interval = 0.33  # in seconds
         intervals = int(check_interval / ui_update_interval)
@@ -403,17 +414,40 @@ class Client:
             while self.progress(job_id) < 100:
                 time.sleep(check_interval)
 
-    def result_json(self, job_id: str, show_progress=False) -> str:
+    def result_json(self, job_id: str, show_progress: bool = False) -> str:
+        """Retrieve a job's final json output.
+
+        Harmony jobs' output is built as the job is processed and this method fetches the complete
+        and final output.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            show_progress: Whether a progress bar should show via stdout.
+
+        Returns:
+            The job's complete json output.
+        """
         self.wait_for_processing(job_id, show_progress)
         response = self._session().get(self._status_url(job_id))
         return response.json()
 
-    def result_urls(self, job_id: str, show_progress=False) -> List:
+    def result_urls(self, job_id: str, show_progress: bool = False) -> List:
+        """Retrieve the data URLs for a job.
+
+        The URLs include links to all of the jobs data output.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            show_progress: Whether a progress bar should show via stdout.
+
+        Returns:
+            The job's complete list of data URLs.
+        """
         data = self.result_json(job_id, show_progress)
         urls = [x['href'] for x in data['links'] if x['rel'] == 'data']
         return urls
 
-    def _download_file(self, url, directory=None, overwrite=False) -> str:
+    def _download_file(self, url: str, directory: str = '', overwrite: bool = False) -> str:
         chunksize = int(self.config.DOWNLOAD_CHUNK_SIZE)
         session = self._session()
         filename = url.split('/')[-1]
@@ -429,11 +463,60 @@ class Client:
                     shutil.copyfileobj(r.raw, f, length=chunksize)
             return filename
 
-    def download(self, url, directory=None, overwrite=False) -> Future:
+    def download(self, url: str, directory: str = '', overwrite: bool = False) -> Future:
+        """Downloads data, saves it to a file, and returns the filename.
+
+        Performance should be close to native with an appropriate chunk size. This can be changed
+        via environment variable DOWNLOAD_CHUNK_SIZE.
+        
+        Filenames are automatically determined by using the latter portion of the provided URL.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            directory: Optional. If specified, saves files there. Saves files to the current
+            working directory by default.
+            overwrite: If True, will overwrite a local file that shares a filename with the
+            downloaded file. Defaults to False. If you're seeing malformed data or truncated
+            files from incomplete downloads, set overwrite to True.
+
+        Returns:
+            The filename and path.
+        """
         future = self.executor.submit(self._download_file, url, directory, overwrite)
         return future
 
-    def download_all(self, job_id: str, directory=None, overwrite=False) -> List[Future]:
+    def download_all(self,
+                     job_id: str,
+                     directory: str = '',
+                     overwrite: bool = False) -> List[Future]:
+        """Using a job_id, fetches all the data files from a finished job.
+
+        After this method is able to contact Harmony and query a finished job, it will
+        immediately return with a list of python concurrent.Futures corresponding to each of the
+        files to be downloaded. Call the result() method to block until the downloading of that
+        file is complete. When finished, the Future will return the filename.
+
+        Files are downloaded by an executor backed by a thread pool. Number of threads in the
+        thread pool can be specified with the environment variable NUM_REQUESTS_WORKERS.
+
+        Performance should be close to native with an appropriate chunk size. This can be changed
+        via environment variable DOWNLOAD_CHUNK_SIZE.
+        
+        Filenames are automatically determined by using the latter portion of the provided URL.
+
+        Will wait for an unfinished job to finish before downloading.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            directory: Optional. If specified, saves files there. Saves files to the current
+            working directory by default.
+            overwrite: If True, will overwrite a local file that shares a filename with the
+            downloaded file. Defaults to False. If you're seeing malformed data or truncated
+            files from incomplete downloads, set overwrite to True.
+
+        Returns:
+            The filename and path.
+        """
         urls = self.result_urls(job_id, show_progress=False) or []
         file_names = []
         for url in urls:
