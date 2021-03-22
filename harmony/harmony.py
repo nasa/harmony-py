@@ -407,6 +407,11 @@ class Client:
                 for should_get in check_cycle:
                     if should_get:
                         progress = self.progress(job_id)
+                        # This gets around an issue with progressbar. If we update() with 0, the
+                        # output shows up as "N/A". If we update with, e.g. 0.1, it rounds down or
+                        # truncates to 0 but, importantly, actually displays that.
+                        if progress == 0:
+                            progress = 0.1
                     bar.update(progress)
                     sys.stdout.flush()  # ensures correct behavior in Jupyter notebooks
                     if progress >= 100:
