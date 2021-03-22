@@ -15,6 +15,11 @@ from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
 
 
+# How often to poll Harmony for updated information during job processing.
+CHECK_INTERVAL = 3.0  # in seconds
+# How often to refresh the screen for progress updates and animating spinners.
+UI_UPDATE_INTERVAL = 0.33  # in seconds
+
 progressbar_widgets = [
     ' [ Processing: ', progressbar.Percentage(), ' ] ',
     progressbar.Bar(),
@@ -394,9 +399,7 @@ class Client:
         :raises Exception: This can happen if an invalid job_id is provided or Harmony services
         can't be reached.
         """
-        check_interval = 3.0  # in seconds
-        ui_update_interval = 0.33  # in seconds
-        intervals = int(check_interval / ui_update_interval)
+        intervals = int(CHECK_INTERVAL / UI_UPDATE_INTERVAL)
         if show_progress:
             with progressbar.ProgressBar(max_value=100, widgets=progressbar_widgets) as bar:
                 progress = None
@@ -409,10 +412,10 @@ class Client:
                     if progress >= 100:
                         break
                     else:
-                        time.sleep(ui_update_interval)
+                        time.sleep(UI_UPDATE_INTERVAL)
         else:
             while self.progress(job_id) < 100:
-                time.sleep(check_interval)
+                time.sleep(CHECK_INTERVAL)
 
     def result_json(self, job_id: str, show_progress: bool = False) -> str:
         """Retrieve a job's final json output.
