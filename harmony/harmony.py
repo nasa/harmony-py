@@ -559,7 +559,6 @@ class Client:
 
         :raises Exception: Can raise when e.g. server is unreachable.
         """
-        creds_keys = ['AccessKeyId', 'SecretAccessKey', 'SessionToken']
         response = self._session().get(self._cloud_access_url())
         if not response.ok:
             response.raise_for_status()
