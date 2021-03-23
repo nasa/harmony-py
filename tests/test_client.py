@@ -297,7 +297,7 @@ def test_progress():
     collection = Collection(id='C333666999-EOSDIS')
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
     exp_job = expected_job(collection.id, job_id)
-    expected_progress = int(exp_job['progress'])
+    expected_progress = int(exp_job['progress']), exp_job['status']
     responses.add(
         responses.GET,
         expected_status_url(job_id),
@@ -318,7 +318,11 @@ def test_progress():
     (False),
 ])
 def test_wait_for_processing_with_show_progress(mocker, show_progress):
-    expected_progress = [80, 90, 100]
+    expected_progress = [
+        (80, 'running'),
+        (90, 'running'),
+        (100, 'successful'),
+    ]
     job_id = '12345'
 
     progressbar_mock = mocker.Mock()
@@ -337,10 +341,32 @@ def test_wait_for_processing_with_show_progress(mocker, show_progress):
 
     assert progress_mock.called_with(client, job_id)
     if show_progress:
-        for n in expected_progress:
+        for n, _ in expected_progress:
             progressbar_mock.update.assert_any_call(int(n))
     else:
-        assert sleep_mock.call_count == len(expected_progress) - 1
+        assert sleep_mock.call_count == len(expected_progress)
+
+
+@pytest.mark.parametrize('show_progress', [
+    (True),
+    (False),
+])
+def test_wait_for_processing_with_failed_status(mocker, show_progress):
+    expected_progress = (0, 'failed')
+    job_id = '12345'
+
+    progressbar_mock = mocker.Mock()
+    progressbar_mock.__enter__ = lambda _: progressbar_mock
+    progressbar_mock.__exit__ = lambda a, b, d, c: None
+    mocker.patch('harmony.harmony.progressbar.ProgressBar', return_value=progressbar_mock)
+
+    progress_mock = mocker.Mock(side_effect=expected_progress)
+    mocker.patch('harmony.harmony.Client.progress', progress_mock)
+
+    client = Client(should_validate_auth=False)
+
+    with pytest.raises(Exception):
+        client.wait_for_processing(job_id, show_progress=show_progress)
 
 
 @responses.activate

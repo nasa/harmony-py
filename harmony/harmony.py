@@ -15,11 +15,6 @@ from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
 
 
-# How often to poll Harmony for updated information during job processing.
-CHECK_INTERVAL = 3.0  # in seconds
-# How often to refresh the screen for progress updates and animating spinners.
-UI_UPDATE_INTERVAL = 0.33  # in seconds
-
 progressbar_widgets = [
     ' [ Processing: ', progressbar.Percentage(), ' ] ',
     progressbar.Bar(),
@@ -368,7 +363,7 @@ class Client:
         else:
             response.raise_for_status()
 
-    def progress(self, job_id: str) -> int:
+    def progress(self, job_id: str) -> Tuple[int, str]:
         """Retrieve a submitted job's completion status in percent.
 
         Args:
@@ -383,7 +378,7 @@ class Client:
         session = self._session()
         response = session.get(self._status_url(job_id))
         if response.ok:
-            return int((response.json())['progress'])
+            return int(response.json()['progress']), response.json()['status']
         else:
             response.raise_for_status()
 
@@ -399,28 +394,46 @@ class Client:
         :raises Exception: This can happen if an invalid job_id is provided or Harmony services
         can't be reached.
         """
-        intervals = int(CHECK_INTERVAL / UI_UPDATE_INTERVAL)
+        # How often to poll Harmony for updated information during job processing.
+        check_interval = 3.0  # in seconds
+        # How often to refresh the screen for progress updates and animating spinners.
+        ui_update_interval = 0.33  # in seconds
+
+        intervals = round(check_interval / ui_update_interval)
         if show_progress:
             with progressbar.ProgressBar(max_value=100, widgets=progressbar_widgets) as bar:
-                progress = None
-                check_cycle = cycle([True] + list(repeat(False, intervals - 1)))
-                for should_get in check_cycle:
-                    if should_get:
-                        progress = self.progress(job_id)
-                        # This gets around an issue with progressbar. If we update() with 0, the
-                        # output shows up as "N/A". If we update with, e.g. 0.1, it rounds down or
-                        # truncates to 0 but, importantly, actually displays that.
-                        if progress == 0:
-                            progress = 0.1
-                    bar.update(progress)
-                    sys.stdout.flush()  # ensures correct behavior in Jupyter notebooks
-                    if progress >= 100:
+                progress = 0
+                while progress < 100:
+                    progress, status = self.progress(job_id)
+                    if status == 'failed':
+                        raise Exception('Job has failed. Call result_json() to learn more.')
                         break
-                    else:
-                        time.sleep(UI_UPDATE_INTERVAL)
+                    if status == 'canceled':
+                        print('Job has been canceled.')
+                        break
+                    # This gets around an issue with progressbar. If we update() with 0, the
+                    # output shows up as "N/A". If we update with, e.g. 0.1, it rounds down or
+                    # truncates to 0 but, importantly, actually displays that.
+                    if progress == 0:
+                        progress = 0.1
+
+                    for _ in range(intervals):
+                        bar.update(progress)  # causes spinner to rotate even when no data change
+                        sys.stdout.flush()  # ensures correct behavior in Jupyter notebooks
+                        if progress >= 100:
+                            break
+                        else:
+                            time.sleep(ui_update_interval)
         else:
-            while self.progress(job_id) < 100:
-                time.sleep(CHECK_INTERVAL)
+            progress = 0
+            while progress < 100:
+                progress, status = self.progress(job_id)
+                if status == 'failed':
+                    raise Exception('Job has failed. Call result_json() to learn more.')
+                    break
+                if status == 'canceled':
+                    break
+                time.sleep(check_interval)
 
     def result_json(self, job_id: str, show_progress: bool = False) -> str:
         """Retrieve a job's final json output.
