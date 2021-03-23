@@ -269,9 +269,6 @@ class Client:
 
     def _status_url(self, job_id: str) -> str:
         return f'https://{self.config.harmony_hostname}/jobs/{job_id}'
-    
-    def _cloud_access_url(self): -> str:
-        return f'https://{self.config.harmony_hostname}/cloud-access'
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
