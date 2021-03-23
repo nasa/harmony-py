@@ -1,10 +1,25 @@
+from concurrent.futures import Future, ThreadPoolExecutor
+from itertools import cycle, repeat
+import os
+import shutil
+import sys
+import time
 from typing import NamedTuple
 from typing import Any, List, Optional, Tuple
 
 import dateutil.parser
+import progressbar
+from requests import Session
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
+
+
+progressbar_widgets = [
+    ' [ Processing: ', progressbar.Percentage(), ' ] ',
+    progressbar.Bar(),
+    ' [', progressbar.RotatingMarker(), ']',
+]
 
 
 class Collection:
@@ -98,9 +113,6 @@ class Request:
 
     format: the output mime type to return
 
-    force_async: if "true", override the default API behavior and always treat the request as
-      asynchronous
-
     max_results: limits the number of input granules processed in the request
 
     Returns:
@@ -122,8 +134,7 @@ class Request:
                  scale_extent: List[float] = None,
                  scale_size: List[float] = None,
                  variables: List[str] = ['all'],
-                 width: int = None,
-                 force_async: bool = None):
+                 width: int = None):
 
         self.collection = collection
         self.spatial = spatial
@@ -138,7 +149,6 @@ class Request:
         self.scale_size = scale_size
         self.variables = variables
         self.width = width
-        self.force_async = force_async
 
         self.variable_name_to_query_param = {
             'crs': 'outputcrs',
@@ -149,7 +159,6 @@ class Request:
             'width': 'width',
             'height': 'height',
             'format': 'format',
-            'force_async': 'forceAsync',
             'max_results': 'maxResults',
         }
 
@@ -237,6 +246,9 @@ class Client:
         self.session = None
         self.auth = auth
 
+        num_workers = int(self.config.NUM_REQUESTS_WORKERS)
+        self.executor = ThreadPoolExecutor(max_workers=num_workers)
+
         if should_validate_auth:
             validate_auth(self.config, self._session())
 
@@ -260,7 +272,7 @@ class Client:
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
-        params = {}
+        params = {'forceAsync': True}
 
         subset = self._spatial_subset_params(request) + self._temporal_subset_params(request)
         if len(subset) > 0:
@@ -311,7 +323,7 @@ class Client:
 
         job_id = None
         session = self._session()
-        response = session.get(self._submit_url(request), params=self._params(request)).result()
+        response = session.get(self._submit_url(request), params=self._params(request))
         if response.ok:
             job_id = (response.json())['jobID']
         else:
@@ -332,7 +344,7 @@ class Client:
         can't be reached.
         """
         session = self._session()
-        response = session.get(self._status_url(job_id)).result()
+        response = session.get(self._status_url(job_id))
         if response.ok:
             fields = [
                 'status', 'message', 'progress', 'createdAt', 'updatedAt', 'request',
@@ -351,7 +363,7 @@ class Client:
         else:
             response.raise_for_status()
 
-    def progress(self, job_id: str) -> int:
+    def progress(self, job_id: str) -> Tuple[int, str]:
         """Retrieve a submitted job's completion status in percent.
 
         Args:
@@ -364,8 +376,171 @@ class Client:
         can't be reached.
         """
         session = self._session()
-        response = session.get(self._status_url(job_id)).result()
+        response = session.get(self._status_url(job_id))
         if response.ok:
-            return int((response.json())['progress'])
+            return int(response.json()['progress']), response.json()['status']
         else:
             response.raise_for_status()
+
+    def wait_for_processing(self, job_id: str, show_progress: bool = False) -> None:
+        """Retrieve a submitted job's completion status in percent.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+
+        Returns:
+            The job's processing progress as a percentage.
+
+        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
+        can't be reached.
+        """
+        # How often to poll Harmony for updated information during job processing.
+        check_interval = 3.0  # in seconds
+        # How often to refresh the screen for progress updates and animating spinners.
+        ui_update_interval = 0.33  # in seconds
+
+        intervals = round(check_interval / ui_update_interval)
+        if show_progress:
+            with progressbar.ProgressBar(max_value=100, widgets=progressbar_widgets) as bar:
+                progress = 0
+                while progress < 100:
+                    progress, status = self.progress(job_id)
+                    if status == 'failed':
+                        raise Exception('Job has failed. Call result_json() to learn more.')
+                        break
+                    if status == 'canceled':
+                        print('Job has been canceled.')
+                        break
+                    # This gets around an issue with progressbar. If we update() with 0, the
+                    # output shows up as "N/A". If we update with, e.g. 0.1, it rounds down or
+                    # truncates to 0 but, importantly, actually displays that.
+                    if progress == 0:
+                        progress = 0.1
+
+                    for _ in range(intervals):
+                        bar.update(progress)  # causes spinner to rotate even when no data change
+                        sys.stdout.flush()  # ensures correct behavior in Jupyter notebooks
+                        if progress >= 100:
+                            break
+                        else:
+                            time.sleep(ui_update_interval)
+        else:
+            progress = 0
+            while progress < 100:
+                progress, status = self.progress(job_id)
+                if status == 'failed':
+                    raise Exception('Job has failed. Call result_json() to learn more.')
+                    break
+                if status == 'canceled':
+                    break
+                time.sleep(check_interval)
+
+    def result_json(self, job_id: str, show_progress: bool = False) -> str:
+        """Retrieve a job's final json output.
+
+        Harmony jobs' output is built as the job is processed and this method fetches the complete
+        and final output.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            show_progress: Whether a progress bar should show via stdout.
+
+        Returns:
+            The job's complete json output.
+        """
+        self.wait_for_processing(job_id, show_progress)
+        response = self._session().get(self._status_url(job_id))
+        return response.json()
+
+    def result_urls(self, job_id: str, show_progress: bool = False) -> List:
+        """Retrieve the data URLs for a job.
+
+        The URLs include links to all of the jobs data output.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            show_progress: Whether a progress bar should show via stdout.
+
+        Returns:
+            The job's complete list of data URLs.
+        """
+        data = self.result_json(job_id, show_progress)
+        urls = [x['href'] for x in data['links'] if x['rel'] == 'data']
+        return urls
+
+    def _download_file(self, url: str, directory: str = '', overwrite: bool = False) -> str:
+        chunksize = int(self.config.DOWNLOAD_CHUNK_SIZE)
+        session = self._session()
+        filename = url.split('/')[-1]
+
+        if directory:
+            filename = os.path.join(directory, filename)
+
+        if not overwrite and os.path.isfile(filename):
+            return filename
+        else:
+            with session.get(url, stream=True) as r:
+                with open(filename, 'wb') as f:
+                    shutil.copyfileobj(r.raw, f, length=chunksize)
+            return filename
+
+    def download(self, url: str, directory: str = '', overwrite: bool = False) -> Future:
+        """Downloads data, saves it to a file, and returns the filename.
+
+        Performance should be close to native with an appropriate chunk size. This can be changed
+        via environment variable DOWNLOAD_CHUNK_SIZE.
+
+        Filenames are automatically determined by using the latter portion of the provided URL.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            directory: Optional. If specified, saves files there. Saves files to the current
+            working directory by default.
+            overwrite: If True, will overwrite a local file that shares a filename with the
+            downloaded file. Defaults to False. If you're seeing malformed data or truncated
+            files from incomplete downloads, set overwrite to True.
+
+        Returns:
+            The filename and path.
+        """
+        future = self.executor.submit(self._download_file, url, directory, overwrite)
+        return future
+
+    def download_all(self,
+                     job_id: str,
+                     directory: str = '',
+                     overwrite: bool = False) -> List[Future]:
+        """Using a job_id, fetches all the data files from a finished job.
+
+        After this method is able to contact Harmony and query a finished job, it will
+        immediately return with a list of python concurrent.Futures corresponding to each of the
+        files to be downloaded. Call the result() method to block until the downloading of that
+        file is complete. When finished, the Future will return the filename.
+
+        Files are downloaded by an executor backed by a thread pool. Number of threads in the
+        thread pool can be specified with the environment variable NUM_REQUESTS_WORKERS.
+
+        Performance should be close to native with an appropriate chunk size. This can be changed
+        via environment variable DOWNLOAD_CHUNK_SIZE.
+
+        Filenames are automatically determined by using the latter portion of the provided URL.
+
+        Will wait for an unfinished job to finish before downloading.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            directory: Optional. If specified, saves files there. Saves files to the current
+            working directory by default.
+            overwrite: If True, will overwrite a local file that shares a filename with the
+            downloaded file. Defaults to False. If you're seeing malformed data or truncated
+            files from incomplete downloads, set overwrite to True.
+
+        Returns:
+            The filename and path.
+        """
+        urls = self.result_urls(job_id, show_progress=False) or []
+        file_names = []
+        for url in urls:
+            future = self.executor.submit(self._download_file, url, directory, overwrite)
+            file_names.append(future)
+        return file_names

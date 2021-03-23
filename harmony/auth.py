@@ -1,12 +1,10 @@
 import re
 from typing import cast, Optional, Tuple
 from urllib.parse import urlparse
-from concurrent.futures import ThreadPoolExecutor
 
 from requests import Session
 from requests.models import PreparedRequest, Response
 from requests.utils import get_netrc_auth
-from requests_futures.sessions import FuturesSession
 
 from harmony.config import Config
 
@@ -81,7 +79,7 @@ class SessionWithHeaderRedirection(Session):
         return
 
 
-def create_session(config: Config, auth: Tuple[str, str] = None) -> FuturesSession:
+def create_session(config: Config, auth: Tuple[str, str] = None) -> Session:
     """Creates a configured ``requests`` session.
 
     Attempts to create an authenticated session in the following order:
@@ -101,33 +99,32 @@ def create_session(config: Config, auth: Tuple[str, str] = None) -> FuturesSessi
     :raises MalformedCredentials: ``auth`` credential not in the correct format.
     :raises BadAuthentication: Incorrect credentials or unknown error.
     """
-    cfg_edl_username = config.EDL_USERNAME
-    cfg_edl_password = config.EDL_PASSWORD
-    num_workers = int(config.NUM_REQUESTS_WORKERS)
+    edl_username = config.EDL_USERNAME
+    edl_password = config.EDL_PASSWORD
 
     if isinstance(auth, tuple) and len(auth) == 2 and all([isinstance(x, str) for x in auth]):
         session = SessionWithHeaderRedirection(auth=auth)
     elif auth is not None:
         raise MalformedCredentials('Authentication: `auth` argument requires tuple of '
                                    '(username, password).')
-    elif cfg_edl_username and cfg_edl_password:
-        session = SessionWithHeaderRedirection(auth=(cfg_edl_username, cfg_edl_password))
+    elif edl_username and edl_password:
+        session = SessionWithHeaderRedirection(auth=(edl_username, edl_password))
     else:
         session = SessionWithHeaderRedirection()
 
-    return FuturesSession(session=session, executor=ThreadPoolExecutor(max_workers=num_workers))
+    return session
 
 
 def validate_auth(config, session):
     """Validates the credentials against the EDL authentication URL."""
     url = config.edl_validation_url
-    result = session.get(url).result()
+    response = session.get(url)
 
-    if result.status_code == 200:
+    if response.status_code == 200:
         return
-    elif result.status_code == 401:
+    elif response.status_code == 401:
         raise BadAuthentication('Authentication: incorrect or missing credentials during '
                                 'credential validation.')
     else:
         raise BadAuthentication(f'Authentication: An unknown error occurred during credential '
-                                f'validation: HTTP {result.status_code}')
+                                f'validation: HTTP {response.status_code}')

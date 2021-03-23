@@ -28,7 +28,8 @@ class Config:
     """
 
     config = {
-        'NUM_REQUESTS_WORKERS': '8',
+        'NUM_REQUESTS_WORKERS': '3',  # increase for servers
+        'DOWNLOAD_CHUNK_SIZE': str(4 * 1024 * 1024)  # recommend 16MB for servers
     }
 
     def __init__(self, environment: Environment = Environment.UAT) -> None:

@@ -14,25 +14,6 @@ from rasterio.plot import show
 import requests
 
 
-def download_and_show_results(harmony_client, job_id):
-    print('Waiting for the job to finish')
-
-    status = harmony_client.status(job_id)
-
-    while True:
-        status = harmony_client.status(job_id)
-        print(f"Job is {status['status']}: {status['progress']}%")
-        if status['status'] == 'successful':
-            break
-        else:
-            sleep(3)
-
-    print('Downloading results')
-    session = harmony_client._session()
-    harmony_job = session.get(harmony_client._status_url(job_id)).result().json()
-    print(harmony_job)
-    for result in [link for link in harmony_job['links'] if link['type'] == 'image/tiff']:
-        with open(result['title'], 'wb') as f:
-            print(f"  {result['title']}")
-            f.write(session.get(result['href']).result().content)
-            show(rasterio.open(result['title']))
+def show_result(filename):
+    print (f'\n  {filename}')
+    show(rasterio.open(filename))
