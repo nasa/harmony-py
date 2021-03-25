@@ -18,7 +18,7 @@
 
 ## Installing
 
-The library is available from [PyPI](#TODO) and can be installed with pip:
+The library is available from [PyPI](https://pypi.org/project/harmony-py/) and can be installed with pip:
 
         $ pip install -U harmony-py
 
