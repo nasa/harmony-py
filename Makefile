@@ -1,6 +1,10 @@
 .PHONY: venv-setup pyenv-setup install install-examples clean examples lint test test-watch ci docs
 .SILENT: virtualenv
 
+REPO ?= https://upload.pypi.org/legacy/
+REPO_USER ?= __token__
+REPO_PASS ?= unset
+
 venv-setup:
 	python -m venv .venv
 
@@ -45,3 +49,13 @@ ci: lint test
 
 docs:
 	cd docs && $(MAKE) html
+
+build:
+
+build:
+	python -m pip install --upgrade --quiet setuptools wheel twine
+	python setup.py --quiet sdist bdist_wheel
+
+publish: build
+	python -m twine check dist/*
+	python -m twine upload --username "$(REPO_USER)" --password "$(REPO_PASS)" --repository-url "$(REPO)" dist/*
