@@ -540,11 +540,9 @@ class Client:
             The filename and path.
         """
         urls = self.result_urls(job_id, show_progress=False) or []
-        futures = []
-        for url in urls:
-            future = self.executor.submit(self._download_file, url, directory, overwrite)
-            futures.append(future)
-        return futures
+        return [
+            self.executor.submit(self._download_file, url, directory, overwrite) for url in urls
+        ]
 
     def stac_catalog_url(self, job_id: str, show_progress: bool = False) -> str:
         """Extract the STAC catalog URL from job results.
