@@ -586,7 +586,6 @@ class Client:
             response.raise_for_status()
         return response.text
 
-
     def aws_credentials(self) -> dict:
         """Retrieve temporary AWS credentials for retrieving data in S3.
 
