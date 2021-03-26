@@ -458,7 +458,8 @@ class Client:
     def result_urls(self, job_id: str, show_progress: bool = False) -> List:
         """Retrieve the data URLs for a job.
 
-        The URLs include links to all of the jobs data output.
+        The URLs include links to all of the jobs data output. Blocks until the Harmony job is
+        done processing.
 
         Args:
             job_id: UUID string for the job you wish to interrogate.
@@ -468,7 +469,7 @@ class Client:
             The job's complete list of data URLs.
         """
         data = self.result_json(job_id, show_progress)
-        urls = [x['href'] for x in data['links'] if x['rel'] == 'data']
+        urls = [x['href'] for x in data.get('links', []) if x['rel'] == 'data']
         return urls
 
     def _download_file(self, url: str, directory: str = '', overwrite: bool = False) -> str:
@@ -542,11 +543,48 @@ class Client:
             The filename and path.
         """
         urls = self.result_urls(job_id, show_progress=False) or []
-        file_names = []
-        for url in urls:
-            future = self.executor.submit(self._download_file, url, directory, overwrite)
-            file_names.append(future)
-        return file_names
+        return [
+            self.executor.submit(self._download_file, url, directory, overwrite) for url in urls
+        ]
+
+    def stac_catalog_url(self, job_id: str, show_progress: bool = False) -> str:
+        """Extract the STAC catalog URL from job results.
+
+        Blocks until the Harmony job is done processing.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            show_progress: Whether a progress bar should show via stdout.
+
+        Returns:
+            A STAC catalog URL.
+
+        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
+        can't be reached.
+        """
+        data = self.result_json(job_id, show_progress)
+
+        for link in data.get('links', []):
+            if link['rel'] == 'stac-catalog-json':
+                return link['href']
+
+        return None
+
+    def read_text(self, url: str) -> str:
+        """Uses the harmony-py Client session to fetch a URL.
+
+        Args:
+            url: A URL, such as one from stac_catalog_url().
+
+        Returns:
+            The response text.
+
+        :raises Exception: Can occur on malformed or unreachable URLs.
+        """
+        response = self._session().get(url)
+        if not response.ok:
+            response.raise_for_status()
+        return response.text
 
     def aws_credentials(self) -> dict:
         """Retrieve temporary AWS credentials for retrieving data in S3.

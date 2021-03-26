@@ -480,3 +480,35 @@ def test_download_all(mocker):
     actual_file_names = [f.result() for f in client.download_all('abcd-1234')]
     
     assert actual_file_names == expected_file_names
+
+
+def test_stac_catalog_url(mocker):
+    job_id = '1234'
+    collection = Collection(id='C1940468263-POCLOUD')
+    expected_json = expected_job(collection.id, job_id)
+    result_json_mock = mocker.Mock(return_value=expected_json)
+    mocker.patch('harmony.harmony.Client.result_json', result_json_mock)
+
+    expected_stac_catalog_url = f'https://harmony.uat.earthdata.nasa.gov/stac/{job_id}/'
+
+    client = Client(should_validate_auth=False)
+    actual_stac_catalog_url = client.stac_catalog_url(job_id)
+
+    assert actual_stac_catalog_url == expected_stac_catalog_url
+
+
+@responses.activate
+def test_read_text(mocker):
+    url = 'http://www.example.com/1234'
+    expected_text = '5678'
+    responses.add(
+        responses.GET,
+        url,
+        status=200,
+        body=expected_text
+    )
+
+    client = Client(should_validate_auth=False)
+    actual_text = client.read_text(url)
+
+    assert actual_text == expected_text
