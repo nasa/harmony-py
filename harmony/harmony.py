@@ -270,6 +270,9 @@ class Client:
     def _status_url(self, job_id: str) -> str:
         return f'https://{self.config.harmony_hostname}/jobs/{job_id}'
 
+    def _cloud_access_url(self) -> str:
+        return f'https://{self.config.harmony_hostname}/cloud-access'
+
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
         params = {'forceAsync': True}
@@ -544,3 +547,25 @@ class Client:
             future = self.executor.submit(self._download_file, url, directory, overwrite)
             file_names.append(future)
         return file_names
+
+    def aws_credentials(self) -> dict:
+        """Retrieve temporary AWS credentials for retrieving data in S3.
+
+        Args:
+
+        Returns:
+            A python dict containing ``aws_access_key_id``, ``aws_secret_access_key``, and
+            ``aws_session_token``.
+
+        :raises Exception: Can raise when e.g. server is unreachable.
+        """
+        response = self._session().get(self._cloud_access_url())
+        if not response.ok:
+            response.raise_for_status()
+        cloud_access = response.json()
+        creds = {
+            'aws_access_key_id': cloud_access['AccessKeyId'],
+            'aws_secret_access_key': cloud_access['SecretAccessKey'],
+            'aws_session_token': cloud_access['SessionToken'],
+        }
+        return creds
