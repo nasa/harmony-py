@@ -37,7 +37,7 @@ release = '0.0.1'
 # ones.
 #
 # use this to build API docs: sphinx-apidoc -f -o docs/source projectdir
-extensions = ['sphinx.ext.autodoc', 'sphinxcontrib.napoleon', 'sphinx_rtd_theme', 'm2r2']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinx_rtd_theme']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
