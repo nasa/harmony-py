@@ -20,7 +20,7 @@ pyenv-setup:
 
 install:
 	python -m pip install --upgrade pip
-	pip install -r requirements/core.txt -r requirements/dev.txt
+	pip install -r requirements/core.txt -r requirements/dev.txt -r docs/requirements.txt
 
 install-examples: install
 	pip install -r requirements/examples.txt
