@@ -405,8 +405,9 @@ class Client:
         Returns:
             The job's processing progress as a percentage.
 
-        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
-        can't be reached.
+        :raises
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+            can't be reached.
         """
         # How often to poll Harmony for updated information during job processing.
         check_interval = 3.0  # in seconds
@@ -571,8 +572,9 @@ class Client:
         Returns:
             A STAC catalog URL.
 
-        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
-        can't be reached.
+        :raises
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+            can't be reached.
         """
         data = self.result_json(job_id, show_progress)
 

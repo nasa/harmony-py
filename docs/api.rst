@@ -4,6 +4,7 @@ API Documentation
 =================
 
 .. module:: harmony
+   :noindex:
 
 Here we cover the package and its modules, focusing first on the classes normally imported when working with Harmony.
 
@@ -53,8 +54,10 @@ Exceptions
 Exceptions that may be raised when authenticating with Earthdata Login.
 
 .. autoexception:: harmony.auth.MalformedCredentials
+   :noindex:
 
 .. autoexception:: harmony.auth.BadAuthentication
+   :noindex:
 
 Developer Documentation
 -----------------------
