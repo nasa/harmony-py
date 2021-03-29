@@ -43,5 +43,8 @@ test-watch:
 
 ci: lint test
 
-docs:
+docs/user/tutorial.html: examples/tutorial.ipynb
+	jupyter nbconvert --execute --to html --output-dir docs/user examples/tutorial.ipynb
+
+docs: docs/user/tutorial.html
 	cd docs && $(MAKE) html
