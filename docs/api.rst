@@ -40,13 +40,11 @@ HarmonyPy requires that you have a valid `Earthdata Login account <https://urs.e
 
 3. Uset a ``.netrc`` file:
 
-    Create a ``.netrc`` file in your home directory, using the example below:
+    Create a ``.netrc`` file in your home directory, using the example below ::
 
-    .. code-block:: shell
-
-    machine urs.earthdata.nasa.gov
-    login captainmarvel
-    password marve10u5
+        machine urs.earthdata.nasa.gov
+        login captainmarvel
+        password marve10u5
 
 Exceptions
 ----------
