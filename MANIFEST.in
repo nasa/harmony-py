@@ -6,6 +6,3 @@ include LICENSE
 
 # Include setup.py
 include setup.py
-
-# Include version file
-include VERSION

@@ -116,3 +116,20 @@ Either set `HARMONY_DIR` or replace it with your Harmony project directory path.
 Harmony-py uses [GitHub
 Actions](https://github.com/nasa/harmony-py/actions) to run the Linter
 & Unit Tests. The test coverage output is saved as a build artifact.
+
+## Building and Releasing
+
+If a new version of Harmony-Py has been released then `master` should be tagged with an updated version:
+
+        $ git checkout master
+        $ git tag -a 1.2.3    # where 1.2.3 is the next version number
+
+Then, to generate new package and wheel files:
+
+        $ make build
+
+The Makefile reads the current version number based on git tag, populates the version in `harmony/__init__.py`, and `setup.py` reads the version number from `harmony/__init__.py` for packaging purposes.
+
+Provided API tokens are in order, the following runs the build target and publishes to PyPI:
+
+        # make publish

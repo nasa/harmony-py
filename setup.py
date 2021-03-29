@@ -8,9 +8,11 @@
 # python setup.py sdist bdist_wheel  # build in 'dist' folder
 # python-m twine upload dist/*  # 'twine' must be installed: 'pip install twine'
 
-from setuptools import find_packages, setup
+import ast
 import os
 import pathlib
+import re
+from setuptools import find_packages, setup
 
 
 DEPENDENCIES = []
@@ -24,13 +26,19 @@ with open('requirements/dev.txt', 'r') as f:
 with open('README.md', 'r') as f:
     README = f.read()
 
-with open('VERSION', 'r') as f:
-    VERSION = f.read().strip()
+CURDIR = os.path.abspath(os.path.dirname(__file__))
+def get_version():
+    main_file = os.path.join(CURDIR, "harmony", "__init__.py")
+    _version_re = re.compile(r"__version__\s+=\s+(?P<version>.*)")
+    with open(main_file, "r", encoding="utf8") as f:
+        match = _version_re.search(f.read())
+        version = match.group("version") if match is not None else '"unknown"'
+    return str(ast.literal_eval(version))
 
 
 setup(
     name='harmony-py',
-    version=VERSION,
+    version=get_version(),
     description='The NASA Harmony Python library',
     long_description=README,
     long_description_content_type='text/markdown',

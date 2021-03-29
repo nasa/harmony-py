@@ -1,6 +1,7 @@
 .PHONY: venv-setup pyenv-setup install install-examples clean examples lint test test-watch ci docs
 .SILENT: virtualenv
 
+VERSION ?= $(shell git describe --tags | sed 's/-/\+/' | sed 's/-/\./g')
 REPO ?= https://upload.pypi.org/legacy/
 REPO_USER ?= __token__
 REPO_PASS ?= unset
@@ -22,16 +23,17 @@ pyenv-setup:
 	    pyenv local harmony-py; \
 	fi
 
+clean:
+	coverage erase
+	rm -rf htmlcov
+	rm -rf build dist *.egg-info || true
+
 install:
 	python -m pip install --upgrade pip
 	pip install -r requirements/core.txt -r requirements/dev.txt
 
 install-examples: install
 	pip install -r requirements/examples.txt
-
-clean:
-	coverage erase
-	rm -rf htmlcov
 
 examples: install-examples
 	jupyter-lab
@@ -50,9 +52,8 @@ ci: lint test
 docs:
 	cd docs && $(MAKE) html
 
-build:
-
-build:
+build: clean
+	sed -i.bak "s/__version__ .*/__version__ = \"$(VERSION)\"/" harmony/__init__.py && rm harmony/__init__.py.bak
 	python -m pip install --upgrade --quiet setuptools wheel twine
 	python setup.py --quiet sdist bdist_wheel
 
