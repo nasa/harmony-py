@@ -133,3 +133,5 @@ The Makefile reads the current version number based on git tag, populates the ve
 Provided API tokens are in order, the following runs the build target and publishes to PyPI:
 
         # make publish
+
+GitHub releases may be performed manually.
