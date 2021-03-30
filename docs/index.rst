@@ -15,6 +15,8 @@ Harmony-Py is a work-in-progress, is not feature complete, and should only be us
 
 **Harmony In Action** ::
 
+    >>> harmony_client = Client(auth=('captainmarvel', 'marve10u5'))
+
     >>> request = Request(
             collection=Collection(id='C1234088182-EEDTEST'),
             spatial=BBox(-140, 20, -50, 60),
@@ -23,8 +25,6 @@ Harmony-Py is a work-in-progress, is not feature complete, and should only be us
             height=512,
             width=512
         )
-
-    >>> harmony_client = Client(auth=('captainmarvel', 'marve10u5'))
 
     >>> job_id = harmony_client.submit(request)
 
