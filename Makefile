@@ -29,6 +29,9 @@ clean:
 	coverage erase
 	rm -rf htmlcov
 
+clean-docs:
+	cd docs && $(MAKE) clean
+
 examples: install-examples
 	jupyter-lab
 
