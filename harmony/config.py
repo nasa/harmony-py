@@ -15,9 +15,10 @@ from typing import cast
 
 from dotenv import load_dotenv
 
-Environment = Enum('Environment', ['SBX', 'SIT', 'UAT', 'PROD'])
+Environment = Enum('Environment', ['LOCAL', 'SBX', 'SIT', 'UAT', 'PROD'])
 
 HOSTNAMES = {
+    Environment.LOCAL: 'localhost:3000',
     Environment.SBX: 'harmony.sbx.earthdata.nasa.gov',
     Environment.SIT: 'harmony.sit.earthdata.nasa.gov',
     Environment.UAT: 'harmony.uat.earthdata.nasa.gov',
@@ -56,11 +57,19 @@ class Config:
         return HOSTNAMES[self.environment]
 
     @property
+    def url_scheme(self) -> str:
+        return 'http' if self.environment == Environment.LOCAL else 'https'
+
+    @property
+    def root_url(self) -> str:
+        return f'{self.url_scheme}://{self.harmony_hostname}'
+
+    @property
     def edl_validation_url(self):
         """Returns the full URL to a Harmony endpoint used to validate the
         user's Earthdata Login credentials for this Config's Environment.
         """
-        return f'https://{self.harmony_hostname}/jobs'
+        return f'{self.root_url}/jobs'
 
     def __getattribute__(self, name: str) -> str:
         """Overrides attribute retrieval for instances of this class.

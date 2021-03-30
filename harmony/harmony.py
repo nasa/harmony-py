@@ -269,16 +269,17 @@ class Client:
         variables = [v.replace('/', '%2F') for v in request.variables]
         vars = ','.join(variables)
         return (
-            f'https://{self.config.harmony_hostname}/{request.collection.id}'
+            f'{self.config.root_url}'
+            f'/{request.collection.id}'
             f'/ogc-api-coverages/1.0.0/collections/{vars}/coverage/rangeset'
         )
 
     def _status_url(self, job_id: str) -> str:
         """Constructs the URL for the Job that is used to get its status."""
-        return f'https://{self.config.harmony_hostname}/jobs/{job_id}'
+        return f'{self.config.root_url}/jobs/{job_id}'
 
     def _cloud_access_url(self) -> str:
-        return f'https://{self.config.harmony_hostname}/cloud-access'
+        return f'{self.config.root_url}/cloud-access'
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
@@ -383,7 +384,7 @@ class Client:
             job_id: UUID string for the job you wish to interrogate.
 
         Returns:
-            The job's processing progress as a percentage.
+            The job's processing progress as a percentage and its current status.
 
         Raises:
             Exception: This can happen if an invalid job_id is provided or Harmony services
