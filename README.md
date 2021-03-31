@@ -119,19 +119,24 @@ Actions](https://github.com/nasa/harmony-py/actions) to run the Linter
 
 ## Building and Releasing
 
-If a new version of Harmony-Py has been released then `master` should be tagged with an updated version:
+If a new version of Harmony-Py will be released then the `master` branch should be tagged with an updated version:
 
         $ git checkout master
-        $ git tag -a 1.2.3    # where 1.2.3 is the next version number
+        $ git tag -a v1.2.3    # where v1.2.3 is the next version number
 
-Then, to generate new package and wheel files:
+In order to generate new package and wheel files, do the following:
 
         $ make build
 
-The Makefile reads the current version number based on git tag, populates the version in `harmony/__init__.py`, and `setup.py` reads the version number from `harmony/__init__.py` for packaging purposes.
+`make` reads the current version number based on git tag, populates the version in `harmony/__init__.py`, and `setup.py` reads the version number from `harmony/__init__.py` for packaging purposes.
 
-Provided API tokens are in order, the following runs the build target and publishes to PyPI:
+This leaves us with a modifed __init\__.py which must be committed and pushed to `master`.
 
-        # make publish
+        $ git add harmony/__init__.py
+        $ git commit -m "Version bump to v1.2.3"
+        $ git tag -f
+        $ git push
 
-GitHub releases may be performed manually.
+Then, provided API tokens are in order, the following runs the build target and publishes to PyPI:
+
+        $ make publish
