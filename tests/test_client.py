@@ -40,7 +40,15 @@ def expected_full_submit_url(request):
     return f'{expected_submit_url(request.collection.id)}?{query_params}'
 
 
-def expected_job(collection_id, job_id):
+def fake_data_url(link_type: LinkType = LinkType.https):
+    if link_type == LinkType.s3:
+        fake_data_url = f'{link_type.value}://fakebucket/public/harmony/foo',
+    else:
+        fake_data_url = f'{link_type.value}://harmony.uat.earthdata.nasa.gov/service-results',
+    return f'{fake_data_url}/fake.tif'
+
+
+def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https):
     return {
         'username': 'rfeynman',
         'status': 'running',
@@ -62,7 +70,7 @@ def expected_job(collection_id, job_id):
                 'type': 'application/json'
             },
             {
-                'href': 'https://harmony.uat.earthdata.nasa.gov/service-results/fake.tif',
+                'href': fake_data_url(link_type),
                 'title': '2020_01_15_fake.nc.tif',
                 'type': 'image/tiff',
                 'rel': 'data',
@@ -378,12 +386,10 @@ def test_wait_for_processing_with_failed_status(mocker, show_progress):
     (True),
     (False),
 ])
-@pytest.mark.parametrize('link_type', [LinkType.https, LinkType.s3])
+@pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
 def test_result_json(mocker, show_progress, link_type):
     expected_json = '{}'
     job_id = '1234'
-
-    # ********* TODO *********
 
     wait_mock = mocker.Mock()
     mocker.patch('harmony.harmony.Client.wait_for_processing', wait_mock)
@@ -405,14 +411,12 @@ def test_result_json(mocker, show_progress, link_type):
     (True),
     (False),
 ])
-@pytest.mark.parametrize('link_type', [LinkType.https, LinkType.s3])
+@pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
 def test_result_urls(mocker, show_progress, link_type):
     collection = Collection(id='C1940468263-POCLOUD')
     job_id = '1234'
-    expected_json = expected_job(collection.id, job_id)
-    expected_urls = ['https://harmony.uat.earthdata.nasa.gov/service-results/fake.tif']
-
-    # ********* TODO *********
+    expected_json = expected_job(collection.id, job_id, link_type)
+    expected_urls = [fake_data_url(link_type)]
 
     result_json_mock = mocker.Mock(return_value=expected_json)
     mocker.patch('harmony.harmony.Client.result_json', result_json_mock)
@@ -492,7 +496,7 @@ def test_download_all(mocker):
     assert actual_file_names == expected_file_names
 
 
-@pytest.mark.parametrize('link_type', [LinkType.https, LinkType.s3])
+@pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
 def test_stac_catalog_url(link_type, mocker):
     job_id = '1234'
     collection = Collection(id='C1940468263-POCLOUD')
@@ -500,7 +504,8 @@ def test_stac_catalog_url(link_type, mocker):
     result_json_mock = mocker.Mock(return_value=expected_json)
     mocker.patch('harmony.harmony.Client.result_json', result_json_mock)
 
-    expected_stac_catalog_url = f'https://harmony.uat.earthdata.nasa.gov/stac/{job_id}/?linktype={link_type.value}'
+    expected_stac_catalog_url = (f'https://harmony.uat.earthdata.nasa.gov/stac'
+                                 f'/{job_id}/?linktype={link_type.value}')
 
     client = Client(should_validate_auth=False)
     actual_stac_catalog_url = client.stac_catalog_url(job_id, link_type=link_type)

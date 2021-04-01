@@ -1,2 +1,2 @@
-from .harmony import (BBox, Client, Collection, Request)
-from .config import Environment
+from harmony.config import Environment
+from harmony.harmony import BBox, Client, Collection, LinkType, Request

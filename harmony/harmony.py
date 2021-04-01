@@ -222,6 +222,7 @@ class LinkType(Enum):
     https: Returns a standard HTTP URL
     """
     s3 = 's3'
+    http = 'http'
     https = 'https'
 
 
