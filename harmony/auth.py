@@ -1,5 +1,19 @@
+"""Earthdata Login Authorization extensions to the ``requests`` package.
+
+This module defines two functions that enable seamless integration between
+the ``requests`` module and NASA Earthdata Login. The ``create_session`` function
+constructs a ``requests.Session`` that will correctly handle the OAuth redirect
+'dance' that is necessary to authenticate a user. The ``validate_auth`` function
+checks that the authentication credentials are valid, and can be used before
+attempting to download data, for example.
+
+The ``SessionWithHeaderRedirection``--a ``requests.Session`` subclass--is used
+to perform authentication with Earthdata Login. The ``create_session`` function
+uses this class and clients of the Harmony Py package do not need to use this
+explicitly.
+"""
 import re
-from typing import cast, Optional, Tuple
+from typing import Optional, Tuple, cast
 from urllib.parse import urlparse
 
 from requests import Session
@@ -24,17 +38,21 @@ def _is_edl_hostname(hostname: str) -> bool:
 
 
 class MalformedCredentials(Exception):
+    """The provided Earthdata Login credentials were not correctly specified."""
     pass
 
 
 class BadAuthentication(Exception):
+    """The provided Earthdata Login credentials were invalid."""
     pass
 
 
 class SessionWithHeaderRedirection(Session):
-    """Modify Authorization headers in accordance with Earthdata Login (EDL) common usage.
+    """A ``requests.Session`` that modifies HTTP Authorization headers in accordance
+    with Earthdata Login (EDL) common usage.
 
-    Example:
+    Example::
+
         session = SessionWithHeaderRedirection(username, password)
 
     Args:
@@ -96,8 +114,9 @@ def create_session(config: Config, auth: Tuple[str, str] = None) -> Session:
     Returns:
         The authenticated ``requests`` session.
 
-    :raises MalformedCredentials: ``auth`` credential not in the correct format.
-    :raises BadAuthentication: Incorrect credentials or unknown error.
+    Raises:
+        MalformedCredentials: ``auth`` credential not in the correct format.
+        BadAuthentication: Incorrect credentials or unknown error.
     """
     edl_username = config.EDL_USERNAME
     edl_password = config.EDL_PASSWORD
@@ -115,7 +134,7 @@ def create_session(config: Config, auth: Tuple[str, str] = None) -> Session:
     return session
 
 
-def validate_auth(config, session):
+def validate_auth(config: Config, session: Session):
     """Validates the credentials against the EDL authentication URL."""
     url = config.edl_validation_url
     response = session.get(url)

@@ -1,11 +1,24 @@
-from concurrent.futures import Future, ThreadPoolExecutor
-from itertools import cycle, repeat
+"""This module defines the main classes used to interact with Harmony.
+
+The classes defined here are also available by importing them from the
+top-level ``harmony`` package, e.g.::
+
+    from harmony import Client, Request
+
+Overview of the classes:
+
+    * Collection: A CMR Collection ID
+    * BBox: A bounding box (lat/lon) used in Requests
+    * Request: A complete Harmony request with all criteria
+    * Client: Allows submission of a Harmony Request and getting results
+"""
 import os
 import shutil
 import sys
 import time
-from typing import NamedTuple
-from typing import Any, List, Optional, Tuple
+from concurrent.futures import Future, ThreadPoolExecutor
+from itertools import cycle, repeat
+from typing import Any, List, NamedTuple, Optional, Tuple
 
 import dateutil.parser
 import progressbar
@@ -13,7 +26,6 @@ from requests import Session
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
-
 
 progressbar_widgets = [
     ' [ Processing: ', progressbar.Percentage(), ' ] ',
@@ -28,13 +40,11 @@ class Collection:
     def __init__(self, id: str):
         """Constructs a Collection instance from a CMR Collection ID.
 
-        Parameters
-        ----------
-        id: CMR Collection ID
+        Args:
+            id: CMR Collection ID
 
-        Returns
-        -------
-        A Collection instance
+        Returns:
+            A Collection instance
         """
         self.id = id
 
@@ -45,32 +55,31 @@ class BBox(NamedTuple):
 
     Example:
       An area bounded by latitudes 30N and 60N and longitudes
-      130W and 100W:
+      130W and 100W::
 
           >>> spatial = BBox(-130, 30, -100, 60)
 
-      Important: When specified positionally, the parameters must
-      be given in order: west, south, east, north.
+    Important: When specified positionally, the parameters must
+    be given in order: west, south, east, north.
 
-      Alternatively, one can explicitly set each bound using the
-      single-letter for each bound:
+    Alternatively, one can explicitly set each bound using the
+    single-letter for each bound::
 
-          >>> spatial = BBox(n=60, s=30, e=-100, w=-130)
+        >>> spatial = BBox(n=60, s=30, e=-100, w=-130)
 
-      Print the spatial bounds:
+    Print a readable representation of the spatial bounds::
 
-          >>> print(spatial)
-          BBox: West:-130, South:30, East:-100, North:60
+        >>> print(spatial)
+        BBox: West:-130, South:30, East:-100, North:60
 
-    Parameters:
-    -----------
-    w: The western longitude bounds (degrees)
-    s: The souther latitude bounds (degrees)
-    e: The easter longitude bounds (degrees)
-    n: The northern latitude bounds (degrees)
+    Args:
+        w: The western longitude bounds (degrees)
+        s: The souther latitude bounds (degrees)
+        e: The easter longitude bounds (degrees)
+        n: The northern latitude bounds (degrees)
 
     Returns:
-    A BBox instance with the provided bounds.
+        A BBox instance with the provided bounds.
     """
     w: float
     s: float
@@ -82,42 +91,38 @@ class BBox(NamedTuple):
 
 
 class Request:
-    """A Harmony request with the CMR collection and various parameters expressing how the data is
-    to be transformed.
+    """A Harmony request with the CMR collection and various parameters expressing
+    how the data is to be transformed.
 
-    Parameters:
-    -----------
-    collection: The CMR collection that should be queried
+    Args:
+        collection: The CMR collection that should be queried
 
-    Keyword-Only:
-    -------------
-    spatial: Bounding box spatial constraints on the data
+        spatial: Bounding box spatial constraints on the data
 
-    temporal: Date/time constraints on the data
+        temporal: Date/time constraints on the data
 
-    crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
-      inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
-      (http://www.opengis.net/def/crs/...)
+        crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
+          inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
+          (http://www.opengis.net/def/crs/...)
 
-    interpolation: specify the interpolation method used during reprojection and scaling
+        interpolation: specify the interpolation method used during reprojection and scaling
 
-    scale_extent: scale the resulting coverage either among one axis to a given extent
+        scale_extent: scale the resulting coverage either among one axis to a given extent
 
-    scale_size: scale the resulting coverage either among one axis to a given size
+        scale_size: scale the resulting coverage either among one axis to a given size
 
-    granule_id: The CMR Granule ID for the granule which should be retrieved
+        granule_id: The CMR Granule ID for the granule which should be retrieved
 
-    width: number of columns to return in the output coverage
+        width: number of columns to return in the output coverage
 
-    height: number of rows to return in the output coverage
+        height: number of rows to return in the output coverage
 
-    format: the output mime type to return
+        format: the output mime type to return
 
-    max_results: limits the number of input granules processed in the request
+        max_results: limits the number of input granules processed in the request
 
     Returns:
-    --------
-    A Harmony Request instance
+        A Harmony Request instance
     """
 
     def __init__(self,
@@ -135,7 +140,8 @@ class Request:
                  scale_size: List[float] = None,
                  variables: List[str] = ['all'],
                  width: int = None):
-
+        """Creates a new Request instance from all specified criteria.'
+        """
         self.collection = collection
         self.spatial = spatial
         self.temporal = temporal
@@ -213,20 +219,20 @@ class Client:
 
     Examples:
 
-    With no arguments
+    With no arguments::
 
         >>> client = Client()
 
     will create a Harmony client that will either use the EDL_USERNAME & EDL_PASSWORD
     environment variables to authenticate with Earthdata Login, or will use the credentials
-    in the user's `.netrc` file, if one is available.
+    in the user's ``.netrc`` file, if one is available.
 
-    To explicitly include the user's credentials:
+    To explicitly include the user's credentials::
 
         >>> client = Client(auth=('rfeynman', 'quantumf1eld5'))
 
     By default, the Client will validate the provided credentials immediately. This can be
-    disabled by passing `should_validate_auth=False`.
+    disabled by passing ``should_validate_auth=False``.
     """
 
     def __init__(
@@ -238,7 +244,7 @@ class Client:
     ):
         """Creates a Harmony Client that can be used to interact with Harmony.
 
-        Parameters:
+        Args:
             auth : A tuple of the format ('edl_username', 'edl_password')
             should_validate_auth: Whether EDL credentials will be validated.
         """
@@ -259,7 +265,7 @@ class Client:
         return self.session
 
     def _submit_url(self, request: Request) -> str:
-        """Constructs the URL from the given request."""
+        """Constructs the URL for the request that is used to submit a new Harmony Job."""
         variables = [v.replace('/', '%2F') for v in request.variables]
         vars = ','.join(variables)
         return (
@@ -268,6 +274,7 @@ class Client:
         )
 
     def _status_url(self, job_id: str) -> str:
+        """Constructs the URL for the Job that is used to get its status."""
         return f'https://{self.config.harmony_hostname}/jobs/{job_id}'
 
     def _cloud_access_url(self) -> str:
@@ -314,11 +321,13 @@ class Client:
             return []
 
     def submit(self, request: Request) -> Optional[str]:
-        """Submits a request to Harmony and returns the Harmony job details.
+        """Submits a request to Harmony and returns the Harmony Job ID.
 
-        Parameters:
-        -----------
-        request: The Request to submit to Harmony (will be validated before sending)
+        Args:
+            request: The Request to submit to Harmony (will be validated before sending)
+
+        Returns:
+            The Harmony Job ID
         """
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
@@ -343,8 +352,9 @@ class Client:
         Returns:
             A dict of metadata.
 
-        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
-        can't be reached.
+        Raises:
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+              can't be reached.
         """
         session = self._session()
         response = session.get(self._status_url(job_id))
@@ -375,8 +385,9 @@ class Client:
         Returns:
             The job's processing progress as a percentage.
 
-        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
-        can't be reached.
+        Raises:
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+              can't be reached.
         """
         session = self._session()
         response = session.get(self._status_url(job_id))
@@ -394,8 +405,9 @@ class Client:
         Returns:
             The job's processing progress as a percentage.
 
-        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
-        can't be reached.
+        :raises
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+            can't be reached.
         """
         # How often to poll Harmony for updated information during job processing.
         check_interval = 3.0  # in seconds
@@ -525,7 +537,7 @@ class Client:
         thread pool can be specified with the environment variable NUM_REQUESTS_WORKERS.
 
         Performance should be close to native with an appropriate chunk size. This can be changed
-        via environment variable DOWNLOAD_CHUNK_SIZE.
+        via environment variable ``DOWNLOAD_CHUNK_SIZE``.
 
         Filenames are automatically determined by using the latter portion of the provided URL.
 
@@ -540,7 +552,8 @@ class Client:
             files from incomplete downloads, set overwrite to True.
 
         Returns:
-            The filename and path.
+            A list of Futures, each of which will return the filename (with path) for each
+            result.
         """
         urls = self.result_urls(job_id, show_progress=False) or []
         return [
@@ -559,8 +572,9 @@ class Client:
         Returns:
             A STAC catalog URL.
 
-        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
-        can't be reached.
+        :raises
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+            can't be reached.
         """
         data = self.result_json(job_id, show_progress)
 
@@ -588,8 +602,6 @@ class Client:
 
     def aws_credentials(self) -> dict:
         """Retrieve temporary AWS credentials for retrieving data in S3.
-
-        Args:
 
         Returns:
             A python dict containing ``aws_access_key_id``, ``aws_secret_access_key``, and
