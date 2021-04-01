@@ -18,12 +18,10 @@ import sys
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from enum import Enum
-from itertools import cycle, repeat
 from typing import Any, List, NamedTuple, Optional, Tuple
 
 import dateutil.parser
 import progressbar
-from requests import Session
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment

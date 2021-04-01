@@ -15,11 +15,10 @@ from typing import cast
 
 from dotenv import load_dotenv
 
-Environment = Enum('Environment', ['LOCAL', 'SBX', 'SIT', 'UAT', 'PROD'])
+Environment = Enum('Environment', ['LOCAL', 'SIT', 'UAT', 'PROD'])
 
 HOSTNAMES = {
-    Environment.LOCAL: 'localhost:3000',
-    Environment.SBX: 'harmony.sbx.earthdata.nasa.gov',
+    Environment.LOCAL: 'localhost',
     Environment.SIT: 'harmony.sit.earthdata.nasa.gov',
     Environment.UAT: 'harmony.uat.earthdata.nasa.gov',
     Environment.PROD: 'harmony.earthdata.nasa.gov',
@@ -44,12 +43,15 @@ class Config:
         'DOWNLOAD_CHUNK_SIZE': str(4 * 1024 * 1024)  # recommend 16MB for servers
     }
 
-    def __init__(self, environment: Environment = Environment.UAT) -> None:
+    def __init__(self,
+                 environment: Environment = Environment.UAT,
+                 localhost_port: int = 3000) -> None:
         """Creates a new Config instance for the specified Environment."""
         load_dotenv()
         for k, v in Config.config.items():
             setattr(self, k, v)
         self.environment = environment
+        self.localhost_port = localhost_port
 
     @property
     def harmony_hostname(self):
@@ -62,7 +64,10 @@ class Config:
 
     @property
     def root_url(self) -> str:
-        return f'{self.url_scheme}://{self.harmony_hostname}'
+        if self.environment == Environment.LOCAL:
+            return f'{self.url_scheme}://{self.harmony_hostname}:{self.localhost_port}'
+        else:
+            return f'{self.url_scheme}://{self.harmony_hostname}'
 
     @property
     def edl_validation_url(self):
