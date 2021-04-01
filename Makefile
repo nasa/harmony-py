@@ -1,6 +1,11 @@
 .PHONY: venv-setup pyenv-setup install install-examples clean examples lint test test-watch ci docs
 .SILENT: virtualenv
 
+VERSION ?= $(shell git describe --tags | sed 's/-/\+/' | sed 's/-/\./g')
+REPO ?= https://upload.pypi.org/legacy/
+REPO_USER ?= __token__
+REPO_PASS ?= unset
+
 venv-setup:
 	python -m venv .venv
 
@@ -18,19 +23,20 @@ pyenv-setup:
 	    pyenv local harmony-py; \
 	fi
 
+clean:
+	coverage erase
+	rm -rf htmlcov
+	rm -rf build dist *.egg-info || true
+
+clean-docs:
+	cd docs && $(MAKE) clean
+
 install:
 	python -m pip install --upgrade pip
 	pip install -r requirements/core.txt -r requirements/dev.txt -r requirements/docs.txt
 
 install-examples: install
 	pip install -r requirements/examples.txt
-
-clean:
-	coverage erase
-	rm -rf htmlcov
-
-clean-docs:
-	cd docs && $(MAKE) clean
 
 examples: install-examples
 	jupyter-lab
@@ -52,3 +58,12 @@ docs/user/notebook.html: $(docs-notebook)
 
 docs: docs/user/notebook.html
 	cd docs && $(MAKE) html
+
+build: clean
+	sed -i.bak "s/__version__ .*/__version__ = \"$(VERSION)\"/" harmony/__init__.py && rm harmony/__init__.py.bak
+	python -m pip install --upgrade --quiet setuptools wheel twine
+	python setup.py --quiet sdist bdist_wheel
+
+publish: build
+	python -m twine check dist/*
+	python -m twine upload --username "$(REPO_USER)" --password "$(REPO_PASS)" --repository-url "$(REPO)" dist/*

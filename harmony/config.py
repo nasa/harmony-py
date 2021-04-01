@@ -43,7 +43,7 @@ class Config:
         'DOWNLOAD_CHUNK_SIZE': str(4 * 1024 * 1024)  # recommend 16MB for servers
     }
 
-    def __init__(self, environment: Environment = Environment.UAT) -> None:
+    def __init__(self, environment: Environment = Environment.PROD) -> None:
         """Creates a new Config instance for the specified Environment."""
         load_dotenv()
         for k, v in Config.config.items():
