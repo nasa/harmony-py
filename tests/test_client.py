@@ -1,6 +1,5 @@
 import datetime as dt
 import io
-import json
 import os
 import urllib.parse
 
@@ -8,7 +7,7 @@ import dateutil.parser
 import pytest
 import responses
 
-from harmony.harmony import BBox, Client, Collection, Request
+from harmony.harmony import BBox, Client, Collection, LinkType, Request
 
 
 def expected_submit_url(collection_id, variables='all'):
@@ -16,8 +15,8 @@ def expected_submit_url(collection_id, variables='all'):
             f'/ogc-api-coverages/1.0.0/collections/{variables}/coverage/rangeset')
 
 
-def expected_status_url(job_id):
-    return f'https://harmony.uat.earthdata.nasa.gov/jobs/{job_id}'
+def expected_status_url(job_id, link_type: LinkType = LinkType.https):
+    return f'https://harmony.uat.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}'
 
 
 def expected_full_submit_url(request):
@@ -120,8 +119,10 @@ def test_when_multiple_submits_it_only_authenticates_once():
     assert len(responses.calls) == 3
     assert responses.calls[0].request.url == auth_url
     assert urllib.parse.unquote(responses.calls[0].request.url) == auth_url
-    assert urllib.parse.unquote(responses.calls[1].request.url) == expected_full_submit_url(request)
-    assert urllib.parse.unquote(responses.calls[2].request.url) == expected_full_submit_url(request)
+    assert urllib.parse.unquote(
+        responses.calls[1].request.url) == expected_full_submit_url(request)
+    assert urllib.parse.unquote(
+        responses.calls[2].request.url) == expected_full_submit_url(request)
 
 
 @responses.activate
@@ -143,7 +144,8 @@ def test_with_bounding_box():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_full_submit_url(request)
     assert actual_job_id == job_id
 
 
@@ -169,7 +171,8 @@ def test_with_temporal_range():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_full_submit_url(request)
     assert actual_job_id == job_id
 
 
@@ -196,7 +199,8 @@ def test_with_bounding_box_and_temporal_range():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_full_submit_url(request)
     assert actual_job_id == job_id
 
 
@@ -374,9 +378,12 @@ def test_wait_for_processing_with_failed_status(mocker, show_progress):
     (True),
     (False),
 ])
-def test_result_json(mocker, show_progress):
+@pytest.mark.parametrize('link_type', [LinkType.https, LinkType.s3])
+def test_result_json(mocker, show_progress, link_type):
     expected_json = '{}'
     job_id = '1234'
+
+    # ********* TODO *********
 
     wait_mock = mocker.Mock()
     mocker.patch('harmony.harmony.Client.wait_for_processing', wait_mock)
@@ -389,7 +396,7 @@ def test_result_json(mocker, show_progress):
     )
     client = Client(should_validate_auth=False)
     actual_json = client.result_json(job_id, show_progress=show_progress)
-    
+
     assert actual_json == expected_json
     assert wait_mock.called_with(client, job_id, show_progress)
 
@@ -398,18 +405,21 @@ def test_result_json(mocker, show_progress):
     (True),
     (False),
 ])
-def test_result_urls(mocker, show_progress):
+@pytest.mark.parametrize('link_type', [LinkType.https, LinkType.s3])
+def test_result_urls(mocker, show_progress, link_type):
     collection = Collection(id='C1940468263-POCLOUD')
     job_id = '1234'
     expected_json = expected_job(collection.id, job_id)
     expected_urls = ['https://harmony.uat.earthdata.nasa.gov/service-results/fake.tif']
 
+    # ********* TODO *********
+
     result_json_mock = mocker.Mock(return_value=expected_json)
     mocker.patch('harmony.harmony.Client.result_json', result_json_mock)
 
     client = Client(should_validate_auth=False)
-    actual_urls = client.result_urls(job_id, show_progress=show_progress)
-    
+    actual_urls = client.result_urls(job_id, show_progress=show_progress, link_type=link_type)
+
     assert actual_urls == expected_urls
     assert result_json_mock.called_with(client, job_id, show_progress)
 
@@ -451,12 +461,12 @@ def test__download_file(overwrite):
                     resp_mock.add(responses.GET, url, body=file_obj.read(), stream=True)
                     client = Client(should_validate_auth=False)
                     actual_output = client._download_file(url, overwrite=overwrite)
-    
+
     assert actual_output == expected_filename
     with open(expected_filename, 'rb') as temp_file:
         data = temp_file.read()
         assert data == expected_data
-    
+
     if not overwrite:
         os.unlink(expected_filename)
 
@@ -478,21 +488,22 @@ def test_download_all(mocker):
 
     client = Client(should_validate_auth=False)
     actual_file_names = [f.result() for f in client.download_all('abcd-1234')]
-    
+
     assert actual_file_names == expected_file_names
 
 
-def test_stac_catalog_url(mocker):
+@pytest.mark.parametrize('link_type', [LinkType.https, LinkType.s3])
+def test_stac_catalog_url(link_type, mocker):
     job_id = '1234'
     collection = Collection(id='C1940468263-POCLOUD')
     expected_json = expected_job(collection.id, job_id)
     result_json_mock = mocker.Mock(return_value=expected_json)
     mocker.patch('harmony.harmony.Client.result_json', result_json_mock)
 
-    expected_stac_catalog_url = f'https://harmony.uat.earthdata.nasa.gov/stac/{job_id}/'
+    expected_stac_catalog_url = f'https://harmony.uat.earthdata.nasa.gov/stac/{job_id}/?linktype={link_type.value}'
 
     client = Client(should_validate_auth=False)
-    actual_stac_catalog_url = client.stac_catalog_url(job_id)
+    actual_stac_catalog_url = client.stac_catalog_url(job_id, link_type=link_type)
 
     assert actual_stac_catalog_url == expected_stac_catalog_url
 

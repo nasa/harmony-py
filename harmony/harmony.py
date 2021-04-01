@@ -17,6 +17,7 @@ import shutil
 import sys
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
+from enum import Enum
 from itertools import cycle, repeat
 from typing import Any, List, NamedTuple, Optional, Tuple
 
@@ -214,6 +215,16 @@ class Request:
         return spatial_msgs + temporal_msgs
 
 
+class LinkType(Enum):
+    """The type of URL to provide when returning links to data.
+
+    s3: Returns an Amazon Web Services (AWS) S3 URL
+    https: Returns a standard HTTP URL
+    """
+    s3 = 's3'
+    https = 'https'
+
+
 class Client:
     """A Harmony client object which can be used to submit requests to Harmony.
 
@@ -274,9 +285,9 @@ class Client:
             f'/ogc-api-coverages/1.0.0/collections/{vars}/coverage/rangeset'
         )
 
-    def _status_url(self, job_id: str) -> str:
+    def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to get its status."""
-        return f'{self.config.root_url}/jobs/{job_id}'
+        return f'{self.config.root_url}/jobs/{job_id}?linktype={link_type.value}'
 
     def _cloud_access_url(self) -> str:
         return f'{self.config.root_url}/cloud-access'
@@ -451,7 +462,10 @@ class Client:
                     break
                 time.sleep(check_interval)
 
-    def result_json(self, job_id: str, show_progress: bool = False) -> str:
+    def result_json(self,
+                    job_id: str,
+                    show_progress: bool = False,
+                    link_type: LinkType = LinkType.https) -> str:
         """Retrieve a job's final json output.
 
         Harmony jobs' output is built as the job is processed and this method fetches the complete
@@ -465,10 +479,13 @@ class Client:
             The job's complete json output.
         """
         self.wait_for_processing(job_id, show_progress)
-        response = self._session().get(self._status_url(job_id))
+        response = self._session().get(self._status_url(job_id, link_type))
         return response.json()
 
-    def result_urls(self, job_id: str, show_progress: bool = False) -> List:
+    def result_urls(self,
+                    job_id: str,
+                    show_progress: bool = False,
+                    link_type: LinkType = LinkType.https) -> List:
         """Retrieve the data URLs for a job.
 
         The URLs include links to all of the jobs data output. Blocks until the Harmony job is
@@ -481,7 +498,7 @@ class Client:
         Returns:
             The job's complete list of data URLs.
         """
-        data = self.result_json(job_id, show_progress)
+        data = self.result_json(job_id, show_progress, link_type)
         urls = [x['href'] for x in data.get('links', []) if x['rel'] == 'data']
         return urls
 
@@ -561,7 +578,10 @@ class Client:
             self.executor.submit(self._download_file, url, directory, overwrite) for url in urls
         ]
 
-    def stac_catalog_url(self, job_id: str, show_progress: bool = False) -> str:
+    def stac_catalog_url(self,
+                         job_id: str,
+                         show_progress: bool = False,
+                         link_type: LinkType = LinkType.https) -> str:
         """Extract the STAC catalog URL from job results.
 
         Blocks until the Harmony job is done processing.
@@ -577,11 +597,11 @@ class Client:
             Exception: This can happen if an invalid job_id is provided or Harmony services
             can't be reached.
         """
-        data = self.result_json(job_id, show_progress)
+        data = self.result_json(job_id, show_progress, link_type)
 
         for link in data.get('links', []):
             if link['rel'] == 'stac-catalog-json':
-                return link['href']
+                return f"{link['href']}?linktype={link_type.value}"
 
         return None
 
