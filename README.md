@@ -18,7 +18,7 @@
 
 ## Installing
 
-The library is available from [PyPI](#TODO) and can be installed with pip:
+The library is available from [PyPI](https://pypi.org/project/harmony-py/) and can be installed with pip:
 
         $ pip install -U harmony-py
 
@@ -116,3 +116,27 @@ Either set `HARMONY_DIR` or replace it with your Harmony project directory path.
 Harmony-py uses [GitHub
 Actions](https://github.com/nasa/harmony-py/actions) to run the Linter
 & Unit Tests. The test coverage output is saved as a build artifact.
+
+## Building and Releasing
+
+If a new version of Harmony-Py will be released then the `master` branch should be tagged with an updated version:
+
+        $ git checkout master
+        $ git tag -a v1.2.3    # where v1.2.3 is the next version number
+
+In order to generate new package and wheel files, do the following:
+
+        $ make build
+
+`make` reads the current version number based on git tag, populates the version in `harmony/__init__.py`, and `setup.py` reads the version number from `harmony/__init__.py` for packaging purposes.
+
+This leaves us with a modifed __init\__.py which must be committed and pushed to `master`.
+
+        $ git add harmony/__init__.py
+        $ git commit -m "Version bump to v1.2.3"
+        $ git tag -f
+        $ git push
+
+Then, provided API tokens are in order, the following runs the build target and publishes to PyPI:
+
+        $ make publish
