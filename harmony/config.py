@@ -1,10 +1,10 @@
 """Provides a Config class for conveniently specifying the environment for Harmony Py.
 
 The ``Config`` class can be instantiated without parameters and will default to
-the Harmony testing (UAT) environment. To create a configuration for the
-production environment, for example::
+the Harmony production environment. To create a configuration for the
+testing (UAT) environment, for example::
 
-    cfg = Config(Environment.PROD)
+    cfg = Config(Environment.UAT)
 
 This configuration object can then be passed as an argument when creating
 the ``harmony.Client``.
