@@ -15,10 +15,10 @@ from typing import cast
 
 from dotenv import load_dotenv
 
-Environment = Enum('Environment', ['SBX', 'SIT', 'UAT', 'PROD'])
+Environment = Enum('Environment', ['LOCAL', 'SIT', 'UAT', 'PROD'])
 
 HOSTNAMES = {
-    Environment.SBX: 'harmony.sbx.earthdata.nasa.gov',
+    Environment.LOCAL: 'localhost',
     Environment.SIT: 'harmony.sit.earthdata.nasa.gov',
     Environment.UAT: 'harmony.uat.earthdata.nasa.gov',
     Environment.PROD: 'harmony.earthdata.nasa.gov',
@@ -43,12 +43,15 @@ class Config:
         'DOWNLOAD_CHUNK_SIZE': str(4 * 1024 * 1024)  # recommend 16MB for servers
     }
 
-    def __init__(self, environment: Environment = Environment.PROD) -> None:
+    def __init__(self,
+                 environment: Environment = Environment.PROD,
+                 localhost_port: int = 3000) -> None:
         """Creates a new Config instance for the specified Environment."""
         load_dotenv()
         for k, v in Config.config.items():
             setattr(self, k, v)
         self.environment = environment
+        self.localhost_port = localhost_port
 
     @property
     def harmony_hostname(self):
@@ -56,11 +59,22 @@ class Config:
         return HOSTNAMES[self.environment]
 
     @property
+    def url_scheme(self) -> str:
+        return 'http' if self.environment == Environment.LOCAL else 'https'
+
+    @property
+    def root_url(self) -> str:
+        if self.environment == Environment.LOCAL:
+            return f'{self.url_scheme}://{self.harmony_hostname}:{self.localhost_port}'
+        else:
+            return f'{self.url_scheme}://{self.harmony_hostname}'
+
+    @property
     def edl_validation_url(self):
         """Returns the full URL to a Harmony endpoint used to validate the
         user's Earthdata Login credentials for this Config's Environment.
         """
-        return f'https://{self.harmony_hostname}/jobs'
+        return f'{self.root_url}/jobs'
 
     def __getattribute__(self, name: str) -> str:
         """Overrides attribute retrieval for instances of this class.
