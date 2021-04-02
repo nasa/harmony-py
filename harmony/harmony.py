@@ -199,8 +199,8 @@ class Request:
         self.shape_validations = [
             (lambda s: os.path.isfile(s), 'The provided shape path is not a file'),
             (lambda s: s.split('.').pop().lower() in _shapefile_exts_to_mimes,
-             'The provided shape file is not a recognized type.  Valid file extensions: ' +
-             f'[{_valid_shapefile_exts}]'),
+             'The provided shape file is not a recognized type.  Valid file extensions: '
+             + f'[{_valid_shapefile_exts}]'),
         ]
 
     def parameter_values(self) -> List[Tuple[str, Any]]:
