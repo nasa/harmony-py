@@ -104,7 +104,7 @@ def test_request_spatial_error_messages(key, value, message):
         'temporal', {
             'start': dt.datetime(1969, 7, 20),
             'stop': dt.datetime(1941, 12, 7)
-        }, 
+        },
         'The temporal range\'s start must be earlier than its stop datetime.'
     )
 ])
@@ -114,3 +114,26 @@ def test_request_temporal_error_messages(key, value, message):
 
     assert not request.is_valid()
     assert message in messages
+
+
+def test_request_valid_shape():
+    request = Request(Collection('foo'), shape='./examples/asf_example.json')
+    messages = request.error_messages()
+    assert request.is_valid()
+    assert messages == []
+
+
+@pytest.mark.parametrize('key, value, messages', [
+    ('shape', './tests/',
+     ['The provided shape path is not a file',
+      'The provided shape file is not a recognized type.  '
+      + 'Valid file extensions: [json, geojson, kml, shz, zip]']),
+    ('shape', './tests/test_auth.py',
+     ['The provided shape file is not a recognized type.  '
+      + 'Valid file extensions: [json, geojson, kml, shz, zip]']),
+])
+def test_request_shape_file_error_message(key, value, messages):
+    request = Request(Collection('foo'), **{key: value})
+
+    assert not request.is_valid()
+    assert request.error_messages() == messages
