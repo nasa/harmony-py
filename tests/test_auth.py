@@ -52,7 +52,7 @@ def test_authentication_with_malformed_auth(auth, config, mocker):
 @pytest.mark.parametrize('status_code,should_error',
                          [(200, False), (401, True), (500, True)])
 def test_authentication(status_code, should_error, config, mocker):
-    auth_url = 'https://harmony.uat.earthdata.nasa.gov/jobs'
+    auth_url = 'https://harmony.earthdata.nasa.gov/jobs'
     responses.add(
         responses.GET,
         auth_url,
