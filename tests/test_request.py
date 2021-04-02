@@ -124,12 +124,9 @@ def test_request_valid_shape():
 
 
 @pytest.mark.parametrize('key, value, messages', [
-    ('shape', './tests/',
-     ['The provided shape path is not a file',
-      'The provided shape file is not a recognized type.  '
-      + 'Valid file extensions: [json, geojson, kml, shz, zip]']),
-    ('shape', './tests/test_auth.py',
-     ['The provided shape file is not a recognized type.  '
+    ('shape', './tests/', ['The provided shape path "./tests/" is not a file']),
+    ('shape', './setup.py',
+     ['The provided shape path "./setup.py" has extension "py" which is not recognized.  '
       + 'Valid file extensions: [json, geojson, kml, shz, zip]']),
 ])
 def test_request_shape_file_error_message(key, value, messages):

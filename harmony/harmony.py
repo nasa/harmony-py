@@ -220,17 +220,29 @@ class Request:
         """Determines if the request and its parameters are valid."""
         return len(self.error_messages()) == 0
 
+    def _shape_error_messages(self, shape) -> List[str]:
+        """Returns a list of error message for the provided shape."""
+        if not shape:
+            return []
+        if not os.path.exists(shape):
+            return [f'The provided shape path "{shape}" does not exist']
+        if not os.path.isfile(shape):
+            return [f'The provided shape path "{shape}" is not a file']
+        ext = shape.split('.').pop().lower()
+        if ext not in _shapefile_exts_to_mimes:
+            return [f'The provided shape path "{shape}" has extension "{ext}" which is not '
+                    + f'recognized.  Valid file extensions: [{_valid_shapefile_exts}]']
+        return []
+
     def error_messages(self) -> List[str]:
         """A list of error messages, if any, for the request."""
         spatial_msgs = []
         temporal_msgs = []
-        shape_msgs = []
+        shape_msgs = self._shape_error_messages(self.shape)
         if self.spatial:
             spatial_msgs = [m for v, m in self.spatial_validations if not v(self.spatial)]
         if self.temporal:
             temporal_msgs = [m for v, m in self.temporal_validations if not v(self.temporal)]
-        if self.shape:
-            shape_msgs = [m for v, m in self.shape_validations if not v(self.shape)]
 
         return spatial_msgs + temporal_msgs + shape_msgs
 
@@ -421,6 +433,7 @@ class Client:
             else:
                 response = session.get(self._submit_url(request), params=params)
         if response.ok:
+            print(response.json())
             job_id = (response.json())['jobID']
         else:
             response.raise_for_status()
