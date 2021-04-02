@@ -21,20 +21,18 @@ def test_config_built_in():
 
 
 @pytest.mark.parametrize('env,url', [
-    (Environment.LOCAL, 'http://localhost:3000'),
-    (Environment.SBX, 'https://harmony.sbx.earthdata.nasa.gov'),
-    (Environment.SIT, 'https://harmony.sit.earthdata.nasa.gov'),
-    (Environment.UAT, 'https://harmony.uat.earthdata.nasa.gov'),
-    (Environment.PROD, 'https://harmony.earthdata.nasa.gov')
+    (Environment.SBX, 'harmony.sbx.earthdata.nasa.gov'),
+    (Environment.SIT, 'harmony.sit.earthdata.nasa.gov'),
+    (Environment.UAT, 'harmony.uat.earthdata.nasa.gov'),
+    (Environment.PROD, 'harmony.earthdata.nasa.gov')
 ])
 def test_harmony_hostname_matches_environment(env, url):
     config = Config(env)
 
-    assert config.harmony_root == url
+    assert config.harmony_hostname == url
 
 
 @pytest.mark.parametrize('env,url', [
-    (Environment.LOCAL, 'http://localhost:3000/jobs'),
     (Environment.SBX, 'https://harmony.sbx.earthdata.nasa.gov/jobs'),
     (Environment.SIT, 'https://harmony.sit.earthdata.nasa.gov/jobs'),
     (Environment.UAT, 'https://harmony.uat.earthdata.nasa.gov/jobs'),
