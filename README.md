@@ -71,9 +71,9 @@ It should show `harmony-py`. Pyenv does auto-activation by creating a `.python-v
 
 ## Running the Example Jupyter Notebooks
 
-Jupyter notebooks in the `examples` subdirectory show how to use the Harmony Py library. Start up the Jupyter Lab notebook server and run these examples: 
+Jupyter notebooks in the `examples` subdirectory show how to use the Harmony Py library. Start up the Jupyter Lab notebook server and run these examples:
 
-The Jupyter Lab server will start and [open in your browser](http://localhost:8888/lab). Double-click on a notebook in the file-browser sidebar and run the notebook. Note that some notebooks may have cells which prompt for your EDL username and password. Be sure to use your UAT credentials since all of the example notebooks use the Harmony UAT environment.
+The Jupyter Lab server will start and [open in your browser](http://localhost:8888/lab). Double-click on a notebook in the file-browser sidebar and run the notebook. Note that some notebooks may have cells which prompt for your EDL username and password. Be sure to use your UAT credentials since most of the example notebooks use the Harmony UAT environment.
 
         $ make examples
 

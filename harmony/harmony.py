@@ -285,7 +285,7 @@ class Client:
         *,
         auth: Optional[Tuple[str, str]] = None,
         should_validate_auth: bool = True,
-        env: Environment = Environment.UAT,
+        env: Environment = Environment.PROD,
     ):
         """Creates a Harmony Client that can be used to interact with Harmony.
 
