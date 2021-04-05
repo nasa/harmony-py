@@ -28,9 +28,12 @@ clean:
 	rm -rf htmlcov
 	rm -rf build dist *.egg-info || true
 
+clean-docs:
+	cd docs && $(MAKE) clean
+
 install:
 	python -m pip install --upgrade pip
-	pip install -r requirements/core.txt -r requirements/dev.txt
+	pip install -r requirements/core.txt -r requirements/dev.txt -r requirements/docs.txt
 
 install-examples: install
 	pip install -r requirements/examples.txt
@@ -49,7 +52,11 @@ test-watch:
 
 ci: lint test
 
-docs:
+docs-notebook = examples/tutorial.ipynb
+docs/user/notebook.html: $(docs-notebook)
+	jupyter nbconvert --execute --to html --output notebook.html --output-dir docs/user $(docs-notebook)
+
+docs: docs/user/notebook.html
 	cd docs && $(MAKE) html
 
 build: clean

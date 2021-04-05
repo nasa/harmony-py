@@ -21,7 +21,7 @@ def test_config_built_in():
 
 
 @pytest.mark.parametrize('env,url', [
-    (Environment.SBX, 'harmony.sbx.earthdata.nasa.gov'),
+    (Environment.LOCAL, 'localhost'),
     (Environment.SIT, 'harmony.sit.earthdata.nasa.gov'),
     (Environment.UAT, 'harmony.uat.earthdata.nasa.gov'),
     (Environment.PROD, 'harmony.earthdata.nasa.gov')
@@ -33,12 +33,48 @@ def test_harmony_hostname_matches_environment(env, url):
 
 
 @pytest.mark.parametrize('env,url', [
-    (Environment.SBX, 'https://harmony.sbx.earthdata.nasa.gov/jobs'),
+    (Environment.LOCAL, 'http'),
+    (Environment.SIT, 'https'),
+    (Environment.UAT, 'https'),
+    (Environment.PROD, 'https')
+])
+def test_url_scheme_matches_environment(env, url):
+    config = Config(env)
+
+    assert config.url_scheme == url
+
+
+@pytest.mark.parametrize('env,url', [
+    (Environment.LOCAL, 'http://localhost:3000'),
+    (Environment.SIT, 'https://harmony.sit.earthdata.nasa.gov'),
+    (Environment.UAT, 'https://harmony.uat.earthdata.nasa.gov'),
+    (Environment.PROD, 'https://harmony.earthdata.nasa.gov')
+])
+def test_root_url_matches_environment(env, url):
+    config = Config(env)
+
+    assert config.root_url == url
+
+
+@pytest.mark.parametrize('env,url', [
+    (Environment.LOCAL, 'http://localhost:9999'),
+    (Environment.SIT, 'https://harmony.sit.earthdata.nasa.gov'),
+    (Environment.UAT, 'https://harmony.uat.earthdata.nasa.gov'),
+    (Environment.PROD, 'https://harmony.earthdata.nasa.gov')
+])
+def test_localhost_port_is_overridable(env, url):
+    config = Config(env, localhost_port=9999)
+
+    assert config.root_url == url
+
+
+@pytest.mark.parametrize('env,url', [
+    (Environment.LOCAL, 'http://localhost:3000/jobs'),
     (Environment.SIT, 'https://harmony.sit.earthdata.nasa.gov/jobs'),
     (Environment.UAT, 'https://harmony.uat.earthdata.nasa.gov/jobs'),
     (Environment.PROD, 'https://harmony.earthdata.nasa.gov/jobs')
 ])
-def test_validation_url_matches_environment(env, url):
+def test_edl_validation_url_matches_environment(env, url):
     config = Config(env)
 
     assert config.edl_validation_url == url

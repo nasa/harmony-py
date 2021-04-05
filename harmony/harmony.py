@@ -1,19 +1,32 @@
-from concurrent.futures import Future, ThreadPoolExecutor
-from itertools import cycle, repeat
+"""This module defines the main classes used to interact with Harmony.
+
+The classes defined here are also available by importing them from the
+top-level ``harmony`` package, e.g.::
+
+    from harmony import Client, Request
+
+Overview of the classes:
+
+    * Collection: A CMR Collection ID
+    * BBox: A bounding box (lat/lon) used in Requests
+    * Request: A complete Harmony request with all criteria
+    * Client: Allows submission of a Harmony Request and getting results
+"""
 import os
 import shutil
 import sys
 import time
-from typing import NamedTuple
-from typing import Any, List, Optional, Tuple
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager
+from datetime import datetime
+from enum import Enum
+from typing import Any, ContextManager, IO, List, Mapping, NamedTuple, Optional, Tuple
 
 import dateutil.parser
 import progressbar
-from requests import Session
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
-
 
 progressbar_widgets = [
     ' [ Processing: ', progressbar.Percentage(), ' ] ',
@@ -28,13 +41,11 @@ class Collection:
     def __init__(self, id: str):
         """Constructs a Collection instance from a CMR Collection ID.
 
-        Parameters
-        ----------
-        id: CMR Collection ID
+        Args:
+            id: CMR Collection ID
 
-        Returns
-        -------
-        A Collection instance
+        Returns:
+            A Collection instance
         """
         self.id = id
 
@@ -45,32 +56,31 @@ class BBox(NamedTuple):
 
     Example:
       An area bounded by latitudes 30N and 60N and longitudes
-      130W and 100W:
+      130W and 100W::
 
           >>> spatial = BBox(-130, 30, -100, 60)
 
-      Important: When specified positionally, the parameters must
-      be given in order: west, south, east, north.
+    Important: When specified positionally, the parameters must
+    be given in order: west, south, east, north.
 
-      Alternatively, one can explicitly set each bound using the
-      single-letter for each bound:
+    Alternatively, one can explicitly set each bound using the
+    single-letter for each bound::
 
-          >>> spatial = BBox(n=60, s=30, e=-100, w=-130)
+        >>> spatial = BBox(n=60, s=30, e=-100, w=-130)
 
-      Print the spatial bounds:
+    Print a readable representation of the spatial bounds::
 
-          >>> print(spatial)
-          BBox: West:-130, South:30, East:-100, North:60
+        >>> print(spatial)
+        BBox: West:-130, South:30, East:-100, North:60
 
-    Parameters:
-    -----------
-    w: The western longitude bounds (degrees)
-    s: The souther latitude bounds (degrees)
-    e: The easter longitude bounds (degrees)
-    n: The northern latitude bounds (degrees)
+    Args:
+        w: The western longitude bounds (degrees)
+        s: The souther latitude bounds (degrees)
+        e: The easter longitude bounds (degrees)
+        n: The northern latitude bounds (degrees)
 
     Returns:
-    A BBox instance with the provided bounds.
+        A BBox instance with the provided bounds.
     """
     w: float
     s: float
@@ -81,50 +91,60 @@ class BBox(NamedTuple):
         return f'BBox: West:{self.w}, South:{self.s}, East:{self.e}, North:{self.n}'
 
 
+_shapefile_exts_to_mimes = {
+    'json': 'application/geo+json',
+    'geojson': 'application/geo+json',
+    'kml': 'application/vnd.google-earth.kml+xml',
+    'shz': 'application/shapefile+zip',
+    'zip': 'application/shapefile+zip',
+}
+_valid_shapefile_exts = ', '.join((_shapefile_exts_to_mimes.keys()))
+
+
 class Request:
-    """A Harmony request with the CMR collection and various parameters expressing how the data is
-    to be transformed.
+    """A Harmony request with the CMR collection and various parameters expressing
+    how the data is to be transformed.
 
-    Parameters:
-    -----------
-    collection: The CMR collection that should be queried
+    Args:
+        collection: The CMR collection that should be queried
 
-    Keyword-Only:
-    -------------
-    spatial: Bounding box spatial constraints on the data
+        spatial: Bounding box spatial constraints on the data
 
-    temporal: Date/time constraints on the data
+        temporal: Date/time constraints on the data provided as a dict mapping "start" and "stop"
+          keys to corresponding start/stop datetime.datetime objects
 
-    crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
-      inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
-      (http://www.opengis.net/def/crs/...)
+        crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
+          inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
+          (http://www.opengis.net/def/crs/...)
 
-    interpolation: specify the interpolation method used during reprojection and scaling
+        interpolation: specify the interpolation method used during reprojection and scaling
 
-    scale_extent: scale the resulting coverage either among one axis to a given extent
+        scale_extent: scale the resulting coverage either among one axis to a given extent
 
-    scale_size: scale the resulting coverage either among one axis to a given size
+        scale_size: scale the resulting coverage either among one axis to a given size
 
-    granule_id: The CMR Granule ID for the granule which should be retrieved
+        shape: a file path to an ESRI Shapefile zip, GeoJSON file, or KML file to use for
+          spatial subsetting.  Note: not all collections support shapefile subsetting
 
-    width: number of columns to return in the output coverage
+        granule_id: The CMR Granule ID for the granule which should be retrieved
 
-    height: number of rows to return in the output coverage
+        width: number of columns to return in the output coverage
 
-    format: the output mime type to return
+        height: number of rows to return in the output coverage
 
-    max_results: limits the number of input granules processed in the request
+        format: the output mime type to return
+
+        max_results: limits the number of input granules processed in the request
 
     Returns:
-    --------
-    A Harmony Request instance
+        A Harmony Request instance
     """
 
     def __init__(self,
                  collection: Collection,
                  *,
                  spatial: BBox = None,
-                 temporal: dict = None,
+                 temporal: Mapping[str, datetime] = None,
                  crs: str = None,
                  format: str = None,
                  granule_id: List[str] = None,
@@ -133,9 +153,11 @@ class Request:
                  max_results: int = None,
                  scale_extent: List[float] = None,
                  scale_size: List[float] = None,
+                 shape: Optional[Tuple[IO, str]] = None,
                  variables: List[str] = ['all'],
                  width: int = None):
-
+        """Creates a new Request instance from all specified criteria.'
+        """
         self.collection = collection
         self.spatial = spatial
         self.temporal = temporal
@@ -147,6 +169,7 @@ class Request:
         self.max_results = max_results
         self.scale_extent = scale_extent
         self.scale_size = scale_size
+        self.shape = shape
         self.variables = variables
         self.width = width
 
@@ -155,6 +178,7 @@ class Request:
             'interpolation': 'interpolation',
             'scale_extent': 'scaleExtent',
             'scale_size': 'scaleSize',
+            'shape': 'shapefile',
             'granule_id': 'granuleId',
             'width': 'width',
             'height': 'height',
@@ -180,6 +204,12 @@ class Request:
             (lambda tr: tr['start'] < tr['stop'] if 'start' in tr and 'stop' in tr else True,
              'The temporal range\'s start must be earlier than its stop datetime.')
         ]
+        self.shape_validations = [
+            (lambda s: os.path.isfile(s), 'The provided shape path is not a file'),
+            (lambda s: s.split('.').pop().lower() in _shapefile_exts_to_mimes,
+             'The provided shape file is not a recognized type.  Valid file extensions: '
+             + f'[{_valid_shapefile_exts}]'),
+        ]
 
     def parameter_values(self) -> List[Tuple[str, Any]]:
         """Returns tuples of each query parameter that has been set and its value."""
@@ -189,23 +219,44 @@ class Request:
 
     def is_valid(self) -> bool:
         """Determines if the request and its parameters are valid."""
-        return \
-            (self.spatial is None or all([v(self.spatial)
-                                          for v, _ in self.spatial_validations])) \
-            and \
-            (self.temporal is None or all([v(self.temporal)
-                                           for v, _ in self.temporal_validations]))
+        return len(self.error_messages()) == 0
+
+    def _shape_error_messages(self, shape) -> List[str]:
+        """Returns a list of error message for the provided shape."""
+        if not shape:
+            return []
+        if not os.path.exists(shape):
+            return [f'The provided shape path "{shape}" does not exist']
+        if not os.path.isfile(shape):
+            return [f'The provided shape path "{shape}" is not a file']
+        ext = shape.split('.').pop().lower()
+        if ext not in _shapefile_exts_to_mimes:
+            return [f'The provided shape path "{shape}" has extension "{ext}" which is not '
+                    + f'recognized.  Valid file extensions: [{_valid_shapefile_exts}]']
+        return []
 
     def error_messages(self) -> List[str]:
         """A list of error messages, if any, for the request."""
         spatial_msgs = []
         temporal_msgs = []
+        shape_msgs = self._shape_error_messages(self.shape)
         if self.spatial:
             spatial_msgs = [m for v, m in self.spatial_validations if not v(self.spatial)]
         if self.temporal:
             temporal_msgs = [m for v, m in self.temporal_validations if not v(self.temporal)]
 
-        return spatial_msgs + temporal_msgs
+        return spatial_msgs + temporal_msgs + shape_msgs
+
+
+class LinkType(Enum):
+    """The type of URL to provide when returning links to data.
+
+    s3: Returns an Amazon Web Services (AWS) S3 URL
+    https: Returns a standard HTTP URL
+    """
+    s3 = 's3'
+    http = 'http'
+    https = 'https'
 
 
 class Client:
@@ -213,20 +264,20 @@ class Client:
 
     Examples:
 
-    With no arguments
+    With no arguments::
 
         >>> client = Client()
 
     will create a Harmony client that will either use the EDL_USERNAME & EDL_PASSWORD
     environment variables to authenticate with Earthdata Login, or will use the credentials
-    in the user's `.netrc` file, if one is available.
+    in the user's ``.netrc`` file, if one is available.
 
-    To explicitly include the user's credentials:
+    To explicitly include the user's credentials::
 
         >>> client = Client(auth=('rfeynman', 'quantumf1eld5'))
 
     By default, the Client will validate the provided credentials immediately. This can be
-    disabled by passing `should_validate_auth=False`.
+    disabled by passing ``should_validate_auth=False``.
     """
 
     def __init__(
@@ -238,7 +289,7 @@ class Client:
     ):
         """Creates a Harmony Client that can be used to interact with Harmony.
 
-        Parameters:
+        Args:
             auth : A tuple of the format ('edl_username', 'edl_password')
             should_validate_auth: Whether EDL credentials will be validated.
         """
@@ -259,29 +310,33 @@ class Client:
         return self.session
 
     def _submit_url(self, request: Request) -> str:
-        """Constructs the URL from the given request."""
+        """Constructs the URL for the request that is used to submit a new Harmony Job."""
         variables = [v.replace('/', '%2F') for v in request.variables]
         vars = ','.join(variables)
         return (
-            f'https://{self.config.harmony_hostname}/{request.collection.id}'
+            f'{self.config.root_url}'
+            f'/{request.collection.id}'
             f'/ogc-api-coverages/1.0.0/collections/{vars}/coverage/rangeset'
         )
 
-    def _status_url(self, job_id: str) -> str:
-        return f'https://{self.config.harmony_hostname}/jobs/{job_id}'
+    def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
+        """Constructs the URL for the Job that is used to get its status."""
+        return f'{self.config.root_url}/jobs/{job_id}?linktype={link_type.value}'
 
     def _cloud_access_url(self) -> str:
-        return f'https://{self.config.harmony_hostname}/cloud-access'
+        return f'{self.config.root_url}/cloud-access'
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
-        params = {'forceAsync': True}
+        params = {'forceAsync': 'true'}
 
         subset = self._spatial_subset_params(request) + self._temporal_subset_params(request)
         if len(subset) > 0:
             params['subset'] = subset
 
-        for p, val in request.parameter_values():
+        file_param_names = ['shapefile']
+        query_params = [pv for pv in request.parameter_values() if pv[0] not in file_param_names]
+        for p, val in query_params:
             if type(val) == str:
                 params[p] = val
             elif type(val) == bool:
@@ -307,27 +362,91 @@ class Client:
             t = request.temporal
             start = t['start'].isoformat() if 'start' in t else None
             stop = t['stop'].isoformat() if 'stop' in t else None
-            start_quoted = f'"{start}"' if start else ''
-            stop_quoted = f'"{stop}"' if start else ''
+            start_quoted = f'"{start}"' if start else '*'
+            stop_quoted = f'"{stop}"' if stop else '*'
             return [f'time({start_quoted}:{stop_quoted})']
         else:
             return []
 
-    def submit(self, request: Request) -> Optional[str]:
-        """Submits a request to Harmony and returns the Harmony job details.
+    @contextmanager
+    def _files(self, request) -> ContextManager[Mapping[str, Any]]:
+        """Creates a dictionary of multipart file POST parameters from the given request."""
+        file_param_names = ['shapefile']
+        file_params = dict([pv for pv in request.parameter_values() if pv[0] in file_param_names])
 
-        Parameters:
-        -----------
-        request: The Request to submit to Harmony (will be validated before sending)
+        result = {}
+        files = []
+        try:
+            shapefile_param = file_params.get('shapefile', None)
+            if shapefile_param:
+                shapefile_ext = shapefile_param.split('.').pop().lower()
+                mime = _shapefile_exts_to_mimes[shapefile_ext]
+                shapefile = open(shapefile_param, 'rb')
+                files.append(shapefile)
+                result['shapefile'] = ('shapefile', shapefile, mime)
+
+            yield result
+        finally:
+            for f in files:
+                f.close()
+
+    def _params_dict_to_files(self, params: Mapping[str, Any]) -> List[Tuple[None, str, None]]:
+        """Returns the given parameter mapping as a list of tuples suitable for multipart POST
+
+        This method is a temporary need until HARMONY-290 is implemented, since we cannot
+        currently pass query parameters to a shapefile POST request.  Because we need to pass
+        them as a multipart POST body, we need to inflate them into a list of tuples, one for
+        each parameter value to allow us to call requests.post(..., files=params)
+
+        Args:
+            params: A dictionary of parameter mappings as returned by self._params(request)
+
+        Returns:
+            A list of tuples suitable for passing to a requests multipart upload corresponding
+            to the provided parameters
+        """
+        # TODO: remove / refactor after HARMONY-290 is complete
+        result = []
+        for key, values in params.items():
+            if not isinstance(values, list):
+                values = [values]
+            result += [(key, (None, str(value), None)) for value in values]
+        return result
+
+    def submit(self, request: Request) -> Optional[str]:
+        """Submits a request to Harmony and returns the Harmony Job ID.
+
+        Args:
+            request: The Request to submit to Harmony (will be validated before sending)
+
+        Returns:
+            The Harmony Job ID
         """
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
-            raise Exception(f"Cannot submit an invalid request: [{msgs}]")
+            raise Exception(f"Cannot submit the request due to the following errors: [{msgs}]")
 
         job_id = None
         session = self._session()
-        response = session.get(self._submit_url(request), params=self._params(request))
+        params = self._params(request)
+
+        with self._files(request) as files:
+            if files:
+                # Ideally this should just be files=files, params=params but Harmony
+                # cannot accept both files and query params now.  (HARMONY-290)
+                # Inflate params to a list of tuples that can be passed as multipart
+                # form-data.  This must be done this way due to e.g. "subset" having
+                # multiple values
+
+                param_items = self._params_dict_to_files(params)
+                file_items = [(k, v) for k, v in files.items()]
+                response = session.post(
+                    self._submit_url(request),
+                    files=param_items + file_items)
+            else:
+                response = session.get(self._submit_url(request), params=params)
         if response.ok:
+            print(response.json())
             job_id = (response.json())['jobID']
         else:
             response.raise_for_status()
@@ -343,8 +462,9 @@ class Client:
         Returns:
             A dict of metadata.
 
-        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
-        can't be reached.
+        Raises:
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+              can't be reached.
         """
         session = self._session()
         response = session.get(self._status_url(job_id))
@@ -373,10 +493,11 @@ class Client:
             job_id: UUID string for the job you wish to interrogate.
 
         Returns:
-            The job's processing progress as a percentage.
+            The job's processing progress as a percentage and its current status.
 
-        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
-        can't be reached.
+        Raises:
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+              can't be reached.
         """
         session = self._session()
         response = session.get(self._status_url(job_id))
@@ -394,8 +515,9 @@ class Client:
         Returns:
             The job's processing progress as a percentage.
 
-        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
-        can't be reached.
+        :raises
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+            can't be reached.
         """
         # How often to poll Harmony for updated information during job processing.
         check_interval = 3.0  # in seconds
@@ -438,7 +560,10 @@ class Client:
                     break
                 time.sleep(check_interval)
 
-    def result_json(self, job_id: str, show_progress: bool = False) -> str:
+    def result_json(self,
+                    job_id: str,
+                    show_progress: bool = False,
+                    link_type: LinkType = LinkType.https) -> str:
         """Retrieve a job's final json output.
 
         Harmony jobs' output is built as the job is processed and this method fetches the complete
@@ -452,10 +577,13 @@ class Client:
             The job's complete json output.
         """
         self.wait_for_processing(job_id, show_progress)
-        response = self._session().get(self._status_url(job_id))
+        response = self._session().get(self._status_url(job_id, link_type))
         return response.json()
 
-    def result_urls(self, job_id: str, show_progress: bool = False) -> List:
+    def result_urls(self,
+                    job_id: str,
+                    show_progress: bool = False,
+                    link_type: LinkType = LinkType.https) -> List:
         """Retrieve the data URLs for a job.
 
         The URLs include links to all of the jobs data output. Blocks until the Harmony job is
@@ -468,7 +596,7 @@ class Client:
         Returns:
             The job's complete list of data URLs.
         """
-        data = self.result_json(job_id, show_progress)
+        data = self.result_json(job_id, show_progress, link_type)
         urls = [x['href'] for x in data.get('links', []) if x['rel'] == 'data']
         return urls
 
@@ -525,7 +653,7 @@ class Client:
         thread pool can be specified with the environment variable NUM_REQUESTS_WORKERS.
 
         Performance should be close to native with an appropriate chunk size. This can be changed
-        via environment variable DOWNLOAD_CHUNK_SIZE.
+        via environment variable ``DOWNLOAD_CHUNK_SIZE``.
 
         Filenames are automatically determined by using the latter portion of the provided URL.
 
@@ -540,14 +668,18 @@ class Client:
             files from incomplete downloads, set overwrite to True.
 
         Returns:
-            The filename and path.
+            A list of Futures, each of which will return the filename (with path) for each
+            result.
         """
         urls = self.result_urls(job_id, show_progress=False) or []
         return [
             self.executor.submit(self._download_file, url, directory, overwrite) for url in urls
         ]
 
-    def stac_catalog_url(self, job_id: str, show_progress: bool = False) -> str:
+    def stac_catalog_url(self,
+                         job_id: str,
+                         show_progress: bool = False,
+                         link_type: LinkType = LinkType.https) -> str:
         """Extract the STAC catalog URL from job results.
 
         Blocks until the Harmony job is done processing.
@@ -559,14 +691,15 @@ class Client:
         Returns:
             A STAC catalog URL.
 
-        :raises Exception: This can happen if an invalid job_id is provided or Harmony services
-        can't be reached.
+        :raises
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+            can't be reached.
         """
-        data = self.result_json(job_id, show_progress)
+        data = self.result_json(job_id, show_progress, link_type)
 
         for link in data.get('links', []):
             if link['rel'] == 'stac-catalog-json':
-                return link['href']
+                return f"{link['href']}?linktype={link_type.value}"
 
         return None
 
@@ -588,8 +721,6 @@ class Client:
 
     def aws_credentials(self) -> dict:
         """Retrieve temporary AWS credentials for retrieving data in S3.
-
-        Args:
 
         Returns:
             A python dict containing ``aws_access_key_id``, ``aws_secret_access_key``, and
