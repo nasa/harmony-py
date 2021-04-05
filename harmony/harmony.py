@@ -17,8 +17,10 @@ import shutil
 import sys
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import contextmanager
+from datetime import datetime
 from enum import Enum
-from typing import Any, List, NamedTuple, Optional, Tuple
+from typing import Any, ContextManager, IO, List, Mapping, NamedTuple, Optional, Tuple
 
 import dateutil.parser
 import progressbar
@@ -89,6 +91,16 @@ class BBox(NamedTuple):
         return f'BBox: West:{self.w}, South:{self.s}, East:{self.e}, North:{self.n}'
 
 
+_shapefile_exts_to_mimes = {
+    'json': 'application/geo+json',
+    'geojson': 'application/geo+json',
+    'kml': 'application/vnd.google-earth.kml+xml',
+    'shz': 'application/shapefile+zip',
+    'zip': 'application/shapefile+zip',
+}
+_valid_shapefile_exts = ', '.join((_shapefile_exts_to_mimes.keys()))
+
+
 class Request:
     """A Harmony request with the CMR collection and various parameters expressing
     how the data is to be transformed.
@@ -98,7 +110,8 @@ class Request:
 
         spatial: Bounding box spatial constraints on the data
 
-        temporal: Date/time constraints on the data
+        temporal: Date/time constraints on the data provided as a dict mapping "start" and "stop"
+          keys to corresponding start/stop datetime.datetime objects
 
         crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
           inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
@@ -109,6 +122,9 @@ class Request:
         scale_extent: scale the resulting coverage either among one axis to a given extent
 
         scale_size: scale the resulting coverage either among one axis to a given size
+
+        shape: a file path to an ESRI Shapefile zip, GeoJSON file, or KML file to use for
+          spatial subsetting.  Note: not all collections support shapefile subsetting
 
         granule_id: The CMR Granule ID for the granule which should be retrieved
 
@@ -128,7 +144,7 @@ class Request:
                  collection: Collection,
                  *,
                  spatial: BBox = None,
-                 temporal: dict = None,
+                 temporal: Mapping[str, datetime] = None,
                  crs: str = None,
                  format: str = None,
                  granule_id: List[str] = None,
@@ -137,6 +153,7 @@ class Request:
                  max_results: int = None,
                  scale_extent: List[float] = None,
                  scale_size: List[float] = None,
+                 shape: Optional[Tuple[IO, str]] = None,
                  variables: List[str] = ['all'],
                  width: int = None):
         """Creates a new Request instance from all specified criteria.'
@@ -152,6 +169,7 @@ class Request:
         self.max_results = max_results
         self.scale_extent = scale_extent
         self.scale_size = scale_size
+        self.shape = shape
         self.variables = variables
         self.width = width
 
@@ -160,6 +178,7 @@ class Request:
             'interpolation': 'interpolation',
             'scale_extent': 'scaleExtent',
             'scale_size': 'scaleSize',
+            'shape': 'shapefile',
             'granule_id': 'granuleId',
             'width': 'width',
             'height': 'height',
@@ -185,6 +204,12 @@ class Request:
             (lambda tr: tr['start'] < tr['stop'] if 'start' in tr and 'stop' in tr else True,
              'The temporal range\'s start must be earlier than its stop datetime.')
         ]
+        self.shape_validations = [
+            (lambda s: os.path.isfile(s), 'The provided shape path is not a file'),
+            (lambda s: s.split('.').pop().lower() in _shapefile_exts_to_mimes,
+             'The provided shape file is not a recognized type.  Valid file extensions: '
+             + f'[{_valid_shapefile_exts}]'),
+        ]
 
     def parameter_values(self) -> List[Tuple[str, Any]]:
         """Returns tuples of each query parameter that has been set and its value."""
@@ -194,23 +219,33 @@ class Request:
 
     def is_valid(self) -> bool:
         """Determines if the request and its parameters are valid."""
-        return \
-            (self.spatial is None or all([v(self.spatial)
-                                          for v, _ in self.spatial_validations])) \
-            and \
-            (self.temporal is None or all([v(self.temporal)
-                                           for v, _ in self.temporal_validations]))
+        return len(self.error_messages()) == 0
+
+    def _shape_error_messages(self, shape) -> List[str]:
+        """Returns a list of error message for the provided shape."""
+        if not shape:
+            return []
+        if not os.path.exists(shape):
+            return [f'The provided shape path "{shape}" does not exist']
+        if not os.path.isfile(shape):
+            return [f'The provided shape path "{shape}" is not a file']
+        ext = shape.split('.').pop().lower()
+        if ext not in _shapefile_exts_to_mimes:
+            return [f'The provided shape path "{shape}" has extension "{ext}" which is not '
+                    + f'recognized.  Valid file extensions: [{_valid_shapefile_exts}]']
+        return []
 
     def error_messages(self) -> List[str]:
         """A list of error messages, if any, for the request."""
         spatial_msgs = []
         temporal_msgs = []
+        shape_msgs = self._shape_error_messages(self.shape)
         if self.spatial:
             spatial_msgs = [m for v, m in self.spatial_validations if not v(self.spatial)]
         if self.temporal:
             temporal_msgs = [m for v, m in self.temporal_validations if not v(self.temporal)]
 
-        return spatial_msgs + temporal_msgs
+        return spatial_msgs + temporal_msgs + shape_msgs
 
 
 class LinkType(Enum):
@@ -293,13 +328,15 @@ class Client:
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
-        params = {'forceAsync': True}
+        params = {'forceAsync': 'true'}
 
         subset = self._spatial_subset_params(request) + self._temporal_subset_params(request)
         if len(subset) > 0:
             params['subset'] = subset
 
-        for p, val in request.parameter_values():
+        file_param_names = ['shapefile']
+        query_params = [pv for pv in request.parameter_values() if pv[0] not in file_param_names]
+        for p, val in query_params:
             if type(val) == str:
                 params[p] = val
             elif type(val) == bool:
@@ -325,11 +362,56 @@ class Client:
             t = request.temporal
             start = t['start'].isoformat() if 'start' in t else None
             stop = t['stop'].isoformat() if 'stop' in t else None
-            start_quoted = f'"{start}"' if start else ''
-            stop_quoted = f'"{stop}"' if start else ''
+            start_quoted = f'"{start}"' if start else '*'
+            stop_quoted = f'"{stop}"' if stop else '*'
             return [f'time({start_quoted}:{stop_quoted})']
         else:
             return []
+
+    @contextmanager
+    def _files(self, request) -> ContextManager[Mapping[str, Any]]:
+        """Creates a dictionary of multipart file POST parameters from the given request."""
+        file_param_names = ['shapefile']
+        file_params = dict([pv for pv in request.parameter_values() if pv[0] in file_param_names])
+
+        result = {}
+        files = []
+        try:
+            shapefile_param = file_params.get('shapefile', None)
+            if shapefile_param:
+                shapefile_ext = shapefile_param.split('.').pop().lower()
+                mime = _shapefile_exts_to_mimes[shapefile_ext]
+                shapefile = open(shapefile_param, 'rb')
+                files.append(shapefile)
+                result['shapefile'] = ('shapefile', shapefile, mime)
+
+            yield result
+        finally:
+            for f in files:
+                f.close()
+
+    def _params_dict_to_files(self, params: Mapping[str, Any]) -> List[Tuple[None, str, None]]:
+        """Returns the given parameter mapping as a list of tuples suitable for multipart POST
+
+        This method is a temporary need until HARMONY-290 is implemented, since we cannot
+        currently pass query parameters to a shapefile POST request.  Because we need to pass
+        them as a multipart POST body, we need to inflate them into a list of tuples, one for
+        each parameter value to allow us to call requests.post(..., files=params)
+
+        Args:
+            params: A dictionary of parameter mappings as returned by self._params(request)
+
+        Returns:
+            A list of tuples suitable for passing to a requests multipart upload corresponding
+            to the provided parameters
+        """
+        # TODO: remove / refactor after HARMONY-290 is complete
+        result = []
+        for key, values in params.items():
+            if not isinstance(values, list):
+                values = [values]
+            result += [(key, (None, str(value), None)) for value in values]
+        return result
 
     def submit(self, request: Request) -> Optional[str]:
         """Submits a request to Harmony and returns the Harmony Job ID.
@@ -342,12 +424,29 @@ class Client:
         """
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
-            raise Exception(f"Cannot submit an invalid request: [{msgs}]")
+            raise Exception(f"Cannot submit the request due to the following errors: [{msgs}]")
 
         job_id = None
         session = self._session()
-        response = session.get(self._submit_url(request), params=self._params(request))
+        params = self._params(request)
+
+        with self._files(request) as files:
+            if files:
+                # Ideally this should just be files=files, params=params but Harmony
+                # cannot accept both files and query params now.  (HARMONY-290)
+                # Inflate params to a list of tuples that can be passed as multipart
+                # form-data.  This must be done this way due to e.g. "subset" having
+                # multiple values
+
+                param_items = self._params_dict_to_files(params)
+                file_items = [(k, v) for k, v in files.items()]
+                response = session.post(
+                    self._submit_url(request),
+                    files=param_items + file_items)
+            else:
+                response = session.get(self._submit_url(request), params=params)
         if response.ok:
+            print(response.json())
             job_id = (response.json())['jobID']
         else:
             response.raise_for_status()

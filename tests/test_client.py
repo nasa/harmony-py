@@ -20,7 +20,7 @@ def expected_status_url(job_id, link_type: LinkType = LinkType.https):
 
 
 def expected_full_submit_url(request):
-    async_params = ['forceAsync=True']
+    async_params = ['forceAsync=true']
 
     spatial_params = []
     if request.spatial:
@@ -209,6 +209,46 @@ def test_with_bounding_box_and_temporal_range():
     assert responses.calls[0].request is not None
     assert urllib.parse.unquote(
         responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert actual_job_id == job_id
+
+
+@responses.activate
+def test_with_shapefile():
+    collection = Collection(id='C333666999-EOSDIS')
+    request = Request(
+        collection=collection,
+        shape='./examples/asf_example.json',
+        spatial=BBox(-107, 40, -105, 42),
+    )
+    job_id = '1234abcd-1234-9876-6666-999999abcd'
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, job_id)
+    )
+
+    actual_job_id = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+
+    post_request = responses.calls[0].request
+    post_body = post_request.body.decode('utf-8')
+
+    assert post_request is not None
+
+    # GeoJSON is present in the submit body
+    assert 'FeatureCollection' in post_body
+    assert 'Content-Type: application/geo+json' in post_body
+
+    # Submit URL has no query params
+    assert urllib.parse.unquote(post_request.url) == expected_submit_url(collection.id)
+
+    # Would-be query params are in the POST body
+    assert 'Content-Disposition: form-data; name="forceAsync"\r\n\r\ntrue' in post_body
+    assert 'Content-Disposition: form-data; name="subset"\r\n\r\nlat(40:42)' in post_body
+    assert 'Content-Disposition: form-data; name="subset"\r\n\r\nlon(-107:-105)' in post_body
+
     assert actual_job_id == job_id
 
 
