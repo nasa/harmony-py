@@ -11,12 +11,12 @@ from harmony.harmony import BBox, Client, Collection, LinkType, Request
 
 
 def expected_submit_url(collection_id, variables='all'):
-    return (f'https://harmony.uat.earthdata.nasa.gov/{collection_id}'
+    return (f'https://harmony.earthdata.nasa.gov/{collection_id}'
             f'/ogc-api-coverages/1.0.0/collections/{variables}/coverage/rangeset')
 
 
 def expected_status_url(job_id, link_type: LinkType = LinkType.https):
-    return f'https://harmony.uat.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}'
+    return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}'
 
 
 def expected_full_submit_url(request):
@@ -44,7 +44,7 @@ def fake_data_url(link_type: LinkType = LinkType.https):
     if link_type == LinkType.s3:
         fake_data_url = f'{link_type.value}://fakebucket/public/harmony/foo',
     else:
-        fake_data_url = f'{link_type.value}://harmony.uat.earthdata.nasa.gov/service-results',
+        fake_data_url = f'{link_type.value}://harmony.earthdata.nasa.gov/service-results',
     return f'{fake_data_url}/fake.tif'
 
 
@@ -59,13 +59,13 @@ def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https):
         'links': [
             {
                 'title': 'Job Status',
-                'href': f'https://harmony.uat.earthdata.nasa.gov/jobs/{job_id}',
+                'href': f'https://harmony.earthdata.nasa.gov/jobs/{job_id}',
                 'rel': 'self',
                 'type': 'application/json'
             },
             {
                 'title': 'STAC catalog',
-                'href': f'https://harmony.uat.earthdata.nasa.gov/stac/{job_id}/',
+                'href': f'https://harmony.earthdata.nasa.gov/stac/{job_id}/',
                 'rel': 'stac-catalog-json',
                 'type': 'application/json'
             },
@@ -87,7 +87,7 @@ def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https):
             },
         ],
         'request': (
-            'https://harmony.uat.earthdata.nasa.gov/{collection_id}/ogc-api-coverages/1.0.0'
+            'https://harmony.earthdata.nasa.gov/{collection_id}/ogc-api-coverages/1.0.0'
             '/collections/all/coverage/rangeset'
             '?forceAsync=True'
             '&subset=lat(52%3A77)'
@@ -107,7 +107,7 @@ def test_when_multiple_submits_it_only_authenticates_once():
         spatial=BBox(-107, 40, -105, 42)
     )
     job_id = '3141592653-abcd-1234'
-    auth_url = 'https://harmony.uat.earthdata.nasa.gov/jobs'
+    auth_url = 'https://harmony.earthdata.nasa.gov/jobs'
     responses.add(
         responses.GET,
         auth_url,
@@ -544,7 +544,7 @@ def test_stac_catalog_url(link_type, mocker):
     result_json_mock = mocker.Mock(return_value=expected_json)
     mocker.patch('harmony.harmony.Client.result_json', result_json_mock)
 
-    expected_stac_catalog_url = (f'https://harmony.uat.earthdata.nasa.gov/stac'
+    expected_stac_catalog_url = (f'https://harmony.earthdata.nasa.gov/stac'
                                  f'/{job_id}/?linktype={link_type.value}')
 
     client = Client(should_validate_auth=False)
