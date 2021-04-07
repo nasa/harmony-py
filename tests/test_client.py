@@ -7,7 +7,7 @@ import dateutil.parser
 import pytest
 import responses
 
-from harmony.harmony import BBox, Client, Collection, LinkType, Request
+from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Request
 
 
 def expected_submit_url(collection_id, variables='all'):
@@ -349,7 +349,7 @@ def test_progress():
     collection = Collection(id='C333666999-EOSDIS')
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
     exp_job = expected_job(collection.id, job_id)
-    expected_progress = int(exp_job['progress']), exp_job['status']
+    expected_progress = int(exp_job['progress']), exp_job['status'], exp_job['message']
     responses.add(
         responses.GET,
         expected_status_url(job_id),
@@ -371,9 +371,9 @@ def test_progress():
 ])
 def test_wait_for_processing_with_show_progress(mocker, show_progress):
     expected_progress = [
-        (80, 'running'),
-        (90, 'running'),
-        (100, 'successful'),
+        (80, 'running', 'The job is being processed'),
+        (90, 'running', 'The job is being processed'),
+        (100, 'successful', 'The job was successful'),
     ]
     job_id = '12345'
 
@@ -393,7 +393,7 @@ def test_wait_for_processing_with_show_progress(mocker, show_progress):
 
     assert progress_mock.called_with(client, job_id)
     if show_progress:
-        for n, _ in expected_progress:
+        for n, _, _ in expected_progress:
             progressbar_mock.update.assert_any_call(int(n))
     else:
         assert sleep_mock.call_count == len(expected_progress)
@@ -404,7 +404,7 @@ def test_wait_for_processing_with_show_progress(mocker, show_progress):
     (False),
 ])
 def test_wait_for_processing_with_failed_status(mocker, show_progress):
-    expected_progress = (0, 'failed')
+    expected_progress = [(0, 'failed', 'Pod exploded')]
     job_id = '12345'
 
     progressbar_mock = mocker.Mock()
@@ -417,8 +417,9 @@ def test_wait_for_processing_with_failed_status(mocker, show_progress):
 
     client = Client(should_validate_auth=False)
 
-    with pytest.raises(Exception):
+    with pytest.raises(ProcessingFailedException) as e:
         client.wait_for_processing(job_id, show_progress=show_progress)
+    assert e.exconly() == 'harmony.harmony.ProcessingFailedException: Pod exploded'
 
 
 @responses.activate
@@ -432,6 +433,32 @@ def test_result_json(mocker, show_progress, link_type):
     job_id = '1234'
 
     wait_mock = mocker.Mock()
+    mocker.patch('harmony.harmony.Client.wait_for_processing', wait_mock)
+
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=200,
+        json=expected_json
+    )
+    client = Client(should_validate_auth=False)
+    actual_json = client.result_json(job_id, show_progress=show_progress)
+
+    assert actual_json == expected_json
+    assert wait_mock.called_with(client, job_id, show_progress)
+
+
+@responses.activate
+@pytest.mark.parametrize('show_progress', [
+    (True),
+    (False),
+])
+@pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
+def test_result_json_with_failed_request_doesnt_throw_exception(mocker, show_progress, link_type):
+    expected_json = '{"status": "failed", "message": "Pod exploded"}'
+    job_id = '1234'
+
+    wait_mock = mocker.Mock(side_effect=ProcessingFailedException(job_id, "Pod exploded"))
     mocker.patch('harmony.harmony.Client.wait_for_processing', wait_mock)
 
     responses.add(

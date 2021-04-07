@@ -35,6 +35,19 @@ progressbar_widgets = [
 ]
 
 
+class ProcessingFailedException(Exception):
+    """Indicates a Harmony job has failed during processing"""
+
+    def __init__(self, job_id: str, message: str):
+        """Constructs the exception
+        Args:
+            job_id: The ID of the job that failed
+            message: The reason given for the failure
+        """
+        super().__init__(message)
+        self.job_id = job_id
+
+
 class Collection:
     """The identity of a CMR Collection."""
 
@@ -486,14 +499,15 @@ class Client:
         else:
             response.raise_for_status()
 
-    def progress(self, job_id: str) -> Tuple[int, str]:
+    def progress(self, job_id: str) -> Tuple[int, str, str]:
         """Retrieve a submitted job's completion status in percent.
 
         Args:
             job_id: UUID string for the job you wish to interrogate.
 
         Returns:
-            The job's processing progress as a percentage and its current status.
+            A tuple of: The job's processing progress as a percentage, the job's processing state,
+            and the job's status message
 
         Raises:
             Exception: This can happen if an invalid job_id is provided or Harmony services
@@ -502,7 +516,8 @@ class Client:
         session = self._session()
         response = session.get(self._status_url(job_id))
         if response.ok:
-            return int(response.json()['progress']), response.json()['status']
+            json = response.json()
+            return int(json['progress']), json['status'], json['message']
         else:
             response.raise_for_status()
 
@@ -529,10 +544,9 @@ class Client:
             with progressbar.ProgressBar(max_value=100, widgets=progressbar_widgets) as bar:
                 progress = 0
                 while progress < 100:
-                    progress, status = self.progress(job_id)
+                    progress, status, message = self.progress(job_id)
                     if status == 'failed':
-                        raise Exception('Job has failed. Call result_json() to learn more.')
-                        break
+                        raise ProcessingFailedException(job_id, message)
                     if status == 'canceled':
                         print('Job has been canceled.')
                         break
@@ -552,10 +566,9 @@ class Client:
         else:
             progress = 0
             while progress < 100:
-                progress, status = self.progress(job_id)
+                progress, status, message = self.progress(job_id)
                 if status == 'failed':
-                    raise Exception('Job has failed. Call result_json() to learn more.')
-                    break
+                    raise ProcessingFailedException(job_id, message)
                 if status == 'canceled':
                     break
                 time.sleep(check_interval)
@@ -576,8 +589,11 @@ class Client:
         Returns:
             The job's complete json output.
         """
-        self.wait_for_processing(job_id, show_progress)
-        response = self._session().get(self._status_url(job_id, link_type))
+        try:
+            self.wait_for_processing(job_id, show_progress)
+        except ProcessingFailedException:
+            pass
+        response = self._session().get(self._status_url(job_id))
         return response.json()
 
     def result_urls(self,
