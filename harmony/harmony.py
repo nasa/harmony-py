@@ -35,6 +35,19 @@ progressbar_widgets = [
 ]
 
 
+class ProcessingFailedException(Exception):
+    """Indicates a Harmony job has failed during processing"""
+
+    def __init__(self, job_id: str, message: str):
+        """Constructs the exception
+        Args:
+            job_id: The ID of the job that failed
+            message: The reason given for the failure
+        """
+        super().__init__(message)
+        self.job_id = job_id
+
+
 class Collection:
     """The identity of a CMR Collection."""
 
@@ -533,7 +546,7 @@ class Client:
                 while progress < 100:
                     progress, status, message = self.progress(job_id)
                     if status == 'failed':
-                        raise Exception(f'Job has failed with message "{message}"')
+                        raise ProcessingFailedException(job_id, message)
                     if status == 'canceled':
                         print('Job has been canceled.')
                         break
@@ -555,7 +568,7 @@ class Client:
             while progress < 100:
                 progress, status, message = self.progress(job_id)
                 if status == 'failed':
-                    raise Exception(f'Job has failed with message "{message}"')
+                    raise ProcessingFailedException(job_id, message)
                 if status == 'canceled':
                     break
                 time.sleep(check_interval)
@@ -578,7 +591,7 @@ class Client:
         """
         try:
             self.wait_for_processing(job_id, show_progress)
-        except Exception:
+        except ProcessingFailedException:
             pass
         response = self._session().get(self._status_url(job_id))
         return response.json()
