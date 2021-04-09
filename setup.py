@@ -14,7 +14,6 @@ import pathlib
 import re
 from setuptools import find_packages, setup
 
-
 DEPENDENCIES = []
 with open('requirements/core.txt', 'r') as f:
     DEPENDENCIES = f.read().strip().split('\n')
@@ -56,11 +55,12 @@ setup(
         'Programming Language :: Python :: 3 :: Only',
     ],
     keywords='nasa, harmony, remote-sensing, science, geoscience',
-    package_dir={'': 'harmony'},
-    packages=find_packages(where='harmony'),
+    packages=find_packages(exclude=['tests']),
     python_requires='>=3.6, <4',
     install_requires=DEPENDENCIES,
     extras_require={
         'dev': DEV_DEPENDENCIES,
     },
+    include_package_data=True,
+    test_suite="tests",
 )
