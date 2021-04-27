@@ -363,9 +363,52 @@ class Client:
         return params
 
     def _headers(self) -> dict:
-        """Create (if needed) and returns a dictionary of headers."""
-        if self.headers is None:
-            self.headers = {}
+        """
+        Create (if needed) and return a dictionary of headers.
+        Code partially adaped from: https://github.com/requests/toolbelt/blob/master/requests_toolbelt/utils/user_agent.py
+        """
+        if 'headers' not in self.__dict__:
+            user_agent_content = set([])
+
+            # Get harmony package info
+            try:
+                import harmony
+                user_agent_content.add(f'harmony-py/{harmony.__version__}')
+            except Exception as e:
+                print("Following exception was caught when building user-agent headers for harmony-py.")
+                print(e)
+
+            # Get platform info
+            try:
+                p_system = platform.system()
+                p_release = platform.release()
+                user_agent_content.add(f'{p_system}/{p_release}')
+            except Exception as e:
+                print("Following exception was caught when building user-agent headers for harmony-py.")
+                print(e)
+
+            # Get implementation info
+            implementation = platform.python_implementation()
+            if implementation == 'CPython':
+                implementation_version = platform.python_version()
+            elif implementation == 'PyPy':
+                implementation_version = '%s.%s.%s' % (sys.pypy_version_info.major,
+                                                       sys.pypy_version_info.minor,
+                                                       sys.pypy_version_info.micro)
+                if sys.pypy_version_info.releaselevel != 'final':
+                    implementation_version = ''.join([
+                        implementation_version, sys.pypy_version_info.releaselevel
+                        ])
+            elif implementation == 'Jython':
+                implementation_version = platform.python_version()  # Complete Guess
+            elif implementation == 'IronPython':
+                implementation_version = platform.python_version()  # Complete Guess
+            else:
+                print("Unable to collect python implementation info when building user-agent headers for harmony-py.")
+
+            # Build headers
+            self.headers = {'User-Agent': ' '.join(user_agent_content)}
+
         return self.headers
 
     def _spatial_subset_params(self, request: Request) -> list:
@@ -449,6 +492,8 @@ class Client:
         job_id = None
         session = self._session()
         params = self._params(request)
+        headers = self._headers()
+        print(headers)
 
         with self._files(request) as files:
             if files:
@@ -470,8 +515,6 @@ class Client:
             job_id = (response.json())['jobID']
         else:
             response.raise_for_status()
-
-        # Add user-agent headers
 
         return job_id
 
