@@ -375,7 +375,9 @@ class Client:
                 import harmony
                 user_agent_content.add(f'harmony-py/{harmony.__version__}')
             except Exception as e:
-                print("Following exception was caught when building user-agent headers for harmony-py.")
+                print(
+                 "Following exception was caught when building user-agent headers for harmony-py."
+                )
                 print(e)
 
             # Get platform info
@@ -384,7 +386,9 @@ class Client:
                 p_release = platform.release()
                 user_agent_content.add(f'{p_system}/{p_release}')
             except Exception as e:
-                print("Following exception was caught when building user-agent headers for harmony-py.")
+                print(
+                 "Following exception was caught when building user-agent headers for harmony-py."
+                )
                 print(e)
 
             # Get implementation info
@@ -404,7 +408,9 @@ class Client:
             elif implementation == 'IronPython':
                 implementation_version = platform.python_version()  # Complete Guess
             else:
-                print("Unable to collect python implementation info when building user-agent headers for harmony-py.")
+                print(
+                 "Unable to collect python implementation info when building user-agent headers for harmony-py."
+                )
             user_agent_content.add(f'{implementation}/{implementation_version}')
 
             # Build headers
