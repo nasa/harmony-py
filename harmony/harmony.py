@@ -16,6 +16,7 @@ import os
 import shutil
 import sys
 import time
+import platform
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime
@@ -361,6 +362,12 @@ class Client:
 
         return params
 
+    def _headers(self) -> dict:
+        """Create (if needed) and returns a dictionary of headers."""
+        if self.headers is None:
+            self.headers = {}
+        return self.headers
+
     def _spatial_subset_params(self, request: Request) -> list:
         """Creates a dictionary of spatial subset query parameters."""
         if request.spatial:
@@ -463,6 +470,8 @@ class Client:
             job_id = (response.json())['jobID']
         else:
             response.raise_for_status()
+
+        # Add user-agent headers
 
         return job_id
 
