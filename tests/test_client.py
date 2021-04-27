@@ -134,6 +134,31 @@ def test_when_multiple_submits_it_only_authenticates_once():
 
 
 @responses.activate
+def test_user_agent_headers():
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    responses.add(
+        responses.GET,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, job_id)
+    )
+
+    actual_job_id = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert responses.calls[0].request.headers is not None
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert actual_job_id == job_id
+
+
+@responses.activate
 def test_with_bounding_box():
     collection = Collection(id='C1940468263-POCLOUD')
     request = Request(
