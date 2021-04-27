@@ -405,6 +405,7 @@ class Client:
                 implementation_version = platform.python_version()  # Complete Guess
             else:
                 print("Unable to collect python implementation info when building user-agent headers for harmony-py.")
+            user_agent_content.add(f'{implementation}/{implementation_version}')
 
             # Build headers
             self.headers = {'User-Agent': ' '.join(user_agent_content)}
