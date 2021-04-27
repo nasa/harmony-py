@@ -494,7 +494,6 @@ class Client:
         session = self._session()
         params = self._params(request)
         headers = self._headers()
-        print(headers)
 
         with self._files(request) as files:
             if files:
@@ -508,9 +507,10 @@ class Client:
                 file_items = [(k, v) for k, v in files.items()]
                 response = session.post(
                     self._submit_url(request),
-                    files=param_items + file_items)
+                    files=param_items + file_items,
+                    headers=headers)
             else:
-                response = session.get(self._submit_url(request), params=params)
+                response = session.get(self._submit_url(request), params=params, headers=headers)
         if response.ok:
             print(response.json())
             job_id = (response.json())['jobID']
