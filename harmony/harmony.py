@@ -369,7 +369,12 @@ class Client:
             https://github.com/requests/toolbelt/blob/master/requests_toolbelt/utils/user_agent.py
         """
         if 'headers' not in self.__dict__:
-            user_agent_content = set([])
+            session = self._session()
+            existing_user_agent_header = session.headers.get('User-Agent')
+            if existing_user_agent_header:
+                user_agent_content = set([existing_user_agent_header])
+            else:
+                user_agent_content = set([])
 
             # Get harmony package info
             try:
@@ -401,7 +406,10 @@ class Client:
                 print(e)
 
             # Build headers
-            self.headers = {'User-Agent': ' '.join(user_agent_content)}
+            if user_agent_content:
+                self.headers = {'User-Agent': ' '.join(user_agent_content)}
+            else:
+                self.headers = {}
 
         return self.headers
 
