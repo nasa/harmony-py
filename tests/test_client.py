@@ -2,6 +2,7 @@ import datetime as dt
 import io
 import os
 import urllib.parse
+import re
 
 import dateutil.parser
 import pytest
@@ -281,6 +282,10 @@ def test_request_has_user_agent_headers():
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
     assert responses.calls[0].request.headers is not None
+    headers = responses.calls[0].request.headers
+    assert "User-Agent" in headers
+    user_agent_header = headers["User-Agent"]
+    assert re.match('.*', user_agent_header)
 
 
 @pytest.mark.parametrize('param,expected', [
