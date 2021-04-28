@@ -285,7 +285,7 @@ def test_request_has_user_agent_headers():
     headers = responses.calls[0].request.headers
     assert "User-Agent" in headers
     user_agent_header = headers["User-Agent"]
-    assert re.match('.*', user_agent_header)
+    assert re.match(r'([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)+\s+([^/\s]+/[^/\s]+)', user_agent_header)
 
 
 @pytest.mark.parametrize('param,expected', [
