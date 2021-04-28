@@ -371,21 +371,30 @@ class Client:
         if 'headers' not in self.__dict__:
             user_agent_content = set([])
 
+            # Get harmony package info
             try:
-                # Get harmony package info
                 import harmony
                 user_agent_content.add(f'harmony-py/{harmony.__version__}')
+            except Exception as e:
+                print("Following exception was caught "
+                      "when building user-agent headers for harmony-py:")
+                print(e)
 
-                # Get platform info
+            # Get platform info
+            try:
                 p_system = platform.system()
                 p_release = platform.release()
                 user_agent_content.add(f'{p_system}/{p_release}')
+            except Exception as e:
+                print("Following exception was caught "
+                      "when building user-agent headers for harmony-py:")
+                print(e)
 
-                # Get implementation info
+            # Get implementation info
+            try:
                 implementation = platform.python_implementation()
                 implementation_version = platform.python_version()
                 user_agent_content.add(f'{implementation}/{implementation_version}')
-
             except Exception as e:
                 print("Following exception was caught "
                       "when building user-agent headers for harmony-py:")
