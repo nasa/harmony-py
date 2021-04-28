@@ -289,6 +289,7 @@ def test_request_has_user_agent_headers():
     #   allowed in platform/implementation/version/etc,
     #   the following regex may be a little bit more tolerant
     assert re.match(r'([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)+\s+([^/\s]+/[^/\s]+)', user_agent_header)
+    assert re.match(r'\bharmony-py\b', user_agent_header)
 
 
 @pytest.mark.parametrize('param,expected', [
