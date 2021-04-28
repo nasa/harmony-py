@@ -265,7 +265,7 @@ def test_with_invalid_request():
 
 
 @responses.activate
-def test_request_has_user_agent_headers():
+def test_get_request_has_user_agent_headers():
     collection = Collection('foobar')
     request = Request(
         collection=collection,
@@ -289,9 +289,41 @@ def test_request_has_user_agent_headers():
     #   allowed in platform/implementation/version/etc,
     #   the following regex may be a little bit more tolerant
     assert re.match(
-        r"([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)+\s+([^/\s]+/[^/\s]+)", user_agent_header
+        r"\s*([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)*\s*", user_agent_header
     )
-    assert re.match(r".*\bharmony-py\b.*", user_agent_header)
+
+
+@responses.activate
+def test_post_request_has_user_agent_headers():
+    collection = Collection('foobar')
+    request = Request(
+        collection=collection,
+        shape='./examples/asf_example.json',
+        spatial=BBox(-107, 40, -105, 42),
+    )
+    job_id = '1234abcd-1234-9876-6666-999999abcd'
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, 'abcd-1234'),
+    )
+
+    actual_job_id = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert responses.calls[0].request.headers is not None
+    headers = responses.calls[0].request.headers
+    assert "User-Agent" in headers
+    user_agent_header = headers["User-Agent"]
+    # Since it's kinda overkill to find the exact character set
+    #   allowed in platform/implementation/version/etc,
+    #   the following regex may be a little bit more tolerant
+    assert re.match(
+        r"\s*([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)*\s*", user_agent_header
+    )
 
 
 @pytest.mark.parametrize('param,expected', [
