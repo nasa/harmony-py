@@ -375,7 +375,7 @@ class Client:
                 import harmony
                 user_agent_content.add(f'harmony-py/{harmony.__version__}')
             except Exception as e:
-                print("Following exception was caught "\
+                print("Following exception was caught "
                       "when building user-agent headers for harmony-py:")
                 print(e)
 
@@ -385,7 +385,7 @@ class Client:
                 p_release = platform.release()
                 user_agent_content.add(f'{p_system}/{p_release}')
             except Exception as e:
-                print("Following exception was caught "\
+                print("Following exception was caught "
                       "when building user-agent headers for harmony-py:")
                 print(e)
 
@@ -395,7 +395,7 @@ class Client:
                 implementation_version = platform.python_version()
                 user_agent_content.add(f'{implementation}/{implementation_version}')
             except Exception as e:
-                print("Following exception was caught "\
+                print("Following exception was caught "
                       "when building user-agent headers for harmony-py:")
                 print(e)
 
