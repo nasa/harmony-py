@@ -285,6 +285,9 @@ def test_request_has_user_agent_headers():
     headers = responses.calls[0].request.headers
     assert "User-Agent" in headers
     user_agent_header = headers["User-Agent"]
+    # Since it's kinda overkill to find the exact character set
+    #   allowed in platform/implementation/version/etc,
+    #   the following regex may be a little bit more tolerant
     assert re.match(r'([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)+\s+([^/\s]+/[^/\s]+)', user_agent_header)
 
 
