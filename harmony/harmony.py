@@ -365,7 +365,8 @@ class Client:
     def _headers(self) -> dict:
         """
         Create (if needed) and return a dictionary of headers.
-        Code partially adaped from: https://github.com/requests/toolbelt/blob/master/requests_toolbelt/utils/user_agent.py
+        Code partially adaped from:
+            https://github.com/requests/toolbelt/blob/master/requests_toolbelt/utils/user_agent.py
         """
         if 'headers' not in self.__dict__:
             user_agent_content = set([])
