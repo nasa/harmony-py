@@ -375,9 +375,8 @@ class Client:
                 import harmony
                 user_agent_content.add(f'harmony-py/{harmony.__version__}')
             except Exception as e:
-                print(
-                 "Following exception was caught when building user-agent headers for harmony-py."
-                )
+                print("Following exception was caught "\
+                      "when building user-agent headers for harmony-py:")
                 print(e)
 
             # Get platform info
@@ -386,32 +385,19 @@ class Client:
                 p_release = platform.release()
                 user_agent_content.add(f'{p_system}/{p_release}')
             except Exception as e:
-                print(
-                 "Following exception was caught when building user-agent headers for harmony-py."
-                )
+                print("Following exception was caught "\
+                      "when building user-agent headers for harmony-py:")
                 print(e)
 
             # Get implementation info
-            implementation = platform.python_implementation()
-            if implementation == 'CPython':
+            try:
+                implementation = platform.python_implementation()
                 implementation_version = platform.python_version()
-            elif implementation == 'PyPy':
-                implementation_version = '%s.%s.%s' % (sys.pypy_version_info.major,
-                                                       sys.pypy_version_info.minor,
-                                                       sys.pypy_version_info.micro)
-                if sys.pypy_version_info.releaselevel != 'final':
-                    implementation_version = ''.join([
-                        implementation_version, sys.pypy_version_info.releaselevel
-                        ])
-            elif implementation == 'Jython':
-                implementation_version = platform.python_version()  # Complete Guess
-            elif implementation == 'IronPython':
-                implementation_version = platform.python_version()  # Complete Guess
-            else:
-                print(
-                 "Unable to collect python implementation info when building user-agent headers for harmony-py."
-                )
-            user_agent_content.add(f'{implementation}/{implementation_version}')
+                user_agent_content.add(f'{implementation}/{implementation_version}')
+            except Exception as e:
+                print("Following exception was caught "\
+                      "when building user-agent headers for harmony-py:")
+                print(e)
 
             # Build headers
             self.headers = {'User-Agent': ' '.join(user_agent_content)}
