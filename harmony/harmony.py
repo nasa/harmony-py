@@ -378,8 +378,8 @@ class Client:
 
             # Get harmony package info
             try:
-                import harmony
-                user_agent_content.add(f'harmony-py/{harmony.__version__}')
+                from harmony import __version__ as harmony_version
+                user_agent_content.add(f'harmony-py/{harmony_version}')
             except Exception as e:
                 print("Following exception was caught "
                       "when building user-agent headers for harmony-py:")
