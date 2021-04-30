@@ -49,6 +49,13 @@ def fake_data_url(link_type: LinkType = LinkType.https):
     return f'{fake_data_url}/fake.tif'
 
 
+def expected_user_agent_header_regex():
+    # Since it's kinda overkill to find the exact character set
+    #   allowed in platform/implementation/version/etc,
+    #   the following regex may be a little bit more tolerant
+    return r"\s*([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)*\s*"
+
+
 def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https):
     return {
         'username': 'rfeynman',
@@ -285,11 +292,8 @@ def test_get_request_has_user_agent_headers():
     headers = responses.calls[0].request.headers
     assert "User-Agent" in headers
     user_agent_header = headers["User-Agent"]
-    # Since it's kinda overkill to find the exact character set
-    #   allowed in platform/implementation/version/etc,
-    #   the following regex may be a little bit more tolerant
     assert re.match(
-        r"\s*([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)*\s*", user_agent_header
+        expected_user_agent_header_regex(), user_agent_header
     )
 
 
@@ -318,11 +322,8 @@ def test_post_request_has_user_agent_headers():
     headers = responses.calls[0].request.headers
     assert "User-Agent" in headers
     user_agent_header = headers["User-Agent"]
-    # Since it's kinda overkill to find the exact character set
-    #   allowed in platform/implementation/version/etc,
-    #   the following regex may be a little bit more tolerant
     assert re.match(
-        r"\s*([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)*\s*", user_agent_header
+        expected_user_agent_header_regex(), user_agent_header
     )
 
 
