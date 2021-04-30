@@ -28,6 +28,7 @@ import progressbar
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
+from harmony import __version__ as harmony_version
 
 progressbar_widgets = [
     ' [ Processing: ', progressbar.Percentage(), ' ] ',
@@ -377,13 +378,7 @@ class Client:
                 user_agent_content = set([])
 
             # Get harmony package info
-            try:
-                from harmony import __version__ as harmony_version
-                user_agent_content.add(f'harmony-py/{harmony_version}')
-            except Exception as e:
-                print("Following exception was caught "
-                      "when building user-agent headers for harmony-py:")
-                print(e)
+            user_agent_content.add(f'harmony-py/{harmony_version}')
 
             # Get platform info
             try:
