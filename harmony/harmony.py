@@ -16,6 +16,7 @@ import os
 import shutil
 import sys
 import time
+import platform
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime
@@ -27,6 +28,7 @@ import progressbar
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
+from harmony import __version__ as harmony_version
 
 progressbar_widgets = [
     ' [ Processing: ', progressbar.Percentage(), ' ] ',
@@ -361,6 +363,51 @@ class Client:
 
         return params
 
+    def _headers(self) -> dict:
+        """
+        Create (if needed) and return a dictionary of headers.
+        Code partially adaped from:
+            https://github.com/requests/toolbelt/blob/master/requests_toolbelt/utils/user_agent.py
+        """
+        if 'headers' not in self.__dict__:
+            session = self._session()
+            existing_user_agent_header = session.headers.get('User-Agent')
+            if existing_user_agent_header:
+                user_agent_content = set([existing_user_agent_header])
+            else:
+                user_agent_content = set([])
+
+            # Get harmony package info
+            user_agent_content.add(f'harmony-py/{harmony_version}')
+
+            # Get platform info
+            try:
+                p_system = platform.system()
+                p_release = platform.release()
+                user_agent_content.add(f'{p_system}/{p_release}')
+            except Exception as e:
+                print("Following exception was caught "
+                      "when building user-agent headers for harmony-py:")
+                print(e)
+
+            # Get implementation info
+            try:
+                implementation = platform.python_implementation()
+                implementation_version = platform.python_version()
+                user_agent_content.add(f'{implementation}/{implementation_version}')
+            except Exception as e:
+                print("Following exception was caught "
+                      "when building user-agent headers for harmony-py:")
+                print(e)
+
+            # Build headers
+            if user_agent_content:
+                self.headers = {'User-Agent': ' '.join(user_agent_content)}
+            else:
+                self.headers = {}
+
+        return self.headers
+
     def _spatial_subset_params(self, request: Request) -> list:
         """Creates a dictionary of spatial subset query parameters."""
         if request.spatial:
@@ -442,6 +489,7 @@ class Client:
         job_id = None
         session = self._session()
         params = self._params(request)
+        headers = self._headers()
 
         with self._files(request) as files:
             if files:
@@ -455,9 +503,10 @@ class Client:
                 file_items = [(k, v) for k, v in files.items()]
                 response = session.post(
                     self._submit_url(request),
-                    files=param_items + file_items)
+                    files=param_items + file_items,
+                    headers=headers)
             else:
-                response = session.get(self._submit_url(request), params=params)
+                response = session.get(self._submit_url(request), params=params, headers=headers)
         if response.ok:
             print(response.json())
             job_id = (response.json())['jobID']
