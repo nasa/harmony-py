@@ -501,12 +501,12 @@ def test_result_json(mocker, show_progress, link_type):
 
     responses.add(
         responses.GET,
-        expected_status_url(job_id),
+        expected_status_url(job_id, link_type),
         status=200,
         json=expected_json
     )
     client = Client(should_validate_auth=False)
-    actual_json = client.result_json(job_id, show_progress=show_progress)
+    actual_json = client.result_json(job_id, show_progress=show_progress, link_type=link_type)
 
     assert actual_json == expected_json
     assert wait_mock.called_with(client, job_id, show_progress)

@@ -14275,7 +14275,7 @@ a.anchor-link {
 <span class="kn">import</span> <span class="nn">rasterio</span>
 <span class="kn">import</span> <span class="nn">rasterio.plot</span>
 
-<span class="kn">from</span> <span class="nn">harmony</span> <span class="kn">import</span> <span class="n">BBox</span><span class="p">,</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">Request</span>
+<span class="kn">from</span> <span class="nn">harmony</span> <span class="kn">import</span> <span class="n">BBox</span><span class="p">,</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Environment</span>
 </pre></div>
 
      </div>
@@ -14295,7 +14295,7 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[2]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">harmony_client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">()</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">harmony_client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">env</span><span class="o">=</span><span class="n">Environment</span><span class="o">.</span><span class="n">UAT</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -14373,7 +14373,7 @@ a.anchor-link {
 <p>Now that we have a request, we can submit it to Harmony using the Harmony Client object we created earlier. We'll get back an id for our request which we can use to find the job's status and get the results.</p>
 
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell   ">
 <div class="jp-Cell-inputWrapper">
 <div class="jp-InputArea jp-Cell-inputArea">
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[4]:</div>
@@ -14385,6 +14385,27 @@ a.anchor-link {
      </div>
 </div>
 </div>
+</div>
+
+<div class="jp-Cell-outputWrapper">
+
+
+<div class="jp-OutputArea jp-Cell-outputArea">
+
+<div class="jp-OutputArea-child">
+
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
+<pre>{&#39;username&#39;: &#39;pquinn&#39;, &#39;status&#39;: &#39;running&#39;, &#39;message&#39;: &#39;CMR query identified 32 granules, but the request has been limited to process only the first 10 granules because you requested 10 maxResults.&#39;, &#39;progress&#39;: 0, &#39;createdAt&#39;: &#39;2021-05-20T18:48:47.661Z&#39;, &#39;updatedAt&#39;: &#39;2021-05-20T18:48:47.661Z&#39;, &#39;links&#39;: [{&#39;title&#39;: &#39;Job Status&#39;, &#39;href&#39;: &#39;https://harmony.uat.earthdata.nasa.gov/jobs/c386bc56-542f-4415-b1b1-48d6fe38121a&#39;, &#39;rel&#39;: &#39;self&#39;, &#39;type&#39;: &#39;application/json&#39;}], &#39;request&#39;: &#39;https://harmony.uat.earthdata.nasa.gov/C1234088182-EEDTEST/ogc-api-coverages/1.0.0/collections/blue_var/coverage/rangeset?forceAsync=true&amp;subset=lat(52%3A77)&amp;subset=lon(-165%3A-140)&amp;subset=time(%222010-01-01T00%3A00%3A00%22%3A%222020-12-30T00%3A00%3A00%22)&amp;outputcrs=EPSG%3A3995&amp;width=512&amp;height=512&amp;format=image%2Ftiff&amp;maxResults=10&#39;, &#39;numInputGranules&#39;: 10, &#39;jobID&#39;: &#39;c386bc56-542f-4415-b1b1-48d6fe38121a&#39;}
+</pre>
+</div>
+</div>
+
+</div>
+
 </div>
 
 </div>
