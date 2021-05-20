@@ -20,8 +20,7 @@ jobs:
         VERSION_TAG: ${{ github.event.release.tag_name }}
         BRANCH: ${{ github.event.release.target_commitish }}
       run: |
-        VERSION=$(echo "${VERSION_TAG}" | cut -c2-) make build
-        make publish
+        VERSION=$(echo "${VERSION_TAG}" | cut -c2-) make install publish
 
         # Setup git
         # https://api.github.com/users/github-actions%5Bbot%5D
