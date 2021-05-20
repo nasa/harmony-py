@@ -634,6 +634,7 @@ class Client:
         Args:
             job_id: UUID string for the job you wish to interrogate.
             show_progress: Whether a progress bar should show via stdout.
+            link_type: The type of link to output, s3:// or https://
 
         Returns:
             The job's complete json output.
@@ -642,7 +643,7 @@ class Client:
             self.wait_for_processing(job_id, show_progress)
         except ProcessingFailedException:
             pass
-        response = self._session().get(self._status_url(job_id))
+        response = self._session().get(self._status_url(job_id, link_type))
         return response.json()
 
     def result_urls(self,
@@ -657,6 +658,7 @@ class Client:
         Args:
             job_id: UUID string for the job you wish to interrogate.
             show_progress: Whether a progress bar should show via stdout.
+            link_type: The type of link to output, s3:// or https://
 
         Returns:
             The job's complete list of data URLs.
@@ -752,6 +754,7 @@ class Client:
         Args:
             job_id: UUID string for the job you wish to interrogate.
             show_progress: Whether a progress bar should show via stdout.
+            link_type: The type of link to output, s3:// or https://
 
         Returns:
             A STAC catalog URL.
