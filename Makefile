@@ -59,8 +59,10 @@ docs/user/notebook.html: $(docs-notebook)
 docs: docs/user/notebook.html
 	cd docs && $(MAKE) html
 
-build: clean
+version:
 	sed -i.bak "s/__version__ .*/__version__ = \"$(VERSION)\"/" harmony/__init__.py && rm harmony/__init__.py.bak
+
+build: clean version
 	python -m pip install --upgrade --quiet setuptools wheel twine
 	python setup.py --quiet sdist bdist_wheel
 
