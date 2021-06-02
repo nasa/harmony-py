@@ -1,27 +1,9 @@
-.PHONY: venv-setup pyenv-setup install install-examples clean examples lint test test-watch ci docs
-.SILENT: virtualenv
+.PHONY: install install-examples clean examples lint test test-watch ci docs
 
 VERSION ?= $(shell git describe --tags | sed 's/-/\+/' | sed 's/-/\./g')
 REPO ?= https://upload.pypi.org/legacy/
 REPO_USER ?= __token__
 REPO_PASS ?= unset
-
-venv-setup:
-	python -m venv .venv
-
-pyenv-setup:
-	if ! type pyenv > /dev/null; \
-	then \
-	    echo "\nUnable to create virtualenv: pyenv not found. Please install pyenv & pyenv-virtualenv."; \
-	    echo "  See:"; \
-	    echo "    https://github.com/pyenv/pyenv"; \
-	    echo "    https://github.com/pyenv/pyenv-virtualenv"; \
-	    exit; \
-	else \
-	    pyenv install 3.9.1; \
-	    pyenv virtualenv 3.9.1 harmony-py; \
-	    pyenv local harmony-py; \
-	fi
 
 clean:
 	coverage erase
