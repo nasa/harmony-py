@@ -23,15 +23,14 @@ The library is available from [PyPI](https://pypi.org/project/harmony-py/) and c
 
         $ pip install -U harmony-py
 
-This will install harmony-py and its dependencies into your current Python environment. It's recommended that you install harmony-py into a
-[virtual environment](https://github.com/nasa/harmony-service-example/blob/main/ENVHELP.md) along with any other dependencies you may have.
+This will install harmony-py and its dependencies into your current Python environment. It's recommended that you install harmony-py into a virtual environment along with any other dependencies you may have.
 
 
 # Running Examples & Developing on Harmony Py
 
 ## Prerequisites
 
-* Python 3.7+, ideally installed via a [virtual environment](https://github.com/nasa/harmony-service-example/blob/main/ENVHELP.md)
+* Python 3.7+, ideally installed via a virtual environment
 
 
 ## Installing Development & Example Dependencies
