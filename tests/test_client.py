@@ -43,9 +43,9 @@ def expected_full_submit_url(request):
 
 def fake_data_url(link_type: LinkType = LinkType.https):
     if link_type == LinkType.s3:
-        fake_data_url = f'{link_type.value}://fakebucket/public/harmony/foo',
+        fake_data_url = f'{link_type.value}://fakebucket/public/harmony/foo'
     else:
-        fake_data_url = f'{link_type.value}://harmony.earthdata.nasa.gov/service-results',
+        fake_data_url = f'{link_type.value}://harmony.earthdata.nasa.gov/service-results'
     return f'{fake_data_url}/fake.tif'
 
 
@@ -56,7 +56,7 @@ def expected_user_agent_header_regex():
     return r"\s*([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)*\s*"
 
 
-def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https):
+def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https, extra_links=[]):
     return {
         'username': 'rfeynman',
         'status': 'running',
@@ -93,6 +93,7 @@ def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https):
                     'end': '2020-01-15T23:59:59.000Z'
                 }
             },
+            *extra_links
         ],
         'request': (
             'https://harmony.earthdata.nasa.gov/{collection_id}/ogc-api-coverages/1.0.0'
@@ -455,7 +456,7 @@ def test_wait_for_processing_with_show_progress(mocker, show_progress):
     client = Client(should_validate_auth=False)
     client.wait_for_processing(job_id, show_progress=show_progress)
 
-    assert progress_mock.called_with(client, job_id)
+    progress_mock.assert_called_with(job_id)
     if show_progress:
         for n, _, _ in expected_progress:
             progressbar_mock.update.assert_any_call(int(n))
@@ -509,7 +510,7 @@ def test_result_json(mocker, show_progress, link_type):
     actual_json = client.result_json(job_id, show_progress=show_progress, link_type=link_type)
 
     assert actual_json == expected_json
-    assert wait_mock.called_with(client, job_id, show_progress)
+    wait_mock.assert_called_with(job_id, show_progress)
 
 
 @responses.activate
@@ -535,7 +536,7 @@ def test_result_json_with_failed_request_doesnt_throw_exception(mocker, show_pro
     actual_json = client.result_json(job_id, show_progress=show_progress)
 
     assert actual_json == expected_json
-    assert wait_mock.called_with(client, job_id, show_progress)
+    wait_mock.assert_called_with(job_id, show_progress)
 
 
 @pytest.mark.parametrize('show_progress', [
@@ -550,20 +551,51 @@ def test_result_urls(mocker, show_progress, link_type):
     expected_urls = [fake_data_url(link_type)]
 
     result_json_mock = mocker.Mock(return_value=expected_json)
-    mocker.patch('harmony.harmony.Client.result_json', result_json_mock)
+    processing_mock = mocker.Mock(return_value=None)
+    mocker.patch('harmony.harmony.Client._get_json', result_json_mock)
+    mocker.patch('harmony.harmony.Client.wait_for_processing', processing_mock)
 
     client = Client(should_validate_auth=False)
-    actual_urls = client.result_urls(job_id, show_progress=show_progress, link_type=link_type)
+    actual_urls = list(client.result_urls(job_id, show_progress=show_progress, link_type=link_type))
 
     assert actual_urls == expected_urls
-    assert result_json_mock.called_with(client, job_id, show_progress)
+    result_json_mock.assert_called_with(f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}')
+
+
+@pytest.mark.parametrize('show_progress', [
+    (True),
+    (False),
+])
+@pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
+def test_result_url_paging(mocker, show_progress, link_type):
+    collection = Collection(id='C1940468263-POCLOUD')
+    job_id = '1234'
+    next_link = {
+        'href': f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}&page=2',
+        'rel': 'next',
+    }
+    expected_json_first_page = expected_job(collection.id, job_id, link_type, [next_link])
+    expected_json_last_page = expected_job(collection.id, job_id, link_type)
+    expected_urls = [fake_data_url(link_type), fake_data_url(link_type)]
+
+    get_json_mock = mocker.Mock(side_effect=[expected_json_first_page, expected_json_last_page])
+    processing_mock = mocker.Mock(return_value=None)
+    mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
+    mocker.patch('harmony.harmony.Client.wait_for_processing', processing_mock)
+
+    client = Client(should_validate_auth=False)
+    actual_urls = list(client.result_urls(job_id, show_progress=show_progress, link_type=link_type))
+
+    assert actual_urls == expected_urls
+    get_json_mock.assert_any_call(f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}')
+    get_json_mock.assert_any_call(f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}&page=2')
 
 
 @pytest.mark.parametrize('overwrite', [
     (True),
     (False),
 ])
-def test__download_file(overwrite):
+def test_download_file(overwrite):
     # On first iteration, the local file is created with 'incorrect' data
     #   - overwrite is True so local file is overwritten with expected_data
     #   - assert filename and data are correct
