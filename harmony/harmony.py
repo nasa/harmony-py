@@ -17,12 +17,14 @@ import shutil
 import sys
 import time
 import platform
+import requests.models
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
 from typing import Any, ContextManager, IO, List, Mapping, NamedTuple, Optional, Tuple, Generator
 
+import curlify
 import dateutil.parser
 import progressbar
 
@@ -473,6 +475,67 @@ class Client:
             result += [(key, (None, str(value), None)) for value in values]
         return result
 
+    def _get_prepared_request(self, request: Request) -> requests.models.PreparedRequest:
+        """Returns a :requests.models.PreparedRequest: object for the given harmony Request
+
+        Args:
+            request: The Harmony Request to prepare
+
+        Returns:
+            A PreparedRequest
+
+        """
+        session = self._session()
+        params = self._params(request)
+        headers = self._headers()
+
+        with self._files(request) as files:
+            if files:
+                # Ideally this should just be files=files, params=params but Harmony
+                # cannot accept both files and query params now.  (HARMONY-290)
+                # Inflate params to a list of tuples that can be passed as multipart
+                # form-data.  This must be done this way due to e.g. "subset" having
+                # multiple values
+
+                param_items = self._params_dict_to_files(params)
+                file_items = [(k, v) for k, v in files.items()]
+
+                r = requests.models.Request('POST',
+                                            self._submit_url(request),
+                                            files=param_items + file_items,
+                                            headers=headers)
+                prepped_request = session.prepare_request(r)
+            else:
+                r = requests.models.Request('GET',
+                                            self._submit_url(request),
+                                            params=params,
+                                            headers=headers)
+                prepped_request = session.prepare_request(r)
+
+        return prepped_request
+
+    def request_as_curl(self, request: Request) -> str:
+        """Returns a curl command representation of the given request.
+        **Note** Authorization headers will be masked to reduce risk of
+        accidental exposure. Also, cookies containing the string 'token'
+        will be removed from the curl command.
+
+        Args:
+            request: The Request to build a curl command for
+
+        Returns:
+            An equivalent curl command as based on this client and request.
+        """
+        prepped_request = self._get_prepared_request(request)
+        if 'Authorization' in prepped_request.headers:
+            prepped_request.headers['Authorization'] = '*****'
+        if 'Cookie' in prepped_request.headers and 'token' in prepped_request.headers['Cookie']:
+            cooks = self._session().cookies.get_dict()
+            del prepped_request.headers['Cookie']
+            cooks['token'] = '*****'
+            prepped_request.prepare_cookies(cooks)
+        return curlify.to_curl(prepped_request)
+
     def submit(self, request: Request) -> Optional[str]:
         """Submits a request to Harmony and returns the Harmony Job ID.
 
@@ -488,25 +551,9 @@ class Client:
 
         job_id = None
         session = self._session()
-        params = self._params(request)
-        headers = self._headers()
 
-        with self._files(request) as files:
-            if files:
-                # Ideally this should just be files=files, params=params but Harmony
-                # cannot accept both files and query params now.  (HARMONY-290)
-                # Inflate params to a list of tuples that can be passed as multipart
-                # form-data.  This must be done this way due to e.g. "subset" having
-                # multiple values
+        response = session.send(self._get_prepared_request(request))
 
-                param_items = self._params_dict_to_files(params)
-                file_items = [(k, v) for k, v in files.items()]
-                response = session.post(
-                    self._submit_url(request),
-                    files=param_items + file_items,
-                    headers=headers)
-            else:
-                response = session.get(self._submit_url(request), params=params, headers=headers)
         if response.ok:
             job_id = (response.json())['jobID']
         else:

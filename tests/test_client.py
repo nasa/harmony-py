@@ -691,3 +691,31 @@ def test_read_text(mocker):
     actual_text = client.read_text(url)
 
     assert actual_text == expected_text
+
+
+def test_request_as_curl_get():
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+
+    curl_command = Client(should_validate_auth=False).request_as_curl(request)
+    assert f'https://harmony.earthdata.nasa.gov/{collection.id}' \
+           f'/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset' in curl_command
+    assert '-X GET' in curl_command
+
+
+def test_request_as_curl_post():
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        shape='./examples/asf_example.json',
+        spatial=BBox(-107, 40, -105, 42)
+    )
+
+    curl_command = Client(should_validate_auth=False).request_as_curl(request)
+    assert f'https://harmony.earthdata.nasa.gov/{collection.id}' \
+           f'/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset' in curl_command
+    assert '-X POST' in curl_command
+

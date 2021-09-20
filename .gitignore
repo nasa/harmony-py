@@ -135,3 +135,5 @@ examples/*.nc.tif
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
+
+.idea
