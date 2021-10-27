@@ -153,6 +153,8 @@ class Request:
 
         max_results: limits the number of input granules processed in the request
 
+        concatenate: Whether to invoke a service that supports concatenation
+
     Returns:
         A Harmony Request instance
     """
@@ -172,7 +174,8 @@ class Request:
                  scale_size: List[float] = None,
                  shape: Optional[Tuple[IO, str]] = None,
                  variables: List[str] = ['all'],
-                 width: int = None):
+                 width: int = None,
+                 concatenate: bool = None):
         """Creates a new Request instance from all specified criteria.'
         """
         self.collection = collection
@@ -189,6 +192,7 @@ class Request:
         self.shape = shape
         self.variables = variables
         self.width = width
+        self.concatenate = concatenate
 
         self.variable_name_to_query_param = {
             'crs': 'outputcrs',
@@ -201,6 +205,7 @@ class Request:
             'height': 'height',
             'format': 'format',
             'max_results': 'maxResults',
+            'concatenate': 'concatenate'
         }
 
         self.spatial_validations = [

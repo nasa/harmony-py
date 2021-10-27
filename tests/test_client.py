@@ -338,6 +338,7 @@ def test_post_request_has_user_agent_headers():
     ({'scale_extent': [1.0, 2.0, 1.0, 4.0]}, 'scaleExtent=1.0,2.0,1.0,4.0'),
     ({'scale_size': [1.0, 2.0]}, 'scaleSize=1.0,2.0'),
     ({'width': 100}, 'width=100'),
+    ({'concatenate': True}, 'concatenate=true'),
 ])
 @responses.activate
 def test_request_has_query_param(param, expected):
