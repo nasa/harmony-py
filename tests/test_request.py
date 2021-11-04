@@ -39,7 +39,7 @@ def test_request_spatial_bounding_box(west, south, east, north):
         assert e == east
         assert n == north
 
-        assert south < north
+        assert south <= north
 
         assert south >= -90.0
         assert north >= -90.0
@@ -75,7 +75,7 @@ def test_request_temporal_range(key_a, key_b, datetime_a, datetime_b):
 
 
 @pytest.mark.parametrize('key, value, message', [
-    ('spatial', BBox(10, -10, 20, -20), 'Southern latitude must be less than Northern latitude'),
+    ('spatial', BBox(10, -10, 20, -20), 'Southern latitude must be less than or equal to Northern latitude'),
     ('spatial', BBox(10, -100, 20, 20), 'Southern latitude must be greater than -90.0'),
     ('spatial', BBox(10, -110, 20, -100), 'Northern latitude must be greater than -90.0'),
     ('spatial', BBox(10, 100, 20, 110), 'Southern latitude must be less than 90.0'),

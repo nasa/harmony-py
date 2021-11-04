@@ -209,7 +209,8 @@ class Request:
         }
 
         self.spatial_validations = [
-            (lambda bb: bb.s < bb.n, 'Southern latitude must be less than Northern latitude'),
+            (lambda bb: bb.s <= bb.n, ('Southern latitude must be less than '
+                                       'or equal to Northern latitude')),
             (lambda bb: bb.s >= -90.0, 'Southern latitude must be greater than -90.0'),
             (lambda bb: bb.n >= -90.0, 'Northern latitude must be greater than -90.0'),
             (lambda bb: bb.s <= 90.0, 'Southern latitude must be less than 90.0'),
