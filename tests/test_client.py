@@ -1,14 +1,20 @@
 import datetime as dt
 import io
 import os
-import urllib.parse
 import re
+import urllib.parse
+import pathlib
 
 import dateutil.parser
 import pytest
 import responses
 
 from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Request
+
+
+@pytest.fixture()
+def examples_dir():
+    return pathlib.Path(__file__).parent.parent.joinpath('examples').absolute()
 
 
 def expected_submit_url(collection_id, variables='all'):
@@ -222,11 +228,11 @@ def test_with_bounding_box_and_temporal_range():
 
 
 @responses.activate
-def test_with_shapefile():
+def test_with_shapefile(examples_dir):
     collection = Collection(id='C333666999-EOSDIS')
     request = Request(
         collection=collection,
-        shape='./examples/asf_example.json',
+        shape=os.path.join(examples_dir, 'asf_example.json'),
         spatial=BBox(-107, 40, -105, 42),
     )
     job_id = '1234abcd-1234-9876-6666-999999abcd'
@@ -299,11 +305,11 @@ def test_get_request_has_user_agent_headers():
 
 
 @responses.activate
-def test_post_request_has_user_agent_headers():
+def test_post_request_has_user_agent_headers(examples_dir):
     collection = Collection('foobar')
     request = Request(
         collection=collection,
-        shape='./examples/asf_example.json',
+        shape=os.path.join(examples_dir, 'asf_example.json'),
         spatial=BBox(-107, 40, -105, 42),
     )
     job_id = '1234abcd-1234-9876-6666-999999abcd'
@@ -393,6 +399,8 @@ def test_status():
         'progress': exp_job['progress'],
         'created_at': dateutil.parser.parse(exp_job['createdAt']),
         'updated_at': dateutil.parser.parse(exp_job['updatedAt']),
+        'created_at_local': dateutil.parser.parse(exp_job['createdAt']).replace(microsecond=0).astimezone().isoformat(),
+        'updated_at_local': dateutil.parser.parse(exp_job['updatedAt']).replace(microsecond=0).astimezone().isoformat(),
         'request': exp_job['request'],
         'num_input_granules': exp_job['numInputGranules']}
     responses.add(
@@ -707,11 +715,11 @@ def test_request_as_curl_get():
     assert '-X GET' in curl_command
 
 
-def test_request_as_curl_post():
+def test_request_as_curl_post(examples_dir):
     collection = Collection(id='C1940468263-POCLOUD')
     request = Request(
         collection=collection,
-        shape='./examples/asf_example.json',
+        shape=os.path.join(examples_dir, 'asf_example.json'),
         spatial=BBox(-107, 40, -105, 42)
     )
 
@@ -719,4 +727,3 @@ def test_request_as_curl_post():
     assert f'https://harmony.earthdata.nasa.gov/{collection.id}' \
            f'/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset' in curl_command
     assert '-X POST' in curl_command
-

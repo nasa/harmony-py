@@ -588,12 +588,16 @@ class Client:
                 'numInputGranules'
             ]
             status_subset = {k: v for k, v in response.json().items() if k in fields}
+            created_at_dt = dateutil.parser.parse(status_subset['createdAt'])
+            updated_at_dt = dateutil.parser.parse(status_subset['updatedAt'])
             return {
                 'status': status_subset['status'],
                 'message': status_subset['message'],
                 'progress': status_subset['progress'],
-                'created_at': dateutil.parser.parse(status_subset['createdAt']),
-                'updated_at': dateutil.parser.parse(status_subset['updatedAt']),
+                'created_at': created_at_dt,
+                'updated_at': updated_at_dt,
+                'created_at_local': created_at_dt.replace(microsecond=0).astimezone().isoformat(),
+                'updated_at_local': updated_at_dt.replace(microsecond=0).astimezone().isoformat(),
                 'request': status_subset['request'],
                 'num_input_granules': int(status_subset['numInputGranules']),
             }
