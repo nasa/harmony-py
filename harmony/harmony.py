@@ -155,7 +155,8 @@ class Request:
 
         concatenate: Whether to invoke a service that supports concatenation
 
-        skip_preview: Whether Harmony should skip auto-pausing and generating a preview for large jobs
+        skip_preview: Whether Harmony should skip auto-pausing and generating a preview for
+          large jobs
 
     Returns:
         A Harmony Request instance
