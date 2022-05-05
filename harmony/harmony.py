@@ -179,7 +179,7 @@ class Request:
                  variables: List[str] = ['all'],
                  width: int = None,
                  concatenate: bool = None,
-                 skip_preview: bool = True):
+                 skip_preview: bool = None):
         """Creates a new Request instance from all specified criteria.'
         """
         self.collection = collection
@@ -351,6 +351,14 @@ class Client:
     def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to get its status."""
         return f'{self.config.root_url}/jobs/{job_id}?linktype={link_type.value}'
+
+    def _pause_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
+        """Constructs the URL for the Job that is used to pause it."""
+        return f'{self.config.root_url}/jobs/{job_id}/pause?linktype={link_type.value}'
+
+    def _resume_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
+        """Constructs the URL for the Job that is used to resume it."""
+        return f'{self.config.root_url}/jobs/{job_id}/resume?linktype={link_type.value}'
 
     def _cloud_access_url(self) -> str:
         return f'{self.config.root_url}/cloud-access'
@@ -598,7 +606,8 @@ class Client:
             updated_at_dt = dateutil.parser.parse(status_subset['updatedAt'])
             return {
                 'status': status_subset['status'],
-                'message': status_subset['message'],
+                'message': status_subset['message']
+                    .replace(' The job may be resumed using the provided link.', ''),
                 'progress': status_subset['progress'],
                 'created_at': created_at_dt,
                 'updated_at': updated_at_dt,
@@ -609,6 +618,35 @@ class Client:
             }
         else:
             response.raise_for_status()
+
+    def pause(self, job_id: str):
+        """Pause a job.
+
+        Args:
+            job_id: UUID string for the job you wish to pause.
+        Raises:
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+              can't be reached.
+        """
+        session = self._session()
+        response = session.get(self._pause_url(job_id))
+        if not response.ok:
+            response.raise_for_status()
+
+    def resume(self, job_id: str):
+        """Resume a job.
+
+        Args:
+            job_id: UUID string for the job you wish to resume.
+        Raises:
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+              can't be reached.
+        """
+        session = self._session()
+        response = session.get(self._resume_url(job_id))
+        if not response.ok:
+            response.raise_for_status()
+        
 
     def progress(self, job_id: str) -> Tuple[int, str, str]:
         """Retrieve a submitted job's completion status in percent.
@@ -661,6 +699,9 @@ class Client:
                     if status == 'canceled':
                         print('Job has been canceled.')
                         break
+                    if status == 'paused':
+                        print('Job has been paused.')
+                        break
                     # This gets around an issue with progressbar. If we update() with 0, the
                     # output shows up as "N/A". If we update with, e.g. 0.1, it rounds down or
                     # truncates to 0 but, importantly, actually displays that.
@@ -681,6 +722,8 @@ class Client:
                 if status == 'failed':
                     raise ProcessingFailedException(job_id, message)
                 if status == 'canceled':
+                    break
+                if status == 'paused':
                     break
                 time.sleep(check_interval)
 
