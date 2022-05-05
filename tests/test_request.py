@@ -18,10 +18,15 @@ def test_request_with_only_a_collection():
     request = Request(collection=Collection('foobar'))
     assert request.is_valid()
 
-def test_request_with_skip_preview():
+def test_request_with_skip_preview_false():
     request = Request(collection=Collection('foobar'), skip_preview=False)
     assert request.is_valid()
-    assert request.skip_preview is not None
+    assert request.skip_preview is not None and request.skip_preview == False
+
+def test_request_with_skip_preview_true():
+    request = Request(collection=Collection('foobar'), skip_preview=True)
+    assert request.is_valid()
+    assert request.skip_preview is not None and request.skip_preview == True
 
 def test_request_defaults_to_skip_preview_true():
     request = Request(collection=Collection('foobar'))
