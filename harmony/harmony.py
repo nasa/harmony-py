@@ -155,6 +155,8 @@ class Request:
 
         concatenate: Whether to invoke a service that supports concatenation
 
+        skip_preview: Whether Harmony should skip auto-pausing and generating a preview for large jobs
+
     Returns:
         A Harmony Request instance
     """
@@ -175,7 +177,8 @@ class Request:
                  shape: Optional[Tuple[IO, str]] = None,
                  variables: List[str] = ['all'],
                  width: int = None,
-                 concatenate: bool = None):
+                 concatenate: bool = None,
+                 skip_preview: bool = True):
         """Creates a new Request instance from all specified criteria.'
         """
         self.collection = collection
@@ -193,6 +196,7 @@ class Request:
         self.variables = variables
         self.width = width
         self.concatenate = concatenate
+        self.skip_preview = skip_preview
 
         self.variable_name_to_query_param = {
             'crs': 'outputcrs',
@@ -205,7 +209,8 @@ class Request:
             'height': 'height',
             'format': 'format',
             'max_results': 'maxResults',
-            'concatenate': 'concatenate'
+            'concatenate': 'concatenate',
+            'skip_preview': 'skipPreview',
         }
 
         self.spatial_validations = [
