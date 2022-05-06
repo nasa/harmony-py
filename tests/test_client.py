@@ -43,6 +43,8 @@ def expected_full_submit_url(request):
     query_params = '&'.join(async_params + spatial_params + temporal_params)
     if request.format is not None:
         query_params += f'&format{request.format}'
+    if request.skip_preview is not None:
+        query_params += f'&skipPreview={str(request.skip_preview).lower()}'
 
     return f'{expected_submit_url(request.collection.id)}?{query_params}'
 
