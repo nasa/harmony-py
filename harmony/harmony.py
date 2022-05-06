@@ -607,7 +607,7 @@ class Client:
             return {
                 'status': status_subset['status'],
                 'message': status_subset['message']
-                    .replace(' The job may be resumed using the provided link.', ''),
+                .replace(' The job may be resumed using the provided link.', ''),
                 'progress': status_subset['progress'],
                 'created_at': created_at_dt,
                 'updated_at': updated_at_dt,
@@ -657,7 +657,6 @@ class Client:
             raise Exception(response.reason, message)
         else:
             response.raise_for_status()
-        
 
     def progress(self, job_id: str) -> Tuple[int, str, str]:
         """Retrieve a submitted job's completion status in percent.
