@@ -626,12 +626,18 @@ class Client:
             job_id: UUID string for the job you wish to pause.
         Raises:
             Exception: This can happen if an invalid job_id is provided or Harmony services
-              can't be reached.
+              can't be reached or the job cannot be paused (usually because it is already
+              in a terminal state).
         """
         session = self._session()
         response = session.get(self._pause_url(job_id))
         if not response.ok:
-            response.raise_for_status()
+            if response.status_code == 409:
+                # 409 means we could not pause - the json will have a reason
+                message = response.json().get('description')
+                raise Exception(response.reason, message)
+            else:
+                response.raise_for_status()
 
     def resume(self, job_id: str):
         """Resume a job.
@@ -640,11 +646,16 @@ class Client:
             job_id: UUID string for the job you wish to resume.
         Raises:
             Exception: This can happen if an invalid job_id is provided or Harmony services
-              can't be reached.
+              can't be reached or the job cannot be resumed (usually because it is already
+              in a terminal state).
         """
         session = self._session()
         response = session.get(self._resume_url(job_id))
-        if not response.ok:
+        if response.status_code == 409:
+            # 409 means we could not pause - the json will have a reason
+            message = response.json().get('description')
+            raise Exception(response.reason, message)
+        else:
             response.raise_for_status()
         
 
