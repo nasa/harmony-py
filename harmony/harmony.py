@@ -652,7 +652,7 @@ class Client:
         session = self._session()
         response = session.get(self._resume_url(job_id))
         if response.status_code == 409:
-            # 409 means we could not pause - the json will have a reason
+            # 409 means we could not resume - the json will have a reason
             message = response.json().get('description')
             raise Exception(response.reason, message)
         else:

@@ -470,6 +470,25 @@ def test_pause():
     assert urllib.parse.unquote(responses.calls[0].request.url) == expected_pause_url(job_id)
 
 @responses.activate
+def test_pause_conflict_error():
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    exp_json = {
+        'code': 'harmony.ConflictError',
+        'description': 'Error: Job status cannot be updated from successful to paused.'
+    }
+
+    responses.add(
+        responses.GET,
+        expected_pause_url(job_id),
+        status=409,
+        json = exp_json
+    )
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).pause(job_id)
+    assert str(e.value) == "('Conflict', 'Error: Job status cannot be updated from successful to paused.')"
+
+@responses.activate
 def test_resume():
     collection = Collection(id='C333666999-EOSDIS')
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
@@ -486,6 +505,25 @@ def test_resume():
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
     assert urllib.parse.unquote(responses.calls[0].request.url) == expected_resume_url(job_id)
+
+@responses.activate
+def test_resume_conflict_error():
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    exp_json = {
+        'code': 'harmony.ConflictError',
+        'description': 'Error: Job status is running - only paused jobs can be resumed.'
+    }
+
+    responses.add(
+        responses.GET,
+        expected_resume_url(job_id),
+        status=409,
+        json = exp_json
+    )
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).resume(job_id)
+    assert str(e.value) == "('Conflict', 'Error: Job status is running - only paused jobs can be resumed.')"
 
 @pytest.mark.parametrize('show_progress', [
     (True),
