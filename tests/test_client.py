@@ -25,6 +25,11 @@ def expected_submit_url(collection_id, variables='all'):
 def expected_status_url(job_id, link_type: LinkType = LinkType.https):
     return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}'
 
+def expected_pause_url(job_id, link_type: LinkType = LinkType.https):
+    return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}/pause?linktype={link_type.value}'
+
+def expected_resume_url(job_id, link_type: LinkType = LinkType.https):
+    return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}/resume?linktype={link_type.value}'
 
 def expected_full_submit_url(request):
     async_params = ['forceAsync=true']
@@ -114,6 +119,12 @@ def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https, ex
         'numInputGranules': 32,
         'jobID': f'{job_id}'
     }
+
+def expected_paused_job(collection_id, job_id, link_type: LinkType = LinkType.https, extra_links=[]):
+    job = expected_job(collection_id, job_id, link_type, extra_links)
+    job['status'] = 'paused'
+    job['progress'] = 10
+    return job
 
 
 @responses.activate
@@ -440,6 +451,41 @@ def test_progress():
     assert urllib.parse.unquote(responses.calls[0].request.url) == expected_status_url(job_id)
     assert actual_progress == expected_progress
 
+@responses.activate
+def test_pause():
+    collection = Collection(id='C333666999-EOSDIS')
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    exp_job = expected_paused_job(collection, job_id)
+    responses.add(
+        responses.GET,
+        expected_pause_url(job_id),
+        status=200,
+        json=exp_job
+    )
+
+    Client(should_validate_auth=False).pause(job_id)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_pause_url(job_id)
+
+@responses.activate
+def test_resume():
+    collection = Collection(id='C333666999-EOSDIS')
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    exp_job = expected_paused_job(collection, job_id)
+    responses.add(
+        responses.GET,
+        expected_resume_url(job_id),
+        status=200,
+        json=exp_job
+    )
+
+    Client(should_validate_auth=False).resume(job_id)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_resume_url(job_id)
 
 @pytest.mark.parametrize('show_progress', [
     (True),
@@ -497,6 +543,37 @@ def test_wait_for_processing_with_failed_status(mocker, show_progress):
         client.wait_for_processing(job_id, show_progress=show_progress)
     assert e.exconly() == 'harmony.harmony.ProcessingFailedException: Pod exploded'
 
+@pytest.mark.parametrize('show_progress', [
+    (True),
+    (False),
+])
+def test_wait_for_processing_with_paused_status(mocker, show_progress):
+    expected_progress = [
+        (10, 'running', 'The job is being processed'),
+        (10, 'paused', 'Job paused')]
+    job_id = '12345'
+
+    sleep_mock = mocker.Mock()
+    mocker.patch('harmony.harmony.time.sleep', sleep_mock)
+
+    progressbar_mock = mocker.Mock()
+    progressbar_mock.__enter__ = lambda _: progressbar_mock
+    progressbar_mock.__exit__ = lambda a, b, d, c: None
+    mocker.patch('harmony.harmony.progressbar.ProgressBar', return_value=progressbar_mock)
+
+    progress_mock = mocker.Mock(side_effect=expected_progress)
+    mocker.patch('harmony.harmony.Client.progress', progress_mock)
+
+    client = Client(should_validate_auth=False)
+    client.wait_for_processing(job_id, show_progress=show_progress)
+
+    progress_mock.assert_called_with(job_id)
+    if show_progress:
+        for n, _, _ in expected_progress:
+            progressbar_mock.update.assert_any_call(int(n))
+    else:
+        # sleep should be called just once since the second status update returned 'paused'
+        assert sleep_mock.call_count == 1
 
 @responses.activate
 @pytest.mark.parametrize('show_progress', [
