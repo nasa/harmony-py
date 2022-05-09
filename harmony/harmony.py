@@ -710,7 +710,7 @@ class Client:
                         print('Job has been canceled.')
                         break
                     if status == 'paused':
-                        print('\nJob has been paused.', file=sys.stderr)
+                        print('\nJob has been paused. Call `resume()` to resume.', file=sys.stderr)
                         break
                     # This gets around an issue with progressbar. If we update() with 0, the
                     # output shows up as "N/A". If we update with, e.g. 0.1, it rounds down or
@@ -734,6 +734,7 @@ class Client:
                 if status == 'canceled':
                     break
                 if status == 'paused':
+                    print('Job has been paused. Call `resume()` to resume.', file=sys.stderr)
                     break
                 time.sleep(check_interval)
 
