@@ -20,7 +20,7 @@ import platform
 import requests.models
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import date, datetime
 from enum import Enum
 from typing import Any, ContextManager, IO, List, Mapping, NamedTuple, Optional, Tuple, Generator
 
@@ -598,12 +598,13 @@ class Client:
         response = session.get(self._status_url(job_id))
         if response.ok:
             fields = [
-                'status', 'message', 'progress', 'createdAt', 'updatedAt', 'request',
-                'numInputGranules'
+                'status', 'message', 'progress', 'createdAt', 'updatedAt', 'dataExpiration', 
+                'request', 'numInputGranules'
             ]
             status_subset = {k: v for k, v in response.json().items() if k in fields}
             created_at_dt = dateutil.parser.parse(status_subset['createdAt'])
             updated_at_dt = dateutil.parser.parse(status_subset['updatedAt'])
+            data_expiration_dt = dateutil.parser.parse(status_subset['dataExpiration'])
             return {
                 'status': status_subset['status'],
                 'message': status_subset['message']
@@ -613,6 +614,8 @@ class Client:
                 'updated_at': updated_at_dt,
                 'created_at_local': created_at_dt.replace(microsecond=0).astimezone().isoformat(),
                 'updated_at_local': updated_at_dt.replace(microsecond=0).astimezone().isoformat(),
+                'data_expiration': data_expiration_dt,
+                'data_expiration_local': data_expiration_dt.replace(microsecond=0).astimezone().isoformat(),
                 'request': status_subset['request'],
                 'num_input_granules': int(status_subset['numInputGranules']),
             }
