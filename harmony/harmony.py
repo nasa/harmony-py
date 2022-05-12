@@ -598,7 +598,7 @@ class Client:
         response = session.get(self._status_url(job_id))
         if response.ok:
             fields = [
-                'status', 'message', 'progress', 'createdAt', 'updatedAt', 'dataExpiration', 
+                'status', 'message', 'progress', 'createdAt', 'updatedAt', 'dataExpiration',
                 'request', 'numInputGranules'
             ]
             status_subset = {k: v for k, v in response.json().items() if k in fields}
@@ -615,7 +615,8 @@ class Client:
                 'created_at_local': created_at_dt.replace(microsecond=0).astimezone().isoformat(),
                 'updated_at_local': updated_at_dt.replace(microsecond=0).astimezone().isoformat(),
                 'data_expiration': data_expiration_dt,
-                'data_expiration_local': data_expiration_dt.replace(microsecond=0).astimezone().isoformat(),
+                'data_expiration_local': data_expiration_dt.
+                replace(microsecond=0).astimezone().isoformat(),
                 'request': status_subset['request'],
                 'num_input_granules': int(status_subset['numInputGranules']),
             }
