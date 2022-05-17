@@ -107,6 +107,48 @@ class BBox(NamedTuple):
     def __repr__(self) -> str:
         return f'BBox: West:{self.w}, South:{self.s}, East:{self.e}, North:{self.n}'
 
+class Dimension:
+    """An arbitrary dimension to subset against. A dimension can take a minimum value and a
+    maximum value to to subset against.
+
+    Example:
+        Requesting the data to be subset by the dimension lev with a minimum value of 10.0
+        and maximum value of 20.0::
+
+            >>> dimension = Dimension('lev', 10.0, 20.0)
+
+        Important: When specified positionally, the parameters must be given in the order:
+        dimension name, minimum value, maximum value.
+
+        Alternatively, one can explicitly set each value used named parameters:
+
+            >>> dimension = Dimension(name='lev', min=10.0, max=20.0)
+
+        Print a readable representation of the dimension::
+
+            >>> print(dimension)
+            Dimension: Name: lev, Minimum: 10.0, Maximum: 20.0
+
+    Args:
+        name: The dimension name
+        min: The minimum value for the given dimension to subset against (optional)
+        max: The maximum value for the given dimension to subset against (optional)
+
+    Returns:
+        A Dimension instance with the provided dimension subset values.
+    """
+    name: str
+    min: float
+    max: float
+
+    def __init__(self, name: str, min: float = None, max: float = None):
+        self.name = name
+        self.min = min
+        self.max = max
+
+    def __repr__(self) -> str:
+        return f'Dimension: Name: {self.name}, Minimum:{self.min}, Maximum:{self.max}'
+
 
 _shapefile_exts_to_mimes = {
     'json': 'application/geo+json',
@@ -129,6 +171,8 @@ class Request:
 
         temporal: Date/time constraints on the data provided as a dict mapping "start" and "stop"
           keys to corresponding start/stop datetime.datetime objects
+
+        dimensions: A list of dimensions to use for subsetting the data
 
         crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
           inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
@@ -167,6 +211,7 @@ class Request:
                  *,
                  spatial: BBox = None,
                  temporal: Mapping[str, datetime] = None,
+                 dimensions: List[Dimension] = None,
                  crs: str = None,
                  format: str = None,
                  granule_id: List[str] = None,
@@ -185,6 +230,7 @@ class Request:
         self.collection = collection
         self.spatial = spatial
         self.temporal = temporal
+        self.dimensions = dimensions
         self.crs = crs
         self.format = format
         self.granule_id = granule_id
@@ -239,6 +285,10 @@ class Request:
              'The provided shape file is not a recognized type.  Valid file extensions: '
              + f'[{_valid_shapefile_exts}]'),
         ]
+        self.dimension_validations = [
+            (lambda dim: dim.min is None or dim.max is None or dim.min <= dim.max,
+             (f'Dimension minimum value must be less than or equal to the maximum value'))
+        ]
 
     def parameter_values(self) -> List[Tuple[str, Any]]:
         """Returns tuples of each query parameter that has been set and its value."""
@@ -268,13 +318,19 @@ class Request:
         """A list of error messages, if any, for the request."""
         spatial_msgs = []
         temporal_msgs = []
+        dimension_msgs = []
         shape_msgs = self._shape_error_messages(self.shape)
         if self.spatial:
             spatial_msgs = [m for v, m in self.spatial_validations if not v(self.spatial)]
         if self.temporal:
             temporal_msgs = [m for v, m in self.temporal_validations if not v(self.temporal)]
+        if self.dimensions:
+            for dim in self.dimensions:
+                msgs = [m for v, m in self.dimension_validations if not v(dim)]
+                if msgs:
+                    dimension_msgs += msgs
 
-        return spatial_msgs + temporal_msgs + shape_msgs
+        return spatial_msgs + temporal_msgs + shape_msgs + dimension_msgs
 
 
 class LinkType(Enum):
@@ -367,7 +423,10 @@ class Client:
         """Creates a dictionary of request query parameters from the given request."""
         params = {'forceAsync': 'true'}
 
-        subset = self._spatial_subset_params(request) + self._temporal_subset_params(request)
+        subset = self._spatial_subset_params(request) + \
+                 self._temporal_subset_params(request) + \
+                 self._dimension_subset_params(request)
+
         if len(subset) > 0:
             params['subset'] = subset
 
@@ -447,6 +506,19 @@ class Client:
             start_quoted = f'"{start}"' if start else '*'
             stop_quoted = f'"{stop}"' if stop else '*'
             return [f'time({start_quoted}:{stop_quoted})']
+        else:
+            return []
+
+    def _dimension_subset_params(self, request: Request) -> list:
+        """Creates a list of dimension subset query parameters."""
+        if request.dimensions and len(request.dimensions) > 0:
+            dimensions = []
+            for dim in request.dimensions:
+                min = dim.min or '*'
+                max = dim.max or '*'
+                dim_query_param = [f'{dim.name}({min}:{max})']
+                dimensions.append(dim_query_param)
+            return dimensions
         else:
             return []
 
