@@ -107,6 +107,7 @@ class BBox(NamedTuple):
     def __repr__(self) -> str:
         return f'BBox: West:{self.w}, South:{self.s}, East:{self.e}, North:{self.n}'
 
+
 class Dimension:
     """An arbitrary dimension to subset against. A dimension can take a minimum value and a
     maximum value to to subset against.
@@ -287,7 +288,7 @@ class Request:
         ]
         self.dimension_validations = [
             (lambda dim: dim.min is None or dim.max is None or dim.min <= dim.max,
-             (f'Dimension minimum value must be less than or equal to the maximum value'))
+             ('Dimension minimum value must be less than or equal to the maximum value'))
         ]
 
     def parameter_values(self) -> List[Tuple[str, Any]]:
@@ -424,8 +425,8 @@ class Client:
         params = {'forceAsync': 'true'}
 
         subset = self._spatial_subset_params(request) + \
-                 self._temporal_subset_params(request) + \
-                 self._dimension_subset_params(request)
+            self._temporal_subset_params(request) + \
+            self._dimension_subset_params(request)
 
         if len(subset) > 0:
             params['subset'] = subset
