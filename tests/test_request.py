@@ -3,7 +3,7 @@ import datetime as dt
 from hypothesis import given, settings, strategies as st
 import pytest
 
-from harmony.harmony import BBox, Collection, Request
+from harmony.harmony import BBox, Collection, Request, Dimension
 
 
 def test_request_has_collection_with_id():
@@ -32,7 +32,7 @@ def test_request_defaults_to_skip_preview_false():
     request = Request(collection=Collection('foobar'))
     assert not request.skip_preview
 
-@settings(max_examples=200)
+@settings(max_examples=100)
 @given(west=st.floats(allow_infinity=True),
        south=st.floats(allow_infinity=True),
        east=st.floats(allow_infinity=True),
@@ -65,7 +65,7 @@ def test_request_spatial_bounding_box(west, south, east, north):
         assert east <= 180.0
 
 
-@settings(max_examples=200)
+@settings(max_examples=100)
 @given(key_a=st.one_of(st.none(), st.sampled_from(['start', 'stop']), st.text()),
        key_b=st.one_of(st.none(), st.sampled_from(['start', 'stop']), st.text()),
        datetime_a=st.datetimes(),
@@ -86,6 +86,22 @@ def test_request_temporal_range(key_a, key_b, datetime_a, datetime_b):
         if 'start' in request.temporal and 'stop' in request.temporal:
             assert request.temporal['start'] < request.temporal['stop']
 
+@settings(max_examples=100)
+@given(min=st.one_of(st.floats(allow_infinity=True), st.integers()),
+       max=st.one_of(st.floats(allow_infinity=True), st.integers()))
+def test_request_dimensions(min, max):
+    dimension = Dimension('foo', min, max)
+    request = Request(
+        collection=Collection('foobar'),
+        dimensions=[dimension],
+    )
+
+    if request.is_valid():
+        assert len(request.dimensions) == 1
+        min_actual = request.dimensions[0].min
+        max_actual = request.dimensions[0].max
+        assert min == min_actual
+        assert max == max_actual
 
 @pytest.mark.parametrize('key, value, message', [
     ('spatial', BBox(10, -10, 20, -20), 'Southern latitude must be less than or equal to Northern latitude'),
@@ -105,6 +121,19 @@ def test_request_spatial_error_messages(key, value, message):
     assert not request.is_valid()
     assert message in messages
 
+@pytest.mark.parametrize('value', [
+    [Dimension('foo', 0, -100.0)],
+    [Dimension('foo', 0, -100.0), Dimension('bar', 50.0, 0)],
+    [Dimension('foo', -100.0, 0), Dimension('bar', 50.0, 0)],
+    [Dimension(name='bar', max=25, min=125.0)]
+])
+def test_request_dimensions_error_messages(value):
+    message = 'Dimension minimum value must be less than or equal to the maximum value'
+    request = Request(Collection('foo'), **{'dimensions': value})
+    messages = request.error_messages()
+
+    assert not request.is_valid()
+    assert message in messages
 
 @pytest.mark.parametrize('key, value, message', [
     (

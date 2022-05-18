@@ -9,7 +9,7 @@ import dateutil.parser
 import pytest
 import responses
 
-from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Request
+from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Request, Dimension
 
 
 @pytest.fixture()
@@ -45,7 +45,15 @@ def expected_full_submit_url(request):
         stop = request.temporal['stop']
         temporal_params = [f'subset=time("{start.isoformat()}":"{stop.isoformat()}")']
 
-    query_params = '&'.join(async_params + spatial_params + temporal_params)
+    dimension_params = []
+    if request.dimensions:
+        for dim in request.dimensions:
+          name = dim.name
+          min = dim.min or '*'
+          max = dim.max or '*'
+          dimension_params += [f'subset={name}({min}:{max})']
+
+    query_params = '&'.join(async_params + spatial_params + temporal_params + dimension_params)
     if request.format is not None:
         query_params += f'&format{request.format}'
     if request.skip_preview is not None:
@@ -184,6 +192,58 @@ def test_with_bounding_box():
         responses.calls[0].request.url) == expected_full_submit_url(request)
     assert actual_job_id == job_id
 
+@responses.activate
+def test_with_single_dimension():
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        dimensions=[Dimension('foo', 0, 20.5)]
+    )
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    responses.add(
+        responses.GET,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, job_id)
+    )
+
+    actual_job_id = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert actual_job_id == job_id
+
+@responses.activate
+def test_with_multiple_dimensions():
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        dimensions=[
+          Dimension('foo', 0, 20.5),
+          Dimension(name='bar', max=20.1, min=-10.2),
+          Dimension('baz'),
+          Dimension('alpha', -10),
+          Dimension('bravo', max=30),
+          Dimension('charlie', min=20),
+        ]
+    )
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    responses.add(
+        responses.GET,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, job_id)
+    )
+
+    actual_job_id = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert actual_job_id == job_id
 
 @responses.activate
 def test_with_temporal_range():
