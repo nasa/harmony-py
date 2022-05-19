@@ -77,6 +77,7 @@ def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https, ex
         'progress': 0,
         'createdAt': '2021-02-19T18:47:31.291Z',
         'updatedAt': '2021-02-19T18:47:31.291Z',
+        'dataExpiration': '2021-03-21T18:47:31.291Z',
         'links': [
             {
                 'title': 'Job Status',
@@ -412,8 +413,10 @@ def test_status():
         'progress': exp_job['progress'],
         'created_at': dateutil.parser.parse(exp_job['createdAt']),
         'updated_at': dateutil.parser.parse(exp_job['updatedAt']),
+        'data_expiration': dateutil.parser.parse(exp_job['dataExpiration']),
         'created_at_local': dateutil.parser.parse(exp_job['createdAt']).replace(microsecond=0).astimezone().isoformat(),
         'updated_at_local': dateutil.parser.parse(exp_job['updatedAt']).replace(microsecond=0).astimezone().isoformat(),
+        'data_expiration_local': dateutil.parser.parse(exp_job['dataExpiration']).replace(microsecond=0).astimezone().isoformat(),
         'request': exp_job['request'],
         'num_input_granules': exp_job['numInputGranules']}
     responses.add(
