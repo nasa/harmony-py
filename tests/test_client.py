@@ -48,10 +48,10 @@ def expected_full_submit_url(request):
     dimension_params = []
     if request.dimensions:
         for dim in request.dimensions:
-          name = dim.name
-          min = dim.min or '*'
-          max = dim.max or '*'
-          dimension_params += [f'subset={name}({min}:{max})']
+            name = dim.name
+            min = dim.min if dim.min is not None else '*'
+            max = dim.max if dim.max is not None else '*'
+            dimension_params += [f'subset={name}({min}:{max})']
 
     query_params = '&'.join(async_params + spatial_params + temporal_params + dimension_params)
     if request.format is not None:
@@ -216,18 +216,20 @@ def test_with_single_dimension():
         responses.calls[0].request.url) == expected_full_submit_url(request)
     assert actual_job_id == job_id
 
+
 @responses.activate
 def test_with_multiple_dimensions():
     collection = Collection(id='C1940468263-POCLOUD')
     request = Request(
         collection=collection,
         dimensions=[
-          Dimension('foo', 0, 20.5),
-          Dimension(name='bar', max=20.1, min=-10.2),
-          Dimension('baz'),
-          Dimension('alpha', -10),
-          Dimension('bravo', max=30),
-          Dimension('charlie', min=20),
+            Dimension('foo', None, 20.5),
+            Dimension(name='bar', max=20.1, min=-10.2),
+            Dimension('baz'),
+            Dimension('alpha', -10),
+            Dimension('bravo', max=30),
+            Dimension('charlie', min=20),
+            Dimension('delta', 0, 20.5),
         ]
     )
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'

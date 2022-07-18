@@ -515,9 +515,9 @@ class Client:
         if request.dimensions and len(request.dimensions) > 0:
             dimensions = []
             for dim in request.dimensions:
-                min = dim.min or '*'
-                max = dim.max or '*'
-                dim_query_param = [f'{dim.name}({min}:{max})']
+                dim_min = dim.min if dim.min is not None else '*'
+                dim_max = dim.max if dim.max is not None else '*'
+                dim_query_param = [f'{dim.name}({dim_min}:{dim_max})']
                 dimensions.append(dim_query_param)
             return dimensions
         else:
