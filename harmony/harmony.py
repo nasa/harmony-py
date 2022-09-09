@@ -12,6 +12,7 @@ Overview of the classes:
     * Request: A complete Harmony request with all criteria
     * Client: Allows submission of a Harmony Request and getting results
 """
+from http.client import ResponseNotReady
 import os
 import shutil
 import sys
@@ -1041,7 +1042,20 @@ class Client:
         while next_url:
             self_url = next_url
             last_pull_time = datetime.now()
-            response = self._get_json(next_url)
+            response = None
+            get_json_try_count = 0
+            # work around for occasional failures in the status page
+            while not response:
+                try:
+                    response = self._get_json(next_url)
+                except BaseException:
+                    response = None
+                    get_json_try_count += 1
+                    if get_json_try_count < 3:
+                        time.sleep(0.5)
+                    else:
+                        raise Exception('Failed to get or parse job status page')
+
             next_url = None
             status = response.get('status')
             if status == 'failed':
