@@ -959,11 +959,8 @@ def side_effect_for_get_json(extra_links) -> List[str]:
     
     return [status_running1, status_running2, status_paused, status_resumed, status_successful, status_successful]
 
-# @pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
-def test_iterator(mocker):
-    # speed up test by not waiting between polling the status page
-    os.environ['CHECK_INTERVAL'] = '0'
-    link_type = LinkType.http
+@pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
+def test_iterator(link_type, mocker):
     extra_links = extra_links_for_iteration(link_type.value)
     status_page_json = expected_job('C123', 'abc123')
     status_page_json['status'] = 'successful'
@@ -971,7 +968,8 @@ def test_iterator(mocker):
     mocker.patch('harmony.harmony.Client._download_file', download_file_mock)
     get_json_mock = mocker.Mock(side_effect = side_effect_for_get_json(extra_links))
     mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
-    client = Client(should_validate_auth=False)
+    # speed up test by not waiting between polling the status page
+    client = Client(should_validate_auth=False, check_interval=0)
 
     # first iteration in which job state is 'running' and two granules have completed
     iter = client.iterator(status_page_json['jobID'], '/tmp')

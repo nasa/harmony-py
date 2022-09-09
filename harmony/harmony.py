@@ -39,9 +39,6 @@ progressbar_widgets = [
     ' [', progressbar.RotatingMarker(), ']',
 ]
 
-# How often to poll Harmony for updated information during job processing.
-check_interval = 3.0  # in seconds
-
 class ProcessingFailedException(Exception):
     """Indicates a Harmony job has failed during processing"""
 
@@ -375,6 +372,8 @@ class Client:
         auth: Optional[Tuple[str, str]] = None,
         should_validate_auth: bool = True,
         env: Environment = Environment.PROD,
+        # How often to poll Harmony for updated information during job processing.
+        check_interval = 3.0  # in seconds
     ):
         """Creates a Harmony Client that can be used to interact with Harmony.
 
@@ -385,6 +384,7 @@ class Client:
         self.config = Config(env)
         self.session = None
         self.auth = auth
+        self.check_interval = check_interval
 
         num_workers = int(self.config.NUM_REQUESTS_WORKERS)
         self.executor = ThreadPoolExecutor(max_workers=num_workers)
@@ -776,7 +776,7 @@ class Client:
         # How often to refresh the screen for progress updates and animating spinners.
         ui_update_interval = 0.33  # in seconds
 
-        intervals = round(check_interval / ui_update_interval)
+        intervals = round(self.check_interval / ui_update_interval)
         if show_progress:
             with progressbar.ProgressBar(max_value=100, widgets=progressbar_widgets) as bar:
                 progress = 0
@@ -814,7 +814,7 @@ class Client:
                 if status == 'paused':
                     print('Job has been paused. Call `resume()` to resume.', file=sys.stderr)
                     break
-                time.sleep(check_interval)
+                time.sleep(self.check_interval)
 
     def result_json(self,
                     job_id: str,
@@ -1077,8 +1077,8 @@ class Client:
                     # might need to sleep for a bit to avoid overwhelming Harmony
                     delta_time_since_last_pull = datetime.now() - last_pull_time
                     seconds_since_last_pull = delta_time_since_last_pull.total_seconds()
-                    if seconds_since_last_pull < check_interval:
-                        time.sleep(check_interval - seconds_since_last_pull)
+                    if seconds_since_last_pull < self.check_interval:
+                        time.sleep(self.check_interval - seconds_since_last_pull)
             else:
                 # reset the index for the links since we are going to load a new page
                 link_index = 0
