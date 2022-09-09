@@ -23,7 +23,8 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple, Optional, Tuple, Generator
+from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple, Optional, \
+    Tuple, Generator
 
 import curlify
 import dateutil.parser
@@ -38,6 +39,7 @@ progressbar_widgets = [
     progressbar.Bar(),
     ' [', progressbar.RotatingMarker(), ']',
 ]
+
 
 class ProcessingFailedException(Exception):
     """Indicates a Harmony job has failed during processing"""
@@ -372,8 +374,8 @@ class Client:
         auth: Optional[Tuple[str, str]] = None,
         should_validate_auth: bool = True,
         env: Environment = Environment.PROD,
-        # How often to poll Harmony for updated information during job processing.
-        check_interval = 3.0  # in seconds
+        # How often to poll Harmony for updated information during job processing
+        check_interval: float = 3.0  # in seconds
     ):
         """Creates a Harmony Client that can be used to interact with Harmony.
 
@@ -991,7 +993,7 @@ class Client:
         """Create an iterator that will poll for data in the background and download it as
         it is available and requested via `next()`.
 
-        Each iteration returns a dictionary, or `None` when all granules have been iterated. 
+        Each iteration returns a dictionary, or `None` when all granules have been iterated.
         The dictionary has the following form:
 
         {
@@ -1028,7 +1030,7 @@ class Client:
         Returns:
             An Iterator that can be used to iterate over the granule results from a job
         """
-        next_url = self._status_url(job_id) #+ "&limit=10&page=1"
+        next_url = self._status_url(job_id)
 
         # index used to keep track of where we are in the data links if the page gets reloaded
         # so we don't pull the same granule more than once
@@ -1072,7 +1074,8 @@ class Client:
                         print('Job is paused. Resume to continue processing.')
                     return None
                 else:
-                    # reload the page to see if status has changed and/or more granules are available
+                    # reload the page to see if status has changed and/or more granules are
+                    # available
                     next_url = self_url
                     # might need to sleep for a bit to avoid overwhelming Harmony
                     delta_time_since_last_pull = datetime.now() - last_pull_time
