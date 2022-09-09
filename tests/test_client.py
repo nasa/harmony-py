@@ -1027,7 +1027,19 @@ def test_iterator(mocker):
     granule_data = next(iter, None)
     assert granule_data == None
 
+def test_iterator_failed_job(mocker):
+    failed_job = expected_job('C123', 'abc123')
+    failed_job['status'] = 'failed'
+    failed_job['message'] = 'Job failed'
+    get_json_mock = mocker.Mock(return_value = failed_job)
+    mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
+    client = Client(should_validate_auth=False)
 
+    # first iteration in which job state is 'running' and two granules have completed
+    iter = client.iterator(failed_job['jobID'], '/tmp')
+    with pytest.raises(Exception) as exc_info:
+        granule_data = next(iter)
+    assert str(exc_info.value) == 'Job failed'
 
 @pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
 def test_stac_catalog_url(link_type, mocker):
