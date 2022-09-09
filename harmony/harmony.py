@@ -15,6 +15,7 @@ Overview of the classes:
 import os
 import shutil
 import sys
+from tabnanny import check
 import time
 import platform
 import requests.models
@@ -22,7 +23,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, ContextManager, IO, List, Mapping, NamedTuple, Optional, Tuple, Generator
+from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple, Optional, Tuple, Generator
 
 import curlify
 import dateutil.parser
@@ -38,6 +39,8 @@ progressbar_widgets = [
     ' [', progressbar.RotatingMarker(), ']',
 ]
 
+# How often to poll Harmony for updated information during job processing.
+check_interval = 3.0  # in seconds
 
 class ProcessingFailedException(Exception):
     """Indicates a Harmony job has failed during processing"""
@@ -770,8 +773,6 @@ class Client:
             Exception: This can happen if an invalid job_id is provided or Harmony services
             can't be reached.
         """
-        # How often to poll Harmony for updated information during job processing.
-        check_interval = 3.0  # in seconds
         # How often to refresh the screen for progress updates and animating spinners.
         ui_update_interval = 0.33  # in seconds
 
@@ -895,6 +896,24 @@ class Client:
                     yield link['href']
 
     def _download_file(self, url: str, directory: str = '', overwrite: bool = False) -> str:
+        """Downloads data, saves it to a file, and returns the filename.
+
+        Performance should be close to native with an appropriate chunk size. This can be changed
+        via environment variable DOWNLOAD_CHUNK_SIZE.
+
+        Filenames are automatically determined by using the latter portion of the provided URL.
+
+        Args:
+            url: The location (URL) of the file to be downloaded
+            directory: Optional. If specified, saves files there. Saves files to the current
+            working directory by default.
+            overwrite: If True, will overwrite a local file that shares a filename with the
+            downloaded file. Defaults to False. If you're seeing malformed data or truncated
+            files from incomplete downloads, set overwrite to True.
+
+        Returns:
+            The filename and path.
+        """
         chunksize = int(self.config.DOWNLOAD_CHUNK_SIZE)
         session = self._session()
         filename = url.split('/')[-1]
@@ -911,15 +930,10 @@ class Client:
             return filename
 
     def download(self, url: str, directory: str = '', overwrite: bool = False) -> Future:
-        """Downloads data, saves it to a file, and returns the filename.
-
-        Performance should be close to native with an appropriate chunk size. This can be changed
-        via environment variable DOWNLOAD_CHUNK_SIZE.
-
-        Filenames are automatically determined by using the latter portion of the provided URL.
+        """Downloads data and saves it to a file asynchronously.
 
         Args:
-            job_id: UUID string for the job you wish to interrogate.
+            url: The location (URL) of the file to be downloaded
             directory: Optional. If specified, saves files there. Saves files to the current
             working directory by default.
             overwrite: If True, will overwrite a local file that shares a filename with the
@@ -927,7 +941,7 @@ class Client:
             files from incomplete downloads, set overwrite to True.
 
         Returns:
-            The filename and path.
+            A Future that resolves to the full path to the file.
         """
         future = self.executor.submit(self._download_file, url, directory, overwrite)
         return future
@@ -967,6 +981,108 @@ class Client:
         """
         for url in self.result_urls(job_id, show_progress=False) or []:
             yield self.executor.submit(self._download_file, url, directory, overwrite)
+
+    def iterator(
+        self,
+        job_id: str,
+        directory: str = '',
+        overwrite: bool = False
+    ) -> Iterator:
+        """Create an iterator that will poll for data in the background and download it as
+        it is available and requested via `next()`.
+
+        Each iteration returns a dictionary, or `None` when all granules have been iterated. 
+        The dictionary has the following form:
+
+        {
+            'path': Future
+            'bbox': BBox object containing the bounding box for the granule,
+            'temporal': {
+                'start': '2020-01-11T14:00:00.000Z',
+                'end': '2020-01-11T15:59:59.000Z'
+            }
+        }
+
+        The Future resolves to the path to the downloaded file.
+
+        If the job is paused and all processed granules have already been returned in
+        the iteration, the status returned will be GranuleStatus.PAUSED until the job
+        is resumed.
+
+        If the job fails during iteration then calls to `next` will raise an exception.
+        Note that this is not true if the job completed with errors, in which case specific
+        granules may return errors, but no exception is raised. This allows the caller
+        to retrieve any granules that were successfully processed.
+
+        Note: if a job gets stuck in the 'running' state, this iterator will happily wait
+        forever re-checking the status page periodically.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+            directory: Optional. If specified, saves files there. Saves files to the current
+            working directory by default.
+            overwrite: If True, will overwrite a local file that shares a filename with the
+            downloaded file. Defaults to False. If you're seeing malformed data or truncated
+            files from incomplete downloads, set overwrite to True.
+
+        Returns:
+            An Iterator that can be used to iterate over the granule results from a job
+        """
+        next_url = self._status_url(job_id) #+ "&limit=10&page=1"
+
+        # index used to keep track of where we are in the data links if the page gets reloaded
+        # so we don't pull the same granule more than once
+        # NOTE: this assumes that granule order is preserved when the page is reloaded and
+        # new granules are added. If this is not true then this won't work.
+        current_page_granule_count = 0
+
+        while next_url:
+            self_url = next_url
+            last_pull_time = datetime.now()
+            response = self._get_json(next_url)
+            next_url = None
+            status = response.get('status')
+            if status == 'failed':
+                raise Exception(response.get('message'))
+
+            links = response.get('links', [])
+            link_index = 0
+            for link in links:
+                if link['rel'] == 'data':
+                    link_index += 1
+                    if link_index > current_page_granule_count:
+                        current_page_granule_count = link_index
+                        future = self.download(link['href'], directory, overwrite)
+                        bbox = link['bbox']
+                        temporal = link['temporal']
+                        yield {
+                            'path': future,
+                            'bbox': BBox(bbox[0], bbox[1], bbox[2], bbox[3]),
+                            'temporal': temporal
+                        }
+                elif link['rel'] == 'next':
+                    next_url = link['href']
+
+            if not next_url:
+                # no 'next' link means either we are done or we need to reload this page to
+                # get more results
+                if status in {'successful', 'paused', 'canceled', 'complete_with_errors'}:
+                    # we are done
+                    if status == 'paused':
+                        print('Job is paused. Resume to continue processing.')
+                    return None
+                else:
+                    # reload the page to see if status has changed and/or more granules are available
+                    next_url = self_url
+                    # might need to sleep for a bit to avoid overwhelming Harmony
+                    delta_time_since_last_pull = datetime.now() - last_pull_time
+                    seconds_since_last_pull = delta_time_since_last_pull.total_seconds()
+                    if seconds_since_last_pull < check_interval:
+                        time.sleep(check_interval - seconds_since_last_pull)
+            else:
+                # reset the index for the links since we are going to load a new page
+                link_index = 0
+                current_page_granule_count = 0
 
     def stac_catalog_url(self,
                          job_id: str,

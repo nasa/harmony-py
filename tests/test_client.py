@@ -1,7 +1,9 @@
+import copy
 import datetime as dt
 import io
 import os
 import re
+from typing import List
 import urllib.parse
 import pathlib
 
@@ -848,6 +850,183 @@ def test_download_all(mocker):
     actual_file_names = [f.result() for f in client.download_all('abcd-1234')]
 
     assert actual_file_names == expected_file_names
+
+def side_effect_func_for_download_file(url: str, directory: str = '', overwrite: bool = False) -> str:
+    filename = url.split('/')[-1]
+    return os.path.join(directory, filename)
+
+# list of links to provide on subsequent calls to _get_json
+def extra_links_for_iteration(link_type: str):
+    return [
+        {
+            'href': f'{link_type}://harmony.earthdata.nasa.gov/service-results/fake2.tif',
+            'title': '2020_01_15_fake.nc.tif',
+            'type': 'image/tiff',
+            'rel': 'data',
+            'bbox': [
+                -9.95,
+                -8.95,
+                19.95,
+                8.95
+            ],
+            'temporal': {
+                'start': '2020-02-15T00:00:00.000Z',
+                'end': '2020-02-15T23:59:59.000Z'
+            }
+        },
+        {
+            'href': f'{link_type}://harmony.earthdata.nasa.gov/service-results/fake3.tif',
+            'title': '2020_01_15_fake.nc.tif',
+            'type': 'image/tiff',
+            'rel': 'data',
+            'bbox': [
+                -109.95,
+                -18.95,
+                29.95,
+                11.95
+            ],
+            'temporal': {
+                'start': '2020-03-15T00:00:00.000Z',
+                'end': '2020-03-15T23:59:59.000Z'
+            }
+        },
+        {
+            'href': f'{link_type}://harmony.earthdata.nasa.gov/service-results/fake4.tif',
+            'title': '2020_01_15_fake.nc.tif',
+            'type': 'image/tiff',
+            'rel': 'data',
+            'bbox': [
+                -79.95,
+                -38.95,
+                1.95,
+                18.95
+            ],
+            'temporal': {
+                'start': '2020-04-15T00:00:00.000Z',
+                'end': '2020-04-15T23:59:59.000Z'
+            }
+        },
+        {
+            'href': f'{link_type}://harmony.earthdata.nasa.gov/service-results/fake5.tif',
+            'title': '2020_01_15_fake.nc.tif',
+            'type': 'image/tiff',
+            'rel': 'data',
+            'bbox': [
+                -49.95,
+                -28.95,
+                39.95,
+                14.95
+            ],
+            'temporal': {
+                'start': '2020-05-15T00:00:00.000Z',
+                'end': '2020-05-15T23:59:59.000Z'
+            }
+        },
+        {
+            'href': f'{link_type}://harmony.earthdata.nasa.gov/service-results/fake6.tif',
+            'title': '2020_01_15_fake.nc.tif',
+            'type': 'image/tiff',
+            'rel': 'data',
+            'bbox': [
+                -44.95,
+                -21.95,
+                19.95,
+                17.95
+            ],
+            'temporal': {
+                'start': '2020-06-15T00:00:00.000Z',
+                'end': '2020-06-15T23:59:59.000Z'
+            }
+        },
+    ]
+
+# this function provides a different value for subsequent calls to _get_json to simulate
+# changing status page
+def side_effect_for_get_json(extra_links) -> List[str]:
+    status_running1 = expected_job('C123', 'abc123')
+    status_running1['links'].append(extra_links[0])
+    status_running2 = copy.deepcopy(status_running1)
+    status_running2['links'].append(extra_links[1])
+    status_paused = copy.deepcopy(status_running2)
+    status_paused['status'] = 'paused'
+    status_paused['links'].append(extra_links[2])
+    status_resumed = copy.deepcopy(status_paused)
+    status_resumed['links'].append(extra_links[3])
+    status_resumed['status'] = 'running'
+    status_successful = copy.deepcopy(status_resumed)
+    status_successful['links'].append(extra_links[4])
+    status_successful['status'] = 'successful'
+    
+    return [status_running1, status_running2, status_paused, status_resumed, status_successful, status_successful]
+
+# @pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
+def test_iterator(mocker):
+    # speed up test by not waiting between polling the status page
+    os.environ['CHECK_INTERVAL'] = '0'
+    link_type = LinkType.http
+    extra_links = extra_links_for_iteration(link_type.value)
+    status_page_json = expected_job('C123', 'abc123')
+    status_page_json['status'] = 'successful'
+    download_file_mock = mocker.Mock(side_effect = side_effect_func_for_download_file)
+    mocker.patch('harmony.harmony.Client._download_file', download_file_mock)
+    get_json_mock = mocker.Mock(side_effect = side_effect_for_get_json(extra_links))
+    mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
+    client = Client(should_validate_auth=False)
+
+    # first iteration in which job state is 'running' and two granules have completed
+    iter = client.iterator(status_page_json['jobID'], '/tmp')
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(-179.95,-89.95,179.95,89.95)
+    assert granule_data['path'].result() == '/tmp/fake.tif'
+
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(*extra_links[0]['bbox'])
+    assert granule_data['path'].result() == '/tmp/fake2.tif'
+
+    # job is still running and has another completed granule 
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(*extra_links[1]['bbox'])
+    assert granule_data['path'].result() == '/tmp/fake3.tif'
+
+    # job is paused and has another completed granule
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(*extra_links[2]['bbox'])
+    assert granule_data['path'].result() == '/tmp/fake4.tif'
+
+    # once the new granules are downloaded for the paused job the iterator stops
+    granule_data = next(iter, None)
+    assert granule_data == None
+
+    # need to start a new iterator after resuming
+    iter = client.iterator(status_page_json['jobID'], '/tmp')
+    # initial granules returned are the same as before (they are not re-downloaded by default)
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(-179.95,-89.95,179.95,89.95)
+    assert granule_data['path'].result() == '/tmp/fake.tif'
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(*extra_links[0]['bbox'])
+    assert granule_data['path'].result() == '/tmp/fake2.tif'
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(*extra_links[1]['bbox'])
+    assert granule_data['path'].result() == '/tmp/fake3.tif'
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(*extra_links[2]['bbox'])
+    assert granule_data['path'].result() == '/tmp/fake4.tif'
+    
+    # job is running and has another completed granule
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(*extra_links[3]['bbox'])
+    assert granule_data['path'].result() == '/tmp/fake5.tif'
+
+    # job has succeeded and has another completed granule
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(*extra_links[4]['bbox'])
+    assert granule_data['path'].result() == '/tmp/fake6.tif'
+
+    # iterator completes after job is in a final state and there are no new granules
+    granule_data = next(iter, None)
+    assert granule_data == None
+
 
 
 @pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
