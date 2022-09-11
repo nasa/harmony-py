@@ -41,6 +41,7 @@ progressbar_widgets = [
     ' [', progressbar.RotatingMarker(), ']',
 ]
 
+
 class ProcessingFailedException(Exception):
     """Indicates a Harmony job has failed during processing"""
 
