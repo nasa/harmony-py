@@ -41,7 +41,6 @@ progressbar_widgets = [
     ' [', progressbar.RotatingMarker(), ']',
 ]
 
-
 class ProcessingFailedException(Exception):
     """Indicates a Harmony job has failed during processing"""
 
@@ -1031,6 +1030,8 @@ class Client:
         Returns:
             An Iterator that can be used to iterate over the granule results from a job
         """
+        GET_JSON_RETRY_LIMIT = int(os.getenv('GET_JSON_RETRY_LIMIT', 3))
+        GET_JSON_RETRY_SLEEP = float(os.getenv('GET_JSON_RETRY_SLEEP', 1.0))
         next_url = self._status_url(job_id)
 
         # index used to keep track of where we are in the data links if the page gets reloaded
@@ -1051,8 +1052,8 @@ class Client:
                 except BaseException:
                     response = None
                     get_json_try_count += 1
-                    if get_json_try_count < 3:
-                        time.sleep(0.5)
+                    if get_json_try_count < GET_JSON_RETRY_LIMIT:
+                        time.sleep(GET_JSON_RETRY_SLEEP)
                     else:
                         raise Exception('Failed to get or parse job status page')
 

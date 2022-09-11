@@ -1039,6 +1039,23 @@ def test_iterator_failed_job(mocker):
         granule_data = next(iter)
     assert str(exc_info.value) == 'Job failed'
 
+def side_effect_func_for_get_json_with_error(url: str):
+    raise Exception('something bad happened')
+
+def test_iterator_retry(mocker):
+    os.environ['GET_JSON_RETRY_SLEEP'] = '0'
+    os.environ['GET_JSON_RETRY_LIMIT'] = '2'
+    get_json_mock = mocker.Mock(side_effect = side_effect_func_for_get_json_with_error)
+    mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
+    client = Client(should_validate_auth=False)
+
+    # first iteration in which job state is 'running' and two granules have completed
+    iter = client.iterator('foo', '/tmp')
+    with pytest.raises(Exception) as exc_info:
+        next(iter)
+    assert str(exc_info.value) == 'Failed to get or parse job status page'
+    assert get_json_mock.call_count == 2
+
 @pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
 def test_stac_catalog_url(link_type, mocker):
     job_id = '1234'
