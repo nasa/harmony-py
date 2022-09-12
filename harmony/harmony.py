@@ -1042,8 +1042,8 @@ class Client:
 
         # index used to keep track of where we are in the data links if the page gets reloaded
         # so we don't pull the same granule more than once
-        # NOTE: this assumes that granule order is preserved when the page is reloaded and
-        # new granules are added. If this is not true then this won't work.
+        # NOTE: this relies on the link order being preserved when the harmony job status page
+        # is reloaded and new links are added.
         current_page_granule_count = 0
 
         while next_url:
@@ -1090,7 +1090,7 @@ class Client:
                 # no 'next' link means either we are done or we need to reload this page to
                 # get more results
                 if status in {'successful', 'paused', 'canceled', 'complete_with_errors'}:
-                    # we are done
+                    # we are done ('failed' case is already handled above by raising an exception)
                     if status == 'paused':
                         print('Job is paused. Resume to continue processing.')
                     return None
