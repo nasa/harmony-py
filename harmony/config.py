@@ -26,7 +26,7 @@ HOSTNAMES = {
 
 
 class Config:
-    """Runtime configuation variables including defaults and environment vars.
+    """Runtime configuration variables including defaults and environment vars.
 
     Example::
 
