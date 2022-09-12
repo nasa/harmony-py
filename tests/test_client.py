@@ -1033,7 +1033,6 @@ def test_iterator_failed_job(mocker):
     mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
     client = Client(should_validate_auth=False)
 
-    # first iteration in which job state is 'running' and two granules have completed
     iter = client.iterator(failed_job['jobID'], '/tmp')
     with pytest.raises(Exception) as exc_info:
         granule_data = next(iter)
