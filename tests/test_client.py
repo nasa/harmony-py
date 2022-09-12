@@ -1025,15 +1025,35 @@ def test_iterator(link_type, mocker):
     granule_data = next(iter, None)
     assert granule_data == None
 
-def test_iterator_failed_job(mocker):
-    failed_job = expected_job('C123', 'abc123')
-    failed_job['status'] = 'failed'
-    failed_job['message'] = 'Job failed'
-    get_json_mock = mocker.Mock(return_value = failed_job)
-    mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
-    client = Client(should_validate_auth=False)
+# this function provides a different value for subsequent calls to _get_json to simulate
+# changing status page - in this case the status changes from 'running' to 'failed'
+def side_effect_for_get_json_failed_job(extra_links) -> List[str]:
+    status_running = expected_job('C123', 'foo123')
+    status_running['links'].append(extra_links[0])
+    status_failed = copy.deepcopy(status_running)
+    status_failed['status'] = 'failed'
+    status_failed['message'] = 'Job failed'
+    
+    return [status_running, status_failed]
 
-    iter = client.iterator(failed_job['jobID'], '/tmp')
+@pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
+def test_iterator_failed_job(link_type, mocker):
+    # test with two successful work items followed by a failed job
+    extra_links = extra_links_for_iteration(link_type.value)
+    get_json_mock = mocker.Mock(side_effect = 
+        side_effect_for_get_json_failed_job(extra_links=extra_links))
+    mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
+    client = Client(should_validate_auth=False, check_interval=0)
+
+    iter = client.iterator('foo123', '/tmp')
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(-179.95,-89.95,179.95,89.95)
+    assert granule_data['path'].result() == '/tmp/fake.tif'
+
+    granule_data = next(iter)
+    assert granule_data['bbox'] == BBox(*extra_links[0]['bbox'])
+    assert granule_data['path'].result() == '/tmp/fake2.tif'
+    
     with pytest.raises(Exception) as exc_info:
         granule_data = next(iter)
     assert str(exc_info.value) == 'Job failed'
