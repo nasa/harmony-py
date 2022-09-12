@@ -924,12 +924,17 @@ class Client:
         if directory:
             filename = os.path.join(directory, filename)
 
+        verbose = os.getenv('VERBOSE', 'TRUE')
         if not overwrite and os.path.isfile(filename):
+            if verbose and verbose.upper() == 'TRUE':
+                print(filename)
             return filename
         else:
             with session.get(url, stream=True) as r:
                 with open(filename, 'wb') as f:
                     shutil.copyfileobj(r.raw, f, length=chunksize)
+            if verbose and verbose.upper() == 'TRUE':
+                print(filename)
             return filename
 
     def download(self, url: str, directory: str = '', overwrite: bool = False) -> Future:
