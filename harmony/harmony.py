@@ -19,6 +19,7 @@ import sys
 from tabnanny import check
 import time
 import platform
+from requests import Response
 import requests.models
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
@@ -612,6 +613,20 @@ class Client:
                 prepped_request = session.prepare_request(r)
 
         return prepped_request
+
+    def _handle_error_response(response: Response):
+        if 'application/json' in response.headers.get('Content-Type', ''):
+            exception_message = None
+            try:
+                response_json = response.json()
+                exception_message = response_json.get('reason')
+                if not exception_message:
+                    exception_message = response_json.get('message')
+            except:
+                pass
+            if exception_message:
+                raise Exception(exception_message)
+        response.raise_for_status()
 
     def request_as_curl(self, request: Request) -> str:
         """Returns a curl command representation of the given request.
