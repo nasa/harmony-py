@@ -671,7 +671,7 @@ class Client:
         if response.ok:
             job_id = (response.json())['jobID']
         else:
-            response.raise_for_status()
+            self._handle_error_response(response)
 
         return job_id
 
@@ -715,7 +715,7 @@ class Client:
                 'num_input_granules': int(status_subset['numInputGranules']),
             }
         else:
-            response.raise_for_status()
+            self._handle_error_response(response)
 
     def pause(self, job_id: str):
         """Pause a job.
@@ -776,7 +776,7 @@ class Client:
             json = response.json()
             return int(json['progress']), json['status'], json['message']
         else:
-            response.raise_for_status()
+            self._handle_error_response(response)
 
     def wait_for_processing(self, job_id: str, show_progress: bool = False) -> None:
         """Retrieve a submitted job's completion status in percent.
