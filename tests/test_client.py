@@ -1108,6 +1108,160 @@ def test_read_text(mocker):
 
     assert actual_text == expected_text
 
+@responses.activate
+def test_handle_error_response_with_description_key():
+    job_id = '3141592653-abcd-1234'
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+    error = { 'code': 'harmony.ServerError', 'description': 'Error: Harmony had an internal issue.' }
+    responses.add(
+        responses.GET,
+        expected_submit_url(collection.id),
+        status=500,
+        json=error
+    )
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=500,
+        json=error
+    )
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=500,
+        json=error
+    )
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).submit(request)
+    assert str(e.value) == f"('Internal Server Error', '{error['description']}')"
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).status(job_id)
+    assert str(e.value) == f"('Internal Server Error', '{error['description']}')"
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).progress(job_id)
+    assert str(e.value) == f"('Internal Server Error', '{error['description']}')"
+
+
+@responses.activate
+def test_handle_error_response_no_description_key():
+    job_id = '3141592653-abcd-1234'
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+    error = { 'unrecognizable_key': 'Some information.' }
+    responses.add(
+        responses.GET,
+        expected_submit_url(collection.id),
+        status=500,
+        json=error
+    )
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=500,
+        json=error
+    )
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=500,
+        json=error
+    )
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).submit(request)
+    assert "500 Server Error: Internal Server Error for url" in str(e.value)
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).status(job_id)
+    assert "500 Server Error: Internal Server Error for url" in str(e.value)
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).progress(job_id)
+    assert "500 Server Error: Internal Server Error for url" in str(e.value)
+
+@responses.activate
+def test_handle_error_response_no_json():
+    job_id = '3141592653-abcd-1234'
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+    responses.add(
+        responses.GET,
+        expected_submit_url(collection.id),
+        status=500,
+        body='error'
+    )
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=500,
+        body='error'
+    )
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=500,
+        body='error'
+    )
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).submit(request)
+    assert "500 Server Error: Internal Server Error for url" in str(e.value)
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).status(job_id)
+    assert "500 Server Error: Internal Server Error for url" in str(e.value)
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).progress(job_id)
+    assert "500 Server Error: Internal Server Error for url" in str(e.value)
+
+@responses.activate
+def test_handle_error_response_invalid_json():
+    job_id = '3141592653-abcd-1234'
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+    responses.add(
+        responses.GET,
+        expected_submit_url(collection.id),
+        status=500,
+        json='error'
+    )
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=500,
+        json='error'
+    )
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=500,
+        json='error'
+    )
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).submit(request)
+    assert "500 Server Error: Internal Server Error for url" in str(e.value)
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).status(job_id)
+    assert "500 Server Error: Internal Server Error for url" in str(e.value)
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).progress(job_id)
+    assert "500 Server Error: Internal Server Error for url" in str(e.value)
 
 def test_request_as_curl_get():
     collection = Collection(id='C1940468263-POCLOUD')

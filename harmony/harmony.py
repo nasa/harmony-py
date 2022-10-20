@@ -20,6 +20,7 @@ from tabnanny import check
 import time
 import platform
 from requests import Response
+from requests.exceptions import JSONDecodeError
 import requests.models
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
@@ -614,15 +615,16 @@ class Client:
 
         return prepped_request
 
-    def _handle_error_response(response: Response):
+    def _handle_error_response(self, response: Response):
         if 'application/json' in response.headers.get('Content-Type', ''):
             exception_message = None
             try:
                 response_json = response.json()
-                exception_message = response_json.get('description')
-                if not exception_message:
-                    exception_message = response_json.get('error')
-            except:
+                if hasattr(response_json, 'get'):
+                    exception_message = response_json.get('description')
+                    if not exception_message:
+                        exception_message = response_json.get('error')
+            except JSONDecodeError:
                 pass
             if exception_message:
                 raise Exception(response.reason, exception_message)
