@@ -619,13 +619,13 @@ class Client:
             exception_message = None
             try:
                 response_json = response.json()
-                exception_message = response_json.get('reason')
+                exception_message = response_json.get('description')
                 if not exception_message:
-                    exception_message = response_json.get('message')
+                    exception_message = response_json.get('error')
             except:
                 pass
             if exception_message:
-                raise Exception(exception_message)
+                raise Exception(response.reason, exception_message)
         response.raise_for_status()
 
     def request_as_curl(self, request: Request) -> str:
