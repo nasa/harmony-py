@@ -623,9 +623,6 @@ class Client:
         Args:
             response: The Response from Harmony
 
-        Returns:
-            An equivalent curl command as based on this client and request.
-
         Raises:
             Exception with a Harmony error message or a more generic
             HTTPError
