@@ -616,6 +616,20 @@ class Client:
         return prepped_request
 
     def _handle_error_response(self, response: Response):
+        """Raises the appropriate exception based on the response
+        received from Harmony. Trys to pull out an error message
+        from a Harmony JSON response when possible.
+
+        Args:
+            response: The Response from Harmony
+
+        Returns:
+            An equivalent curl command as based on this client and request.
+
+        Raises:
+            Exception with a Harmony error message or a more generic
+            HTTPError
+        """
         if 'application/json' in response.headers.get('Content-Type', ''):
             exception_message = None
             try:
