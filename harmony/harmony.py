@@ -19,6 +19,8 @@ import sys
 from tabnanny import check
 import time
 import platform
+from requests import Response
+from requests.exceptions import JSONDecodeError
 import requests.models
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
@@ -613,6 +615,32 @@ class Client:
 
         return prepped_request
 
+    def _handle_error_response(self, response: Response):
+        """Raises the appropriate exception based on the response
+        received from Harmony. Trys to pull out an error message
+        from a Harmony JSON response when possible.
+
+        Args:
+            response: The Response from Harmony
+
+        Raises:
+            Exception with a Harmony error message or a more generic
+            HTTPError
+        """
+        if 'application/json' in response.headers.get('Content-Type', ''):
+            exception_message = None
+            try:
+                response_json = response.json()
+                if hasattr(response_json, 'get'):
+                    exception_message = response_json.get('description')
+                    if not exception_message:
+                        exception_message = response_json.get('error')
+            except JSONDecodeError:
+                pass
+            if exception_message:
+                raise Exception(response.reason, exception_message)
+        response.raise_for_status()
+
     def request_as_curl(self, request: Request) -> str:
         """Returns a curl command representation of the given request.
         **Note** Authorization headers will be masked to reduce risk of
@@ -656,7 +684,7 @@ class Client:
         if response.ok:
             job_id = (response.json())['jobID']
         else:
-            response.raise_for_status()
+            self._handle_error_response(response)
 
         return job_id
 
@@ -700,7 +728,7 @@ class Client:
                 'num_input_granules': int(status_subset['numInputGranules']),
             }
         else:
-            response.raise_for_status()
+            self._handle_error_response(response)
 
     def pause(self, job_id: str):
         """Pause a job.
@@ -761,7 +789,7 @@ class Client:
             json = response.json()
             return int(json['progress']), json['status'], json['message']
         else:
-            response.raise_for_status()
+            self._handle_error_response(response)
 
     def wait_for_processing(self, job_id: str, show_progress: bool = False) -> None:
         """Retrieve a submitted job's completion status in percent.

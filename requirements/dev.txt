@@ -1,7 +1,7 @@
 autopep8 ~= 1.4
 camel-case-switcher ~= 2.0
 coverage ~= 5.4
-flake8 ~= 3.8
+flake8 ~= 5.0.4
 hypothesis ~= 6.2
 mypy ~= 0.812
 m2r2 ~= 0.2
