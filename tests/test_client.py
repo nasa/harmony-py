@@ -416,6 +416,7 @@ def test_post_request_has_user_agent_headers(examples_dir):
     ({'crs': 'epsg:3141'}, 'outputcrs=epsg:3141'),
     ({'format': 'r2d2/hologram'}, 'format=r2d2/hologram'),
     ({'granule_id': ['G1', 'G2', 'G3']}, 'granuleId=G1&granuleId=G2&granuleId=G3'),
+    ({'granule_name': ['abc*123', 'ab?d123', 'abcd123']}, 'granuleName=abc*123&granuleName=ab?d123&granuleName=abcd123'),
     ({'height': 200}, 'height=200'),
     ({'interpolation': 'nearest'}, 'interpolation=nearest'),
     ({'max_results': 7}, 'maxResults=7'),
@@ -956,7 +957,7 @@ def side_effect_for_get_json(extra_links) -> List[str]:
     status_successful = copy.deepcopy(status_resumed)
     status_successful['links'].append(extra_links[4])
     status_successful['status'] = 'successful'
-    
+
     return [status_running1, status_running2, status_paused, status_resumed, status_successful, status_successful]
 
 @pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
@@ -981,7 +982,7 @@ def test_iterator(link_type, mocker):
     assert granule_data['bbox'] == BBox(*extra_links[0]['bbox'])
     assert granule_data['path'].result() == '/tmp/fake2.tif'
 
-    # job is still running and has another completed granule 
+    # job is still running and has another completed granule
     granule_data = next(iter)
     assert granule_data['bbox'] == BBox(*extra_links[1]['bbox'])
     assert granule_data['path'].result() == '/tmp/fake3.tif'
@@ -1010,7 +1011,7 @@ def test_iterator(link_type, mocker):
     granule_data = next(iter)
     assert granule_data['bbox'] == BBox(*extra_links[2]['bbox'])
     assert granule_data['path'].result() == '/tmp/fake4.tif'
-    
+
     # job is running and has another completed granule
     granule_data = next(iter)
     assert granule_data['bbox'] == BBox(*extra_links[3]['bbox'])
@@ -1033,14 +1034,14 @@ def side_effect_for_get_json_failed_job(extra_links) -> List[str]:
     status_failed = copy.deepcopy(status_running)
     status_failed['status'] = 'failed'
     status_failed['message'] = 'Job failed'
-    
+
     return [status_running, status_failed]
 
 @pytest.mark.parametrize('link_type', [LinkType.http, LinkType.https, LinkType.s3])
 def test_iterator_failed_job(link_type, mocker):
     # test with two successful work items followed by a failed job
     extra_links = extra_links_for_iteration(link_type.value)
-    get_json_mock = mocker.Mock(side_effect = 
+    get_json_mock = mocker.Mock(side_effect =
         side_effect_for_get_json_failed_job(extra_links=extra_links))
     mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
     client = Client(should_validate_auth=False, check_interval=0)
@@ -1053,7 +1054,7 @@ def test_iterator_failed_job(link_type, mocker):
     granule_data = next(iter)
     assert granule_data['bbox'] == BBox(*extra_links[0]['bbox'])
     assert granule_data['path'].result() == '/tmp/fake2.tif'
-    
+
     with pytest.raises(Exception) as exc_info:
         granule_data = next(iter)
     assert str(exc_info.value) == 'Job failed'

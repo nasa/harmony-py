@@ -195,6 +195,9 @@ class Request:
 
         granule_id: The CMR Granule ID for the granule which should be retrieved
 
+        granule_name: The granule ur or provider id for the granule(s) to be retrieved
+          wildcards * (multi character match) and ? (single character match) are supported
+
         width: number of columns to return in the output coverage
 
         height: number of rows to return in the output coverage
@@ -221,6 +224,7 @@ class Request:
                  crs: str = None,
                  format: str = None,
                  granule_id: List[str] = None,
+                 granule_name: List[str] = None,
                  height: int = None,
                  interpolation: str = None,
                  max_results: int = None,
@@ -240,6 +244,7 @@ class Request:
         self.crs = crs
         self.format = format
         self.granule_id = granule_id
+        self.granule_name = granule_name
         self.height = height
         self.interpolation = interpolation
         self.max_results = max_results
@@ -258,6 +263,7 @@ class Request:
             'scale_size': 'scaleSize',
             'shape': 'shapefile',
             'granule_id': 'granuleId',
+            'granule_name': 'granuleName',
             'width': 'width',
             'height': 'height',
             'format': 'format',
