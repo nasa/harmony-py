@@ -414,6 +414,7 @@ def test_post_request_has_user_agent_headers(examples_dir):
 
 @pytest.mark.parametrize('param,expected', [
     ({'crs': 'epsg:3141'}, 'outputcrs=epsg:3141'),
+    ({'destination_url': 's3://bucket'}, 'destinationUrl=s3://bucket'),
     ({'format': 'r2d2/hologram'}, 'format=r2d2/hologram'),
     ({'granule_id': ['G1', 'G2', 'G3']}, 'granuleId=G1&granuleId=G2&granuleId=G3'),
     ({'granule_name': ['abc*123', 'ab?d123', 'abcd123']}, 'granuleName=abc*123&granuleName=ab?d123&granuleName=abcd123'),

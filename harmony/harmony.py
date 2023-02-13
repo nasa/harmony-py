@@ -211,6 +211,9 @@ class Request:
         skip_preview: Whether Harmony should skip auto-pausing and generating a preview for
           large jobs
 
+        destination_url: Destination URL specified by the client
+          (only S3 is supported, e.g. s3://my-bucket-name/mypath)
+
     Returns:
         A Harmony Request instance
     """
@@ -222,6 +225,7 @@ class Request:
                  temporal: Mapping[str, datetime] = None,
                  dimensions: List[Dimension] = None,
                  crs: str = None,
+                 destination_url: str = None,
                  format: str = None,
                  granule_id: List[str] = None,
                  granule_name: List[str] = None,
@@ -242,6 +246,7 @@ class Request:
         self.temporal = temporal
         self.dimensions = dimensions
         self.crs = crs
+        self.destination_url = destination_url
         self.format = format
         self.granule_id = granule_id
         self.granule_name = granule_name
@@ -258,6 +263,7 @@ class Request:
 
         self.variable_name_to_query_param = {
             'crs': 'outputcrs',
+            'destination_url': 'destinationUrl',
             'interpolation': 'interpolation',
             'scale_extent': 'scaleExtent',
             'scale_size': 'scaleSize',
