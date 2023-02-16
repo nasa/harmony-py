@@ -176,3 +176,10 @@ def test_request_shape_file_error_message(key, value, messages):
 
     assert not request.is_valid()
     assert request.error_messages() == messages
+
+def test_request_destination_url_error_message():
+    request = Request(Collection('foo'), destination_url='http://somesite.com')
+    messages = request.error_messages()
+
+    assert not request.is_valid()
+    assert 'Destination URL must be an S3 location' in messages

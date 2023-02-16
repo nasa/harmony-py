@@ -307,6 +307,10 @@ class Request:
             (lambda dim: dim.min is None or dim.max is None or dim.min <= dim.max,
              ('Dimension minimum value must be less than or equal to the maximum value'))
         ]
+        self.parameter_validations = [  # for simple, one-off validations
+            (True if self.destination_url is None else self.destination_url.startswith('s3://'),
+             ('Destination URL must be an S3 location'))
+        ]
 
     def parameter_values(self) -> List[Tuple[str, Any]]:
         """Returns tuples of each query parameter that has been set and its value."""
@@ -337,6 +341,7 @@ class Request:
         spatial_msgs = []
         temporal_msgs = []
         dimension_msgs = []
+        parameter_msgs = [m for v, m in self.parameter_validations if not v]
         shape_msgs = self._shape_error_messages(self.shape)
         if self.spatial:
             spatial_msgs = [m for v, m in self.spatial_validations if not v(self.spatial)]
@@ -348,7 +353,7 @@ class Request:
                 if msgs:
                     dimension_msgs += msgs
 
-        return spatial_msgs + temporal_msgs + shape_msgs + dimension_msgs
+        return spatial_msgs + temporal_msgs + shape_msgs + dimension_msgs + parameter_msgs
 
 
 class LinkType(Enum):
