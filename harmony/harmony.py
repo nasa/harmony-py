@@ -211,6 +211,9 @@ class Request:
         skip_preview: Whether Harmony should skip auto-pausing and generating a preview for
           large jobs
 
+        destination_url: Destination URL specified by the client
+          (only S3 is supported, e.g. s3://my-bucket-name/mypath)
+
     Returns:
         A Harmony Request instance
     """
@@ -222,6 +225,7 @@ class Request:
                  temporal: Mapping[str, datetime] = None,
                  dimensions: List[Dimension] = None,
                  crs: str = None,
+                 destination_url: str = None,
                  format: str = None,
                  granule_id: List[str] = None,
                  granule_name: List[str] = None,
@@ -242,6 +246,7 @@ class Request:
         self.temporal = temporal
         self.dimensions = dimensions
         self.crs = crs
+        self.destination_url = destination_url
         self.format = format
         self.granule_id = granule_id
         self.granule_name = granule_name
@@ -258,6 +263,7 @@ class Request:
 
         self.variable_name_to_query_param = {
             'crs': 'outputcrs',
+            'destination_url': 'destinationUrl',
             'interpolation': 'interpolation',
             'scale_extent': 'scaleExtent',
             'scale_size': 'scaleSize',
@@ -301,6 +307,10 @@ class Request:
             (lambda dim: dim.min is None or dim.max is None or dim.min <= dim.max,
              ('Dimension minimum value must be less than or equal to the maximum value'))
         ]
+        self.parameter_validations = [  # for simple, one-off validations
+            (True if self.destination_url is None else self.destination_url.startswith('s3://'),
+             ('Destination URL must be an S3 location'))
+        ]
 
     def parameter_values(self) -> List[Tuple[str, Any]]:
         """Returns tuples of each query parameter that has been set and its value."""
@@ -331,6 +341,7 @@ class Request:
         spatial_msgs = []
         temporal_msgs = []
         dimension_msgs = []
+        parameter_msgs = [m for v, m in self.parameter_validations if not v]
         shape_msgs = self._shape_error_messages(self.shape)
         if self.spatial:
             spatial_msgs = [m for v, m in self.spatial_validations if not v(self.spatial)]
@@ -342,7 +353,7 @@ class Request:
                 if msgs:
                     dimension_msgs += msgs
 
-        return spatial_msgs + temporal_msgs + shape_msgs + dimension_msgs
+        return spatial_msgs + temporal_msgs + shape_msgs + dimension_msgs + parameter_msgs
 
 
 class LinkType(Enum):
