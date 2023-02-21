@@ -425,6 +425,7 @@ def test_post_request_has_user_agent_headers(examples_dir):
     ({'scale_size': [1.0, 2.0]}, 'scaleSize=1.0,2.0'),
     ({'width': 100}, 'width=100'),
     ({'concatenate': True}, 'concatenate=true'),
+    ({'grid': 'theGridName'}, 'grid=theGridName'),
 ])
 @responses.activate
 def test_request_has_query_param(param, expected):

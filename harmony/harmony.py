@@ -214,6 +214,9 @@ class Request:
         destination_url: Destination URL specified by the client
           (only S3 is supported, e.g. s3://my-bucket-name/mypath)
 
+        grid: The name of the output grid to use for regridding requests. The name must
+          match the UMM grid name in the CMR.
+
     Returns:
         A Harmony Request instance
     """
@@ -238,7 +241,8 @@ class Request:
                  variables: List[str] = ['all'],
                  width: int = None,
                  concatenate: bool = None,
-                 skip_preview: bool = None):
+                 skip_preview: bool = None,
+                 grid: str = None):
         """Creates a new Request instance from all specified criteria.'
         """
         self.collection = collection
@@ -260,6 +264,7 @@ class Request:
         self.width = width
         self.concatenate = concatenate
         self.skip_preview = skip_preview
+        self.grid = grid
 
         self.variable_name_to_query_param = {
             'crs': 'outputcrs',
@@ -276,6 +281,7 @@ class Request:
             'max_results': 'maxResults',
             'concatenate': 'concatenate',
             'skip_preview': 'skipPreview',
+            'grid': 'grid',
         }
 
         self.spatial_validations = [
