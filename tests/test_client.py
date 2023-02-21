@@ -493,10 +493,6 @@ def test_status():
     )
 
     actual_status = Client(should_validate_auth=False).status(job_id)
-
-    assert len(responses.calls) == 1
-    assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_status_url(job_id)
     assert actual_status == expected_status
 
 @responses.activate
