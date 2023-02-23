@@ -6,3 +6,4 @@ matplotlib ~= 3.3
 pystac ~= 0.5
 rasterio ~= 1.2
 intake-stac ~= 0.3
+netCDF4
