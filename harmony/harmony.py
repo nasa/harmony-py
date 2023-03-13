@@ -400,6 +400,7 @@ class Client:
         auth: Optional[Tuple[str, str]] = None,
         should_validate_auth: bool = True,
         env: Environment = Environment.PROD,
+        token: str = None,
         # How often to poll Harmony for updated information during job processing
         check_interval: float = 3.0  # in seconds
     ):
@@ -412,6 +413,7 @@ class Client:
         self.config = Config(env)
         self.session = None
         self.auth = auth
+        self.token = token
         self.check_interval = check_interval
 
         num_workers = int(self.config.NUM_REQUESTS_WORKERS)
@@ -423,7 +425,10 @@ class Client:
     def _session(self):
         """Creates (if needed) and returns the Client's requests Session."""
         if self.session is None:
-            self.session = create_session(self.config, self.auth)
+            if self.token:
+                self.session = create_session(self.config, token=self.token)
+            else:
+                self.session = create_session(self.config, auth=self.auth)
         return self.session
 
     def _submit_url(self, request: Request) -> str:
