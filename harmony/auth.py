@@ -59,9 +59,11 @@ class SessionWithHeaderRedirection(Session):
         auth: A tuple of the form ('edl_username', 'edl_password')
     """
 
-    def __init__(self, auth: Optional[Tuple[str, str]] = None) -> None:
+    def __init__(self, auth: Optional[Tuple[str, str]] = None, token: str = None) -> None:
         super().__init__()
-        if auth:
+        if token:
+            self.headers.update({'Authorization': f'Bearer {token}'})
+        elif auth:
             self.auth = auth
         else:
             self.auth = None
@@ -97,7 +99,7 @@ class SessionWithHeaderRedirection(Session):
         return
 
 
-def create_session(config: Config, auth: Tuple[str, str] = None) -> Session:
+def create_session(config: Config, auth: Tuple[str, str] = None, token: str = None) -> Session:
     """Creates a configured ``requests`` session.
 
     Attempts to create an authenticated session in the following order:
@@ -121,7 +123,9 @@ def create_session(config: Config, auth: Tuple[str, str] = None) -> Session:
     edl_username = config.EDL_USERNAME
     edl_password = config.EDL_PASSWORD
 
-    if isinstance(auth, tuple) and len(auth) == 2 and all([isinstance(x, str) for x in auth]):
+    if token:
+        session = SessionWithHeaderRedirection(token=token)
+    elif isinstance(auth, tuple) and len(auth) == 2 and all([isinstance(x, str) for x in auth]):
         session = SessionWithHeaderRedirection(auth=auth)
     elif auth is not None:
         raise MalformedCredentials('Authentication: `auth` argument requires tuple of '
@@ -136,14 +140,15 @@ def create_session(config: Config, auth: Tuple[str, str] = None) -> Session:
 
 def validate_auth(config: Config, session: Session):
     """Validates the credentials against the EDL authentication URL."""
-    url = config.edl_validation_url
-    response = session.get(url)
+    if session.headers.get('Authorization') is None:
+        url = config.edl_validation_url
+        response = session.get(url)
 
-    if response.status_code == 200:
-        return
-    elif response.status_code == 401:
-        raise BadAuthentication('Authentication: incorrect or missing credentials during '
-                                'credential validation.')
-    else:
-        raise BadAuthentication(f'Authentication: An unknown error occurred during credential '
-                                f'validation: HTTP {response.status_code}')
+        if response.status_code == 200:
+            return
+        elif response.status_code == 401:
+            raise BadAuthentication('Authentication: incorrect or missing credentials during '
+                                    'credential validation.')
+        else:
+            raise BadAuthentication(f'Authentication: An unknown error occurred during credential '
+                                    f'validation: HTTP {response.status_code}')
