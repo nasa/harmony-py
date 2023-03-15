@@ -6,8 +6,6 @@ Harmony-Py provides a Python alternative to directly using [Harmony's RESTful AP
 
 We welcome feedback on Harmony-Py via [GitHub Issues](https://github.com/nasa/harmony-py/issues)
 
-![Python package](https://github.com/nasa/harmony-py/workflows/Python%20package/badge.svg)
-
 [![Documentation Status](https://readthedocs.org/projects/harmony-py/badge/?version=latest)](https://harmony-py.readthedocs.io/en/latest/?badge=latest)
 
 # Using Harmony Py
