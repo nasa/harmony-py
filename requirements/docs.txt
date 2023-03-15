@@ -1,4 +1,7 @@
 nbconvert ~= 6.0
 Jinja2 < 3.1
+load-dotenv ~=0.1.0
+curlify ~= 2.2
+progressbar2 ~= 3.5
 sphinx ~= 3.4
 sphinx-rtd-theme ~= 0.5
