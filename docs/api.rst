@@ -27,18 +27,22 @@ When creating a request, the ``BBox`` and ``Collection`` classes are used to cre
 Authenticating with Earthdata Login
 -----------------------------------
 
-HarmonyPy requires that you have a valid `Earthdata Login account <https://urs.earthdata.nasa.gov/home)>`_. There are three ways to use your EDL account with HarmonyPy:
+HarmonyPy requires that you have a valid `Earthdata Login account <https://urs.earthdata.nasa.gov/home)>`_. There are four ways to use your EDL account with HarmonyPy:
 
-1. Provide your credentials when creating a HarmonyPy ``Client`` ::
+1. Provide EDL token when creating a HarmonyPy ``Client`` ::
+
+    harmony_client = Client(token='myEDLTokenValue')
+
+2. Provide your credentials when creating a HarmonyPy ``Client`` ::
 
     harmony_client = Client(auth=('captainmarvel', 'marve10u5'))
 
-2. Set your credentials using environment variables ::
+3. Set your credentials using environment variables ::
 
     $ export EDL_USERNAME='captainmarvel'
     $ export EDL_PASSWORD='marve10u5'
 
-3. Uset a ``.netrc`` file:
+4. Uset a ``.netrc`` file:
 
     Create a ``.netrc`` file in your home directory, using the example below ::
 
@@ -60,7 +64,7 @@ Exceptions that may be raised when authenticating with Earthdata Login.
 Developer Documentation
 -----------------------
 
-Here we show the full API documentation. This will most often be used when developing on the HarmonyPy package, and will not likely be needed if you are using HarmonyPy to make requests. 
+Here we show the full API documentation. This will most often be used when developing on the HarmonyPy package, and will not likely be needed if you are using HarmonyPy to make requests.
 
 Submodules
 ----------
