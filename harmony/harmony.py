@@ -390,6 +390,10 @@ class Client:
 
         >>> client = Client(auth=('rfeynman', 'quantumf1eld5'))
 
+    You can also create a Harmony client using user's EDL token::
+
+        >>> client = Client(token='myEDLTokenValue')
+
     By default, the Client will validate the provided credentials immediately. This can be
     disabled by passing ``should_validate_auth=False``.
     """
