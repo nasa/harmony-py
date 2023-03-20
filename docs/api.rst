@@ -42,7 +42,7 @@ HarmonyPy requires that you have a valid `Earthdata Login account <https://urs.e
     $ export EDL_USERNAME='captainmarvel'
     $ export EDL_PASSWORD='marve10u5'
 
-4. Uset a ``.netrc`` file:
+4. Use a ``.netrc`` file:
 
     Create a ``.netrc`` file in your home directory, using the example below ::
 
