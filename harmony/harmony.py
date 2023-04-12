@@ -211,6 +211,8 @@ class Request:
         skip_preview: Whether Harmony should skip auto-pausing and generating a preview for
           large jobs
 
+        ignore_errors: if "true", continue processing a request to completion even if some items fail
+
         destination_url: Destination URL specified by the client
           (only S3 is supported, e.g. s3://my-bucket-name/mypath)
 
@@ -242,6 +244,7 @@ class Request:
                  width: int = None,
                  concatenate: bool = None,
                  skip_preview: bool = None,
+                 ignore_errors: bool = None,
                  grid: str = None):
         """Creates a new Request instance from all specified criteria.'
         """
@@ -264,6 +267,7 @@ class Request:
         self.width = width
         self.concatenate = concatenate
         self.skip_preview = skip_preview
+        self.ignore_errors = ignore_errors
         self.grid = grid
 
         self.variable_name_to_query_param = {
@@ -281,6 +285,7 @@ class Request:
             'max_results': 'maxResults',
             'concatenate': 'concatenate',
             'skip_preview': 'skipPreview',
+            'ignore_errors': 'ignoreErrors',
             'grid': 'grid',
         }
 
