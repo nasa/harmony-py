@@ -211,7 +211,8 @@ class Request:
         skip_preview: Whether Harmony should skip auto-pausing and generating a preview for
           large jobs
 
-        ignore_errors: if "true", continue processing a request to completion even if some items fail
+        ignore_errors: if "true", continue processing a request to completion
+          even if some items fail
 
         destination_url: Destination URL specified by the client
           (only S3 is supported, e.g. s3://my-bucket-name/mypath)
