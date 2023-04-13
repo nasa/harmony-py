@@ -12,7 +12,7 @@ We welcome feedback on Harmony-Py via [GitHub Issues](https://github.com/nasa/ha
 
 ## Prerequisites
 
-* Python 3.7+
+* Python 3.8+
 
 
 ## Installing
@@ -28,7 +28,7 @@ This will install harmony-py and its dependencies into your current Python envir
 
 ## Prerequisites
 
-* Python 3.7+, ideally installed via a virtual environment
+* Python 3.8+, ideally installed via a virtual environment
 
 
 ## Installing Development & Example Dependencies
