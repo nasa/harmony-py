@@ -1,5 +1,4 @@
-nbconvert >= 6.0
-mistune == 2.0.3 # fixes snyk vulnerability in nbconvert
+nbconvert ~= 6.0
 Jinja2 < 3.1
 load-dotenv ~=0.1.0
 curlify ~= 2.2
