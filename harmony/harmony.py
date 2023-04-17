@@ -848,6 +848,7 @@ class Client:
         """
         # How often to refresh the screen for progress updates and animating spinners.
         ui_update_interval = 0.33  # in seconds
+        running_w_errors_logged = False
 
         intervals = round(self.check_interval / ui_update_interval)
         if show_progress:
@@ -863,6 +864,10 @@ class Client:
                     if status == 'paused':
                         print('\nJob has been paused. Call `resume()` to resume.', file=sys.stderr)
                         break
+                    if (not running_w_errors_logged and status == 'running_with_errors'):
+                        print('\nJob is running with errors.', file=sys.stderr)
+                        running_w_errors_logged = True
+
                     # This gets around an issue with progressbar. If we update() with 0, the
                     # output shows up as "N/A". If we update with, e.g. 0.1, it rounds down or
                     # truncates to 0 but, importantly, actually displays that.
@@ -887,6 +892,9 @@ class Client:
                 if status == 'paused':
                     print('Job has been paused. Call `resume()` to resume.', file=sys.stderr)
                     break
+                if (not running_w_errors_logged and status == 'running_with_errors'):
+                    print('\nJob is running with errors.', file=sys.stderr)
+                    running_w_errors_logged = True
                 time.sleep(self.check_interval)
 
     def result_json(self,
