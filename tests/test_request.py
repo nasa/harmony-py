@@ -32,6 +32,20 @@ def test_request_defaults_to_skip_preview_false():
     request = Request(collection=Collection('foobar'))
     assert not request.skip_preview
 
+def test_request_with_ignore_errors_false():
+    request = Request(collection=Collection('foobar'), ignore_errors=False)
+    assert request.is_valid()
+    assert request.ignore_errors is not None and request.ignore_errors == False
+
+def test_request_with_ignore_errors_true():
+    request = Request(collection=Collection('foobar'), ignore_errors=True)
+    assert request.is_valid()
+    assert request.ignore_errors is not None and request.ignore_errors == True
+
+def test_request_defaults_to_ignore_errors_false():
+    request = Request(collection=Collection('foobar'))
+    assert not request.ignore_errors
+
 @settings(max_examples=100)
 @given(west=st.floats(allow_infinity=True),
        south=st.floats(allow_infinity=True),
