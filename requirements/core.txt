@@ -1,6 +1,6 @@
-python-dateutil ~= 2.7.5
-python-dotenv ~= 0.1
-progressbar2 ~= 3.5
-requests ~= 2.2
-sphinxcontrib-napoleon >= 0.7
-curlify ~= 2.2
+python-dateutil ~= 2.8.2
+python-dotenv ~= 0.20.0
+progressbar2 ~= 3.55.0
+requests ~= 2.27.1
+sphinxcontrib-napoleon ~= 0.7
+curlify ~= 2.2.1
