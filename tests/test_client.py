@@ -501,6 +501,36 @@ def test_status():
     assert actual_status == expected_status
 
 @responses.activate
+def test_status_with_errors():
+    collection = Collection(id='C333666999-EOSDIS')
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    exp_job = expected_job(collection.id, job_id)
+    exp_job['errors'] = ['some error']
+    expected_status = {
+        'status': exp_job['status'],
+        'message': exp_job['message'],
+        'progress': exp_job['progress'],
+        'created_at': dateutil.parser.parse(exp_job['createdAt']),
+        'updated_at': dateutil.parser.parse(exp_job['updatedAt']),
+        'data_expiration': dateutil.parser.parse(exp_job['dataExpiration']),
+        'created_at_local': dateutil.parser.parse(exp_job['createdAt']).replace(microsecond=0).astimezone().isoformat(),
+        'updated_at_local': dateutil.parser.parse(exp_job['updatedAt']).replace(microsecond=0).astimezone().isoformat(),
+        'data_expiration_local': dateutil.parser.parse(exp_job['dataExpiration']).replace(microsecond=0).astimezone().isoformat(),
+        'request': exp_job['request'],
+        'errors': ['some error'],
+        'num_input_granules': exp_job['numInputGranules']}
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=200,
+        json=exp_job
+    )
+
+    actual_status = Client(should_validate_auth=False).status(job_id)
+
+    assert actual_status == expected_status
+
+@responses.activate
 def test_status_no_key_error_on_missing_expiration():
     collection = Collection(id='C333666999-EOSDIS')
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'

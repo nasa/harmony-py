@@ -744,7 +744,7 @@ class Client:
         if response.ok:
             fields = [
                 'status', 'message', 'progress', 'createdAt', 'updatedAt', 'dataExpiration',
-                'request', 'numInputGranules'
+                'request', 'errors', 'numInputGranules'
             ]
             status_subset = {k: v for k, v in response.json().items() if k in fields}
             created_at_dt = dateutil.parser.parse(status_subset['createdAt'])
@@ -768,6 +768,8 @@ class Client:
                     microsecond=0).astimezone().isoformat()
                 status_json['data_expiration'] = data_expiration_dt
                 status_json['data_expiration_local'] = data_expiration_local
+            if 'errors' in status_subset:
+                status_json['errors'] = status_subset['errors']
             return status_json
         else:
             self._handle_error_response(response)
