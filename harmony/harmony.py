@@ -5,13 +5,20 @@ top-level ``harmony`` package, e.g.::
 
     from harmony import Client, Request
 
+
 Overview of the classes:
 
+
     * Collection: A CMR Collection ID
+
     * BBox: A bounding box (lat/lon) used in Requests
+
     * Request: A complete Harmony request with all criteria
+
     * Client: Allows submission of a Harmony Request and getting results
+
 """
+
 from http.client import ResponseNotReady
 import os
 import shutil
