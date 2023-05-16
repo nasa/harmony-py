@@ -460,18 +460,33 @@ class Client:
 
     def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to get its status."""
-        return f'{self.config.root_url}/jobs/{job_id}?linktype={link_type.value}'
+        try:
+            return f'{self.config.root_url}/jobs/{job_id}?linktype={link_type.value}'
+        except Exception as e:
+            # Handle the exception (e.g., logging the error, returning a default URL)
+            print(f"An error occurred: {str(e)}")
 
     def _pause_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to pause it."""
-        return f'{self.config.root_url}/jobs/{job_id}/pause?linktype={link_type.value}'
+        try:
+            return f'{self.config.root_url}/jobs/{job_id}/pause?linktype={link_type.value}'
+        except Exception as e:
+            # Handle the exception (e.g., logging the error, returning a default URL)
+            print(f"An error occurred: {str(e)}")
 
     def _resume_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to resume it."""
-        return f'{self.config.root_url}/jobs/{job_id}/resume?linktype={link_type.value}'
+        try:
+            return f'{self.config.root_url}/jobs/{job_id}/resume?linktype={link_type.value}'
+        except Exception as e:
+            # Handle the exception (e.g., logging the error, returning a default URL)
+            print(f"An error occurred: {str(e)}")
 
     def _cloud_access_url(self) -> str:
-        return f'{self.config.root_url}/cloud-access'
+        try:
+            return f'{self.config.root_url}/cloud-access'
+        except Exception as e:
+            # Handle the exception (e.g., logging the error, returning a default URL)
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
