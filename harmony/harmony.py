@@ -1017,7 +1017,10 @@ class Client:
                 print(filename)
             return filename
         else:
-            with session.get(url, stream=True) as r:
+            headers = {
+                "Accept-Encoding": "identity"
+            }
+            with session.get(url, stream=True, headers=headers) as r:
                 with open(filename, 'wb') as f:
                     shutil.copyfileobj(r.raw, f, length=chunksize)
             if verbose and verbose.upper() == 'TRUE':
