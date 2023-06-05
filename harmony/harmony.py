@@ -411,8 +411,10 @@ class Client:
     disabled by passing ``should_validate_auth=False``.
     """
 
-    zarr_download_exception = Exception("The zarr library must be used for zarr files."
-                + "See https://github.com/nasa/harmony/blob/main/docs/Harmony%20Feature%20Examples.ipynb for zarr library usage example.")
+    zarr_download_exception_msg = 'The zarr library must be used for zarr files. '\
+    'See https://github.com/nasa/harmony/blob/main/docs/Harmony%20Feature%20Examples.ipynb '\
+    'for zarr library usage example.'
+    zarr_download_exception = Exception(zarr_download_exception_msg)
 
     def __init__(
         self,
