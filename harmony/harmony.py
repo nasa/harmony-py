@@ -411,6 +411,9 @@ class Client:
     disabled by passing ``should_validate_auth=False``.
     """
 
+    zarr_download_exception = Exception("The zarr library must be used for zarr files."
+                + "See https://github.com/nasa/harmony/blob/main/docs/Harmony%20Feature%20Examples.ipynb for zarr library usage example.")
+
     def __init__(
         self,
         *,
@@ -1041,6 +1044,8 @@ class Client:
         Returns:
             A Future that resolves to the full path to the file.
         """
+        if url.endswith('zarr'):
+            raise self.zarr_download_exception
         future = self.executor.submit(self._download_file, url, directory, overwrite)
         return future
 
@@ -1078,6 +1083,8 @@ class Client:
             result.
         """
         for url in self.result_urls(job_id, show_progress=False) or []:
+            if url.endswith('zarr'):
+                raise self.zarr_download_exception
             yield self.executor.submit(self._download_file, url, directory, overwrite)
 
     def iterator(
