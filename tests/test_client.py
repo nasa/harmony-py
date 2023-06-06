@@ -909,6 +909,34 @@ def test_download_all(mocker):
 
     assert actual_file_names == expected_file_names
 
+def test_download_all_zarr(mocker):
+    expected_urls = [
+        'http://www.example.com/1',
+        'http://www.example.com/2.zarr',
+        'http://www.example.com/3',
+    ]
+
+    result_urls_mock = mocker.Mock(return_value=expected_urls)
+    mocker.patch('harmony.harmony.Client.result_urls', result_urls_mock)
+    mocker.patch(
+        'harmony.harmony.Client._download_file',
+        lambda self, url, a, b: url.split('/')[-1]
+    )
+
+    client = Client(should_validate_auth=False)
+
+    with pytest.raises(Exception) as exc_info:
+        client.download_all('abcd-1234')
+        [f.result() for f in client.download_all('abcd-1234')]
+    assert 'The zarr library must be used for zarr files.' in str(exc_info.value)
+
+def test_download_zarr():
+    client = Client(should_validate_auth=False)
+
+    with pytest.raises(Exception) as exc_info:
+        client.download('https://www.example.com/file1.zarr')
+    assert 'The zarr library must be used for zarr files.' in str(exc_info.value)
+
 def side_effect_func_for_download_file(url: str, directory: str = '', overwrite: bool = False) -> str:
     filename = url.split('/')[-1]
     return os.path.join(directory, filename)
