@@ -506,8 +506,8 @@ class Client:
             if len(subset) > 0:
                 params['subset'] = subset
 
-        excluded_param_names = ['shapefile']
-        query_params = [pv for pv in request.parameter_values() if pv[0] not in excluded_param_names]
+        skipped_params = ['shapefile']
+        query_params = [pv for pv in request.parameter_values() if pv[0] not in skipped_params]
         for p, val in query_params:
             if type(val) == str:
                 params[p] = val
