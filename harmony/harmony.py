@@ -227,6 +227,11 @@ class Request:
         grid: The name of the output grid to use for regridding requests. The name must
           match the UMM grid name in the CMR.
 
+        capabilities: if "true", the request is a collection capabilities request
+
+        capabilities_version: the version of the collection capabilities request api
+
+
     Returns:
         A Harmony Request instance
     """
@@ -253,7 +258,9 @@ class Request:
                  concatenate: bool = None,
                  skip_preview: bool = None,
                  ignore_errors: bool = None,
-                 grid: str = None):
+                 grid: str = None,
+                 capabilities: bool = None,
+                 capabilities_version: str = None):
         """Creates a new Request instance from all specified criteria.'
         """
         self.collection = collection
@@ -277,6 +284,8 @@ class Request:
         self.skip_preview = skip_preview
         self.ignore_errors = ignore_errors
         self.grid = grid
+        self.capabilities = capabilities
+        self.capabilities_version = capabilities_version
 
         self.variable_name_to_query_param = {
             'crs': 'outputcrs',
@@ -295,6 +304,7 @@ class Request:
             'skip_preview': 'skipPreview',
             'ignore_errors': 'ignoreErrors',
             'grid': 'grid',
+            'capabilities_version': 'version',
         }
 
         self.spatial_validations = [
@@ -455,13 +465,16 @@ class Client:
 
     def _submit_url(self, request: Request) -> str:
         """Constructs the URL for the request that is used to submit a new Harmony Job."""
-        variables = [v.replace('/', '%2F') for v in request.variables]
-        vars = ','.join(variables)
-        return (
-            f'{self.config.root_url}'
-            f'/{request.collection.id}'
-            f'/ogc-api-coverages/1.0.0/collections/{vars}/coverage/rangeset'
-        )
+        if request.capabilities:
+            return (f'{self.config.root_url}/capabilities')
+        else:
+            variables = [v.replace('/', '%2F') for v in request.variables]
+            vars = ','.join(variables)
+            return (
+                f'{self.config.root_url}'
+                f'/{request.collection.id}'
+                f'/ogc-api-coverages/1.0.0/collections/{vars}/coverage/rangeset'
+            )
 
     def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to get its status."""
@@ -480,17 +493,21 @@ class Client:
 
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
-        params = {'forceAsync': 'true'}
+        params = {}
+        if request.capabilities:
+            params['collectionID'] = request.collection.id
+        else:
+            params['forceAsync'] = 'true'
 
-        subset = self._spatial_subset_params(request) + \
-            self._temporal_subset_params(request) + \
-            self._dimension_subset_params(request)
+            subset = self._spatial_subset_params(request) + \
+                self._temporal_subset_params(request) + \
+                self._dimension_subset_params(request)
 
-        if len(subset) > 0:
-            params['subset'] = subset
+            if len(subset) > 0:
+                params['subset'] = subset
 
-        file_param_names = ['shapefile']
-        query_params = [pv for pv in request.parameter_values() if pv[0] not in file_param_names]
+        excluded_param_names = ['shapefile']
+        query_params = [pv for pv in request.parameter_values() if pv[0] not in excluded_param_names]
         for p, val in query_params:
             if type(val) == str:
                 params[p] = val
@@ -713,7 +730,7 @@ class Client:
             prepped_request.prepare_cookies(cooks)
         return curlify.to_curl(prepped_request)
 
-    def submit(self, request: Request) -> Optional[str]:
+    def submit(self, request: Request) -> any:
         """Submits a request to Harmony and returns the Harmony Job ID.
 
         Args:
@@ -726,17 +743,17 @@ class Client:
             msgs = ', '.join(request.error_messages())
             raise Exception(f"Cannot submit the request due to the following errors: [{msgs}]")
 
-        job_id = None
         session = self._session()
 
         response = session.send(self._get_prepared_request(request))
 
         if response.ok:
-            job_id = (response.json())['jobID']
+            if request.capabilities:
+                return response.json()
+            else:
+                return (response.json())['jobID']
         else:
             self._handle_error_response(response)
-
-        return job_id
 
     def status(self, job_id: str) -> dict:
         """Retrieve a submitted job's metadata from Harmony.
