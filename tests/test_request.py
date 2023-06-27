@@ -197,3 +197,14 @@ def test_request_destination_url_error_message():
 
     assert not request.is_valid()
     assert 'Destination URL must be an S3 location' in messages
+
+def test_collection_capabilities_request():
+    request = Request(collection=Collection('foobar'),
+                      capabilities=True)
+    assert request.is_valid()
+
+def test_collection_capabilities_request_with_version():
+    request = Request(collection=Collection('foobar'),
+                      capabilities=True,
+                      capabilities_version='2')
+    assert request.is_valid()
