@@ -3,16 +3,19 @@ import datetime as dt
 from hypothesis import given, settings, strategies as st
 import pytest
 
-from harmony.harmony import BBox, Collection, Request, Dimension
+from harmony.harmony import BBox, Collection, BaseRequest, Request, CapabilitiesRequest, Dimension
 
 
 def test_request_has_collection_with_id():
     collection = Collection('foobar')
-
-    request = Request(collection)
-
+    request = BaseRequest(collection)
     assert request.collection.id == 'foobar'
+    assert request.is_valid()
 
+def test_transformation_request_has_collection_with_id():
+    collection = Collection('foobar')
+    request = Request(collection)
+    assert request.collection.id == 'foobar'
 
 def test_request_with_only_a_collection():
     request = Request(collection=Collection('foobar'))
@@ -199,12 +202,10 @@ def test_request_destination_url_error_message():
     assert 'Destination URL must be an S3 location' in messages
 
 def test_collection_capabilities_request():
-    request = Request(collection=Collection('foobar'),
-                      capabilities=True)
+    request = CapabilitiesRequest(collection=Collection('foobar'))
     assert request.is_valid()
 
 def test_collection_capabilities_request_with_version():
-    request = Request(collection=Collection('foobar'),
-                      capabilities=True,
+    request = CapabilitiesRequest(collection=Collection('foobar'),
                       capabilities_version='2')
     assert request.is_valid()

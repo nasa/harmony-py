@@ -11,7 +11,8 @@ import dateutil.parser
 import pytest
 import responses
 
-from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Request, Dimension
+from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Dimension
+from harmony.harmony import Request, CapabilitiesRequest
 
 
 @pytest.fixture()
@@ -1415,9 +1416,8 @@ def test_request_as_curl_post(examples_dir):
 @responses.activate
 def test_collection_capabilities():
     collection = Collection(id='C1940468263-POCLOUD')
-    request = Request(
+    request = CapabilitiesRequest(
         collection=collection,
-        capabilities=True
     )
     responses.add(
         responses.GET,
@@ -1440,9 +1440,8 @@ def test_collection_capabilities():
 def test_collection_capabilities_with_version():
     collection = Collection(id='C1940468263-POCLOUD')
     capabilitiesVersion = '2'
-    request = Request(
+    request = CapabilitiesRequest(
         collection=collection,
-        capabilities=True,
         capabilities_version=capabilitiesVersion
     )
     responses.add(

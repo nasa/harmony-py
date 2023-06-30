@@ -172,8 +172,33 @@ _shapefile_exts_to_mimes = {
 }
 _valid_shapefile_exts = ', '.join((_shapefile_exts_to_mimes.keys()))
 
+class BaseRequest:
+    """A Harmony base request with the CMR collection. It is the base class of all harmony requests.
 
-class Request:
+    Args:
+        collection: The CMR collection that should be queried
+
+    Returns:
+        A Harmony Request instance
+    """
+
+    def __init__(self,
+                 collection: Collection):
+        self.collection = collection
+        self.variable_name_to_query_param = {}
+
+    def is_valid(self) -> bool:
+        """Determines if the request is valid."""
+        return self.collection is not None
+
+    def parameter_values(self) -> List[Tuple[str, Any]]:
+        """Returns tuples of each query parameter that has been set and its value."""
+        pvs = [(param, getattr(self, variable))
+               for variable, param in self.variable_name_to_query_param.items()]
+        return [(p, v) for p, v in pvs if v is not None]
+
+
+class Request(BaseRequest):
     """A Harmony request with the CMR collection and various parameters expressing
     how the data is to be transformed.
 
@@ -227,13 +252,8 @@ class Request:
         grid: The name of the output grid to use for regridding requests. The name must
           match the UMM grid name in the CMR.
 
-        capabilities: if "true", the request is a collection capabilities request
-
-        capabilities_version: the version of the collection capabilities request api
-
-
     Returns:
-        A Harmony Request instance
+        A Harmony Transformation Request instance
     """
 
     def __init__(self,
@@ -258,12 +278,10 @@ class Request:
                  concatenate: bool = None,
                  skip_preview: bool = None,
                  ignore_errors: bool = None,
-                 grid: str = None,
-                 capabilities: bool = None,
-                 capabilities_version: str = None):
+                 grid: str = None):
         """Creates a new Request instance from all specified criteria.'
         """
-        self.collection = collection
+        super().__init__(collection)
         self.spatial = spatial
         self.temporal = temporal
         self.dimensions = dimensions
@@ -284,8 +302,6 @@ class Request:
         self.skip_preview = skip_preview
         self.ignore_errors = ignore_errors
         self.grid = grid
-        self.capabilities = capabilities
-        self.capabilities_version = capabilities_version
 
         self.variable_name_to_query_param = {
             'crs': 'outputcrs',
@@ -304,7 +320,6 @@ class Request:
             'skip_preview': 'skipPreview',
             'ignore_errors': 'ignoreErrors',
             'grid': 'grid',
-            'capabilities_version': 'version',
         }
 
         self.spatial_validations = [
@@ -340,12 +355,6 @@ class Request:
             (True if self.destination_url is None else self.destination_url.startswith('s3://'),
              ('Destination URL must be an S3 location'))
         ]
-
-    def parameter_values(self) -> List[Tuple[str, Any]]:
-        """Returns tuples of each query parameter that has been set and its value."""
-        pvs = [(param, getattr(self, variable))
-               for variable, param in self.variable_name_to_query_param.items()]
-        return [(p, v) for p, v in pvs if v is not None]
 
     def is_valid(self) -> bool:
         """Determines if the request and its parameters are valid."""
@@ -384,6 +393,26 @@ class Request:
 
         return spatial_msgs + temporal_msgs + shape_msgs + dimension_msgs + parameter_msgs
 
+class CapabilitiesRequest(BaseRequest):
+    """A Harmony request to get the harmony capabilities of a CMR collection
+    Args:
+        collection: The CMR collection that should be queried
+
+        capabilities_version: the version of the collection capabilities request api
+
+    Returns:
+        A Harmony Capability Request instance
+    """
+
+    def __init__(self,
+                 collection: Collection,
+                 capabilities_version: str = None):
+        super().__init__(collection)
+        self.capabilities_version = capabilities_version
+
+        self.variable_name_to_query_param = {
+            'capabilities_version': 'version',
+        }
 
 class LinkType(Enum):
     """The type of URL to provide when returning links to data.
@@ -465,7 +494,7 @@ class Client:
 
     def _submit_url(self, request: Request) -> str:
         """Constructs the URL for the request that is used to submit a new Harmony Job."""
-        if request.capabilities:
+        if isinstance(request, CapabilitiesRequest):
             return (f'{self.config.root_url}/capabilities')
         else:
             variables = [v.replace('/', '%2F') for v in request.variables]
@@ -494,7 +523,7 @@ class Client:
     def _params(self, request: Request) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
-        if request.capabilities:
+        if isinstance(request, CapabilitiesRequest):
             params['collectionID'] = request.collection.id
         else:
             params['forceAsync'] = 'true'
@@ -748,7 +777,7 @@ class Client:
         response = session.send(self._get_prepared_request(request))
 
         if response.ok:
-            if request.capabilities:
+            if isinstance(request, CapabilitiesRequest):
                 return response.json()
             else:
                 return (response.json())['jobID']
