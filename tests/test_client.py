@@ -63,11 +63,20 @@ def expected_full_submit_url(request):
 
     return f'{expected_submit_url(request.collection.id)}?{query_params}'
 
-def expected_capabilities_url(collection_id, version: str = None):
-    if version is None:
-        return (f'https://harmony.earthdata.nasa.gov/capabilities?collectionID={collection_id}')
-    else:
-        return (f'https://harmony.earthdata.nasa.gov/capabilities?collectionID={collection_id}&version={version}')
+def expected_capabilities_url(request_params: dict):
+    collection_id = request_params.get('collection_id')
+    short_name = request_params.get('short_name')
+    capabilities_version = request_params.get('capabilities_version')
+    url = 'https://harmony.earthdata.nasa.gov/capabilities'
+    if collection_id:
+        url = (f'{url}?collectionid={collection_id}')
+    elif short_name:
+        url = (f'{url}?shortname={short_name}')
+
+    if capabilities_version:
+        url = (f'{url}&version={capabilities_version}')
+
+    return url
 
 
 def fake_data_url(link_type: LinkType = LinkType.https):
@@ -1415,15 +1424,14 @@ def test_request_as_curl_post(examples_dir):
 
 @responses.activate
 def test_collection_capabilities():
-    collection = Collection(id='C1940468263-POCLOUD')
-    request = CapabilitiesRequest(
-        collection=collection,
-    )
+    collection_id='C1940468263-POCLOUD'
+    params = {'collection_id': collection_id}
+    request = CapabilitiesRequest(params)
     responses.add(
         responses.GET,
-        expected_capabilities_url(collection.id),
+        expected_capabilities_url(params),
         status=200,
-        json=expected_capabilities(collection.id)
+        json=expected_capabilities(collection_id)
     )
 
     result = Client(should_validate_auth=False).submit(request)
@@ -1431,24 +1439,24 @@ def test_collection_capabilities():
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
     assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_capabilities_url(request.collection.id)
-    assert result['conceptId'] == 'C1940468263-POCLOUD'
+        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert result['conceptId'] == collection_id
     assert ('services' in result.keys())
     assert result['capabilitiesVersion'] == '2'
 
+
 @responses.activate
 def test_collection_capabilities_with_version():
-    collection = Collection(id='C1940468263-POCLOUD')
+    collection_id = 'C1940468263-POCLOUD'
     capabilitiesVersion = '2'
-    request = CapabilitiesRequest(
-        collection=collection,
-        capabilities_version=capabilitiesVersion
-    )
+    params = {'collection_id': collection_id,
+              'capabilities_version': capabilitiesVersion}
+    request = CapabilitiesRequest(params)
     responses.add(
         responses.GET,
-        expected_capabilities_url(collection.id, capabilitiesVersion),
+        expected_capabilities_url(params),
         status=200,
-        json=expected_capabilities(collection.id)
+        json=expected_capabilities(collection_id)
     )
 
     result = Client(should_validate_auth=False).submit(request)
@@ -1456,7 +1464,58 @@ def test_collection_capabilities_with_version():
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
     assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_capabilities_url(request.collection.id, capabilitiesVersion)
-    assert result['conceptId'] == 'C1940468263-POCLOUD'
+        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert result['conceptId'] == collection_id
+    assert ('services' in result.keys())
+    assert result['capabilitiesVersion'] == capabilitiesVersion
+
+@responses.activate
+def test_collection_capabilities_shortname():
+    collection_id='C1940468263-POCLOUD'
+    short_name='SMAP_RSS_L3_SSS_SMI_8DAY-RUNNINGMEAN_V4'
+    params = {'short_name': short_name}
+    request = CapabilitiesRequest(params)
+    responses.add(
+        responses.GET,
+        expected_capabilities_url(params),
+        status=200,
+        json=expected_capabilities(collection_id)
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert result['conceptId'] == collection_id
+    assert result['shortName'] == short_name
+    assert ('services' in result.keys())
+    assert result['capabilitiesVersion'] == '2'
+
+
+@responses.activate
+def test_collection_capabilities_with_shortname_version():
+    collection_id = 'C1940468263-POCLOUD'
+    short_name='SMAP_RSS_L3_SSS_SMI_8DAY-RUNNINGMEAN_V4'
+    capabilitiesVersion = '2'
+    params = {'short_name': short_name,
+              'capabilities_version': capabilitiesVersion}
+    request = CapabilitiesRequest(params)
+    responses.add(
+        responses.GET,
+        expected_capabilities_url(params),
+        status=200,
+        json=expected_capabilities(collection_id)
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert result['conceptId'] == collection_id
+    assert result['shortName'] == short_name
     assert ('services' in result.keys())
     assert result['capabilitiesVersion'] == capabilitiesVersion
