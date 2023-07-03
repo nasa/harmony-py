@@ -172,6 +172,7 @@ _shapefile_exts_to_mimes = {
 }
 _valid_shapefile_exts = ', '.join((_shapefile_exts_to_mimes.keys()))
 
+
 class BaseRequest:
     """A Harmony base request with the CMR collection. It is the base class of all harmony requests.
 
@@ -392,6 +393,7 @@ class Request(BaseRequest):
 
         return spatial_msgs + temporal_msgs + shape_msgs + dimension_msgs + parameter_msgs
 
+
 class CapabilitiesRequest(BaseRequest):
     """A Harmony request to get the harmony capabilities of a CMR collection
     Args:
@@ -427,11 +429,16 @@ class CapabilitiesRequest(BaseRequest):
         """A list of error messages, if any, for the request."""
         error_msgs = []
         if self.collection_id is None and self.short_name is None:
-            error_msgs = ['Must specify either collection_id or short_name for CapabilitiesRequest']
+            error_msgs = [
+                'Must specify either collection_id or short_name for CapabilitiesRequest'
+            ]
         elif self.collection_id and self.short_name:
-            error_msgs = ['CapabilitiesRequest cannot have both collection_id and short_name values']
+            error_msgs = [
+                'CapabilitiesRequest cannot have both collection_id and short_name values'
+            ]
 
         return error_msgs
+
 
 class LinkType(Enum):
     """The type of URL to provide when returning links to data.
