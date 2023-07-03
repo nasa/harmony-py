@@ -187,9 +187,12 @@ class BaseRequest:
         self.collection = collection
         self.variable_name_to_query_param = {}
 
+    def error_messages(self) -> List[str]:
+        return []
+
     def is_valid(self) -> bool:
-        """Determines if the request is valid."""
-        return self.collection is not None
+        """Determines if the request and its parameters are valid."""
+        return len(self.error_messages()) == 0
 
     def parameter_values(self) -> List[Tuple[str, Any]]:
         """Returns tuples of each query parameter that has been set and its value."""
@@ -356,10 +359,6 @@ class Request(BaseRequest):
              ('Destination URL must be an S3 location'))
         ]
 
-    def is_valid(self) -> bool:
-        """Determines if the request and its parameters are valid."""
-        return len(self.error_messages()) == 0
-
     def _shape_error_messages(self, shape) -> List[str]:
         """Returns a list of error message for the provided shape."""
         if not shape:
@@ -396,23 +395,43 @@ class Request(BaseRequest):
 class CapabilitiesRequest(BaseRequest):
     """A Harmony request to get the harmony capabilities of a CMR collection
     Args:
-        collection: The CMR collection that should be queried
-
-        capabilities_version: the version of the collection capabilities request api
+        A dict with optional collectionId, shortName and capabilities_version fields
+        - collectionId: The CMR collection Id that should be queried
+        - shortName: The CMR collection shortName that should be queried
+        - capabilities_version: the version of the collection capabilities request api
 
     Returns:
         A Harmony Capability Request instance
     """
 
     def __init__(self,
-                 collection: Collection,
-                 capabilities_version: str = None):
-        super().__init__(collection)
-        self.capabilities_version = capabilities_version
+                 request_params: dict
+                 ):
+
+        coll_identifier = request_params.get('collection_id')
+        if coll_identifier is None:
+            coll_identifier = request_params.get('short_name')
+
+        super().__init__(coll_identifier)
+        self.collection_id = request_params.get('collection_id')
+        self.short_name = request_params.get('short_name')
+        self.capabilities_version = request_params.get('capabilities_version')
 
         self.variable_name_to_query_param = {
+            'collection_id': 'collectionid',
+            'short_name': 'shortname',
             'capabilities_version': 'version',
         }
+
+    def error_messages(self) -> List[str]:
+        """A list of error messages, if any, for the request."""
+        error_msgs = []
+        if self.collection_id is None and self.short_name is None:
+            error_msgs = ['Must specify either collection_id or short_name for CapabilitiesRequest']
+        elif self.collection_id and self.short_name:
+            error_msgs = ['CapabilitiesRequest cannot have both collection_id and short_name values']
+
+        return error_msgs
 
 class LinkType(Enum):
     """The type of URL to provide when returning links to data.
@@ -492,7 +511,7 @@ class Client:
                 self.session = create_session(self.config, auth=self.auth)
         return self.session
 
-    def _submit_url(self, request: Request) -> str:
+    def _submit_url(self, request: BaseRequest) -> str:
         """Constructs the URL for the request that is used to submit a new Harmony Job."""
         if isinstance(request, CapabilitiesRequest):
             return (f'{self.config.root_url}/capabilities')
@@ -520,12 +539,10 @@ class Client:
     def _cloud_access_url(self) -> str:
         return f'{self.config.root_url}/cloud-access'
 
-    def _params(self, request: Request) -> dict:
+    def _params(self, request: BaseRequest) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
-        if isinstance(request, CapabilitiesRequest):
-            params['collectionID'] = request.collection.id
-        else:
+        if not isinstance(request, CapabilitiesRequest):
             params['forceAsync'] = 'true'
 
             subset = self._spatial_subset_params(request) + \
@@ -594,7 +611,7 @@ class Client:
 
         return self.headers
 
-    def _spatial_subset_params(self, request: Request) -> list:
+    def _spatial_subset_params(self, request: BaseRequest) -> list:
         """Creates a dictionary of spatial subset query parameters."""
         if request.spatial:
             lon_left, lat_lower, lon_right, lat_upper = request.spatial
@@ -602,7 +619,7 @@ class Client:
         else:
             return []
 
-    def _temporal_subset_params(self, request: Request) -> list:
+    def _temporal_subset_params(self, request: BaseRequest) -> list:
         """Creates a dictionary of temporal subset query parameters."""
         if request.temporal:
             t = request.temporal
@@ -614,7 +631,7 @@ class Client:
         else:
             return []
 
-    def _dimension_subset_params(self, request: Request) -> list:
+    def _dimension_subset_params(self, request: BaseRequest) -> list:
         """Creates a list of dimension subset query parameters."""
         if request.dimensions and len(request.dimensions) > 0:
             dimensions = []
@@ -672,7 +689,7 @@ class Client:
             result += [(key, (None, str(value), None)) for value in values]
         return result
 
-    def _get_prepared_request(self, request: Request) -> requests.models.PreparedRequest:
+    def _get_prepared_request(self, request: BaseRequest) -> requests.models.PreparedRequest:
         """Returns a :requests.models.PreparedRequest: object for the given harmony Request
 
         Args:
@@ -737,7 +754,7 @@ class Client:
                 raise Exception(response.reason, exception_message)
         response.raise_for_status()
 
-    def request_as_curl(self, request: Request) -> str:
+    def request_as_curl(self, request: BaseRequest) -> str:
         """Returns a curl command representation of the given request.
         **Note** Authorization headers will be masked to reduce risk of
         accidental exposure. Also, cookies containing the string 'token'
@@ -759,7 +776,7 @@ class Client:
             prepped_request.prepare_cookies(cooks)
         return curlify.to_curl(prepped_request)
 
-    def submit(self, request: Request) -> any:
+    def submit(self, request: BaseRequest) -> any:
         """Submits a request to Harmony and returns the Harmony Job ID.
 
         Args:
