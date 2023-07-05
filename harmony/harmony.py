@@ -184,6 +184,7 @@ class BaseRequest:
     """
 
     def __init__(self,
+                 *,
                  collection: Collection):
         self.collection = collection
         self.variable_name_to_query_param = {}
@@ -285,7 +286,7 @@ class Request(BaseRequest):
                  grid: str = None):
         """Creates a new Request instance from all specified criteria.'
         """
-        super().__init__(collection)
+        super().__init__(collection=collection)
         self.spatial = spatial
         self.temporal = temporal
         self.dimensions = dimensions
@@ -397,9 +398,9 @@ class Request(BaseRequest):
 class CapabilitiesRequest(BaseRequest):
     """A Harmony request to get the harmony capabilities of a CMR collection
     Args:
-        A dict with optional collectionId, shortName and capabilities_version fields
-        - collectionId: The CMR collection Id that should be queried
-        - shortName: The CMR collection shortName that should be queried
+        Keyword arguments with optional collection_id, short_name and capabilities_version fields
+        - collection_id: The CMR collection Id that should be queried
+        - short_name: The CMR collection shortName that should be queried
         - capabilities_version: the version of the collection capabilities request api
 
     Returns:
@@ -407,14 +408,12 @@ class CapabilitiesRequest(BaseRequest):
     """
 
     def __init__(self,
-                 request_params: dict
+                 **request_params
                  ):
 
-        coll_identifier = request_params.get('collection_id')
-        if coll_identifier is None:
-            coll_identifier = request_params.get('short_name')
+        coll_identifier = request_params.get('collection_id', request_params.get('short_name'))
 
-        super().__init__(coll_identifier)
+        super().__init__(collection=coll_identifier)
         self.collection_id = request_params.get('collection_id')
         self.short_name = request_params.get('short_name')
         self.capabilities_version = request_params.get('capabilities_version')
