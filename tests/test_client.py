@@ -1426,7 +1426,7 @@ def test_request_as_curl_post(examples_dir):
 def test_collection_capabilities():
     collection_id='C1940468263-POCLOUD'
     params = {'collection_id': collection_id}
-    request = CapabilitiesRequest(params)
+    request = CapabilitiesRequest(collection_id=collection_id)
     responses.add(
         responses.GET,
         expected_capabilities_url(params),
@@ -1451,7 +1451,8 @@ def test_collection_capabilities_with_version():
     capabilitiesVersion = '2'
     params = {'collection_id': collection_id,
               'capabilities_version': capabilitiesVersion}
-    request = CapabilitiesRequest(params)
+    request = CapabilitiesRequest(collection_id=collection_id,
+                                  capabilities_version=capabilitiesVersion)
     responses.add(
         responses.GET,
         expected_capabilities_url(params),
@@ -1474,7 +1475,7 @@ def test_collection_capabilities_shortname():
     collection_id='C1940468263-POCLOUD'
     short_name='SMAP_RSS_L3_SSS_SMI_8DAY-RUNNINGMEAN_V4'
     params = {'short_name': short_name}
-    request = CapabilitiesRequest(params)
+    request = CapabilitiesRequest(short_name=short_name)
     responses.add(
         responses.GET,
         expected_capabilities_url(params),
@@ -1501,7 +1502,8 @@ def test_collection_capabilities_with_shortname_version():
     capabilitiesVersion = '2'
     params = {'short_name': short_name,
               'capabilities_version': capabilitiesVersion}
-    request = CapabilitiesRequest(params)
+    request = CapabilitiesRequest(short_name=short_name,
+                                  capabilities_version=capabilitiesVersion)
     responses.add(
         responses.GET,
         expected_capabilities_url(params),
