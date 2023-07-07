@@ -79,6 +79,21 @@ class Collection:
         self.id = id
 
 
+class Variable:
+    """The identity of a CMR Variable."""
+
+    def __init__(self, id: str):
+        """Constructs a Variable instance from a CMR Variable ID.
+
+        Args:
+            id: CMR Variable ID
+
+        Returns:
+            A Variable instance
+        """
+        self.id = id
+
+
 class BBox(NamedTuple):
     """A bounding box specified by western & eastern longitude,
     southern & northern latitude constraints in degrees.
@@ -178,6 +193,7 @@ class BaseRequest:
 
     Args:
         collection: The CMR collection that should be queried
+        variable: The CMR variable that should be queried
 
     Returns:
         A Harmony Request instance
@@ -185,8 +201,10 @@ class BaseRequest:
 
     def __init__(self,
                  *,
-                 collection: Collection):
+                 collection: Collection=None,
+                 variable_ids: List[str]=None):
         self.collection = collection
+        self.variable_ids = variable_ids
         self.variable_name_to_query_param = {}
 
     def error_messages(self) -> List[str]:
@@ -196,19 +214,69 @@ class BaseRequest:
         """Determines if the request and its parameters are valid."""
         return len(self.error_messages()) == 0
 
+    def get_variable_name_to_query_param(self) -> dict:
+        """returns the variable name to query parameters mapping"""
+        return self.variable_name_to_query_param
+
     def parameter_values(self) -> List[Tuple[str, Any]]:
         """Returns tuples of each query parameter that has been set and its value."""
         pvs = [(param, getattr(self, variable))
-               for variable, param in self.variable_name_to_query_param.items()]
+               for variable, param in self.get_variable_name_to_query_param().items()]
         return [(p, v) for p, v in pvs if v is not None]
 
 
-class Request(BaseRequest):
-    """A Harmony request with the CMR collection and various parameters expressing
+class CapabilitiesRequest(BaseRequest):
+    """A Harmony request to get the harmony capabilities of a CMR collection
+    Args:
+        Keyword arguments with optional collection_id, short_name and capabilities_version fields
+        - collection_id: The CMR collection Id that should be queried
+        - short_name: The CMR collection shortName that should be queried
+        - capabilities_version: the version of the collection capabilities request api
+
+    Returns:
+        A Harmony Capability Request instance
+    """
+
+    def __init__(self,
+                 **request_params
+                 ):
+
+        coll_identifier = request_params.get('collection_id', request_params.get('short_name'))
+
+        super().__init__(collection=coll_identifier)
+        self.collection_id = request_params.get('collection_id')
+        self.short_name = request_params.get('short_name')
+        self.capabilities_version = request_params.get('capabilities_version')
+
+        self.variable_name_to_query_param = {
+            'collection_id': 'collectionid',
+            'short_name': 'shortname',
+            'capabilities_version': 'version',
+        }
+
+    def error_messages(self) -> List[str]:
+        """A list of error messages, if any, for the request."""
+        error_msgs = []
+        if self.collection_id is None and self.short_name is None:
+            error_msgs = [
+                'Must specify either collection_id or short_name for CapabilitiesRequest'
+            ]
+        elif self.collection_id and self.short_name:
+            error_msgs = [
+                'CapabilitiesRequest cannot have both collection_id and short_name values'
+            ]
+
+        return error_msgs
+
+
+class BaseTransformationRequest(BaseRequest):
+    """A Harmony base transformation request with various parameters expressing
     how the data is to be transformed.
 
     Args:
         collection: The CMR collection that should be queried
+
+        variables: A list of CMR variables that should be queried
 
         spatial: Bounding box spatial constraints on the data
 
@@ -262,8 +330,9 @@ class Request(BaseRequest):
     """
 
     def __init__(self,
-                 collection: Collection,
                  *,
+                 collection: Collection = None,
+                 variable_ids: List[str] = None,
                  spatial: BBox = None,
                  temporal: Mapping[str, datetime] = None,
                  dimensions: List[Dimension] = None,
@@ -286,7 +355,7 @@ class Request(BaseRequest):
                  grid: str = None):
         """Creates a new Request instance from all specified criteria.'
         """
-        super().__init__(collection=collection)
+        super().__init__(collection=collection, variable_ids=variable_ids)
         self.spatial = spatial
         self.temporal = temporal
         self.dimensions = dimensions
@@ -395,49 +464,238 @@ class Request(BaseRequest):
         return spatial_msgs + temporal_msgs + shape_msgs + dimension_msgs + parameter_msgs
 
 
-class CapabilitiesRequest(BaseRequest):
-    """A Harmony request to get the harmony capabilities of a CMR collection
+class Request(BaseTransformationRequest):
+    """A Harmony request with the CMR collection and various parameters expressing
+    how the data is to be transformed.
+
     Args:
-        Keyword arguments with optional collection_id, short_name and capabilities_version fields
-        - collection_id: The CMR collection Id that should be queried
-        - short_name: The CMR collection shortName that should be queried
-        - capabilities_version: the version of the collection capabilities request api
+        collection: The CMR collection that should be queried
+
+        spatial: Bounding box spatial constraints on the data
+
+        temporal: Date/time constraints on the data provided as a dict mapping "start" and "stop"
+          keys to corresponding start/stop datetime.datetime objects
+
+        dimensions: A list of dimensions to use for subsetting the data
+
+        crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
+          inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
+          (http://www.opengis.net/def/crs/...)
+
+        interpolation: specify the interpolation method used during reprojection and scaling
+
+        scale_extent: scale the resulting coverage either among one axis to a given extent
+
+        scale_size: scale the resulting coverage either among one axis to a given size
+
+        shape: a file path to an ESRI Shapefile zip, GeoJSON file, or KML file to use for
+          spatial subsetting.  Note: not all collections support shapefile subsetting
+
+        granule_id: The CMR Granule ID for the granule which should be retrieved
+
+        granule_name: The granule ur or provider id for the granule(s) to be retrieved
+          wildcards * (multi character match) and ? (single character match) are supported
+
+        width: number of columns to return in the output coverage
+
+        height: number of rows to return in the output coverage
+
+        format: the output mime type to return
+
+        max_results: limits the number of input granules processed in the request
+
+        concatenate: Whether to invoke a service that supports concatenation
+
+        skip_preview: Whether Harmony should skip auto-pausing and generating a preview for
+          large jobs
+
+        ignore_errors: if "true", continue processing a request to completion
+          even if some items fail
+
+        destination_url: Destination URL specified by the client
+          (only S3 is supported, e.g. s3://my-bucket-name/mypath)
+
+        grid: The name of the output grid to use for regridding requests. The name must
+          match the UMM grid name in the CMR.
 
     Returns:
-        A Harmony Capability Request instance
+        A Harmony Transformation Request instance
     """
 
     def __init__(self,
-                 **request_params
-                 ):
+                 collection: Collection,
+                 *,
+                 spatial: BBox = None,
+                 temporal: Mapping[str, datetime] = None,
+                 dimensions: List[Dimension] = None,
+                 crs: str = None,
+                 destination_url: str = None,
+                 format: str = None,
+                 granule_id: List[str] = None,
+                 granule_name: List[str] = None,
+                 height: int = None,
+                 interpolation: str = None,
+                 max_results: int = None,
+                 scale_extent: List[float] = None,
+                 scale_size: List[float] = None,
+                 shape: Optional[Tuple[IO, str]] = None,
+                 variables: List[str] = ['all'],
+                 width: int = None,
+                 concatenate: bool = None,
+                 skip_preview: bool = None,
+                 ignore_errors: bool = None,
+                 grid: str = None):
+        """Creates a new Request instance from all specified criteria.'
+        """
+        super().__init__(collection=collection,
+                 spatial=spatial,
+                 temporal=temporal,
+                 dimensions=dimensions,
+                 crs=crs,
+                 destination_url=destination_url,
+                 format=format,
+                 granule_id=granule_id,
+                 granule_name=granule_name,
+                 height=height,
+                 interpolation=interpolation,
+                 max_results=max_results,
+                 scale_extent=scale_extent,
+                 scale_size=scale_size,
+                 shape=shape,
+                 variables=variables,
+                 width=width,
+                 concatenate=concatenate,
+                 skip_preview=skip_preview,
+                 ignore_errors=ignore_errors,
+                 grid=grid)
 
-        coll_identifier = request_params.get('collection_id', request_params.get('short_name'))
 
-        super().__init__(collection=coll_identifier)
-        self.collection_id = request_params.get('collection_id')
-        self.short_name = request_params.get('short_name')
-        self.capabilities_version = request_params.get('capabilities_version')
+class VariableCoveragesRequest(BaseTransformationRequest):
+    """A Harmony request with the CMR variable and various parameters expressing
+    how the data is to be transformed.
 
-        self.variable_name_to_query_param = {
-            'collection_id': 'collectionid',
-            'short_name': 'shortname',
-            'capabilities_version': 'version',
-        }
+    Args:
+        variables: A list of CMR variables that should be queried
+
+        spatial: Bounding box spatial constraints on the data
+
+        temporal: Date/time constraints on the data provided as a dict mapping "start" and "stop"
+          keys to corresponding start/stop datetime.datetime objects
+
+        dimensions: A list of dimensions to use for subsetting the data
+
+        crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
+          inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
+          (http://www.opengis.net/def/crs/...)
+
+        interpolation: specify the interpolation method used during reprojection and scaling
+
+        scale_extent: scale the resulting coverage either among one axis to a given extent
+
+        scale_size: scale the resulting coverage either among one axis to a given size
+
+        shape: a file path to an ESRI Shapefile zip, GeoJSON file, or KML file to use for
+          spatial subsetting.  Note: not all collections support shapefile subsetting
+
+        granule_id: The CMR Granule ID for the granule which should be retrieved
+
+        granule_name: The granule ur or provider id for the granule(s) to be retrieved
+          wildcards * (multi character match) and ? (single character match) are supported
+
+        width: number of columns to return in the output coverage
+
+        height: number of rows to return in the output coverage
+
+        format: the output mime type to return
+
+        max_results: limits the number of input granules processed in the request
+
+        concatenate: Whether to invoke a service that supports concatenation
+
+        skip_preview: Whether Harmony should skip auto-pausing and generating a preview for
+          large jobs
+
+        ignore_errors: if "true", continue processing a request to completion
+          even if some items fail
+
+        destination_url: Destination URL specified by the client
+          (only S3 is supported, e.g. s3://my-bucket-name/mypath)
+
+        grid: The name of the output grid to use for regridding requests. The name must
+          match the UMM grid name in the CMR.
+
+    Returns:
+        A Harmony Transformation Request instance
+    """
+
+    def __init__(self,
+                 variables: List[Variable],
+                 *,
+                 spatial: BBox = None,
+                 temporal: Mapping[str, datetime] = None,
+                 dimensions: List[Dimension] = None,
+                 crs: str = None,
+                 destination_url: str = None,
+                 format: str = None,
+                 granule_id: List[str] = None,
+                 granule_name: List[str] = None,
+                 height: int = None,
+                 interpolation: str = None,
+                 max_results: int = None,
+                 scale_extent: List[float] = None,
+                 scale_size: List[float] = None,
+                 shape: Optional[Tuple[IO, str]] = None,
+                 width: int = None,
+                 concatenate: bool = None,
+                 skip_preview: bool = None,
+                 ignore_errors: bool = None,
+                 grid: str = None):
+        """Creates a new Request instance from all specified criteria.'
+        """
+        variable_ids = [v.id for v in variables]
+        super().__init__(variable_ids=variable_ids,
+                 spatial=spatial,
+                 temporal=temporal,
+                 dimensions=dimensions,
+                 crs=crs,
+                 destination_url=destination_url,
+                 format=format,
+                 granule_id=granule_id,
+                 granule_name=granule_name,
+                 height=height,
+                 interpolation=interpolation,
+                 max_results=max_results,
+                 scale_extent=scale_extent,
+                 scale_size=scale_size,
+                 shape=shape,
+                 width=width,
+                 concatenate=concatenate,
+                 skip_preview=skip_preview,
+                 ignore_errors=ignore_errors,
+                 grid=grid)
+
+        self.variable_ids = variable_ids
+
+    def get_variable_name_to_query_param(self) -> dict:
+        """returns the variable name to query parameters mapping"""
+        # if self.variable_name_to_query_param:
+        name_to_query_params = super().get_variable_name_to_query_param()
+        name_to_query_params['variable_ids'] = 'variableId'
+
+        self.variable_name_to_query_param = name_to_query_params
+        return self.variable_name_to_query_param
 
     def error_messages(self) -> List[str]:
         """A list of error messages, if any, for the request."""
         error_msgs = []
-        if self.collection_id is None and self.short_name is None:
+        if not self.variable_ids:
             error_msgs = [
-                'Must specify either collection_id or short_name for CapabilitiesRequest'
+                'Must specify variable_ids for VariableCoverageRequest'
             ]
-        elif self.collection_id and self.short_name:
-            error_msgs = [
-                'CapabilitiesRequest cannot have both collection_id and short_name values'
-            ]
+        else:
+            error_msgs = super().error_messages()
 
         return error_msgs
-
 
 class LinkType(Enum):
     """The type of URL to provide when returning links to data.
@@ -521,6 +779,8 @@ class Client:
         """Constructs the URL for the request that is used to submit a new Harmony Job."""
         if isinstance(request, CapabilitiesRequest):
             return (f'{self.config.root_url}/capabilities')
+        elif isinstance(request, VariableCoveragesRequest):
+            return (f'{self.config.root_url}/variable-coverages')
         else:
             variables = [v.replace('/', '%2F') for v in request.variables]
             vars = ','.join(variables)
