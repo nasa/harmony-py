@@ -82,7 +82,7 @@ class Collection:
 class Variable:
     """The identity of a CMR Variable."""
 
-    def __init__(self, id: str):
+    def __init__(self, *, id: str=None, search: str=None):
         """Constructs a Variable instance from a CMR Variable ID.
 
         Args:
@@ -91,7 +91,7 @@ class Variable:
         Returns:
             A Variable instance
         """
-        self.id = id
+        self.id = id if id else search
 
 
 class BBox(NamedTuple):
