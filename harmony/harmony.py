@@ -82,7 +82,7 @@ class Collection:
 class Variable:
     """The identity of a CMR Variable."""
 
-    def __init__(self, *, id: str=None, search: str=None):
+    def __init__(self, *, id: str = None, search: str = None):
         """Constructs a Variable instance from a CMR Variable ID.
 
         Args:
@@ -201,8 +201,8 @@ class BaseRequest:
 
     def __init__(self,
                  *,
-                 collection: Collection=None,
-                 variable_ids: List[str]=None):
+                 collection: Collection = None,
+                 variable_ids: List[str] = None):
         self.collection = collection
         self.variable_ids = variable_ids
         self.variable_name_to_query_param = {}
@@ -548,26 +548,26 @@ class Request(BaseTransformationRequest):
         """Creates a new Request instance from all specified criteria.'
         """
         super().__init__(collection=collection,
-                 spatial=spatial,
-                 temporal=temporal,
-                 dimensions=dimensions,
-                 crs=crs,
-                 destination_url=destination_url,
-                 format=format,
-                 granule_id=granule_id,
-                 granule_name=granule_name,
-                 height=height,
-                 interpolation=interpolation,
-                 max_results=max_results,
-                 scale_extent=scale_extent,
-                 scale_size=scale_size,
-                 shape=shape,
-                 variables=variables,
-                 width=width,
-                 concatenate=concatenate,
-                 skip_preview=skip_preview,
-                 ignore_errors=ignore_errors,
-                 grid=grid)
+                         spatial=spatial,
+                         temporal=temporal,
+                         dimensions=dimensions,
+                         crs=crs,
+                         destination_url=destination_url,
+                         format=format,
+                         granule_id=granule_id,
+                         granule_name=granule_name,
+                         height=height,
+                         interpolation=interpolation,
+                         max_results=max_results,
+                         scale_extent=scale_extent,
+                         scale_size=scale_size,
+                         shape=shape,
+                         variables=variables,
+                         width=width,
+                         concatenate=concatenate,
+                         skip_preview=skip_preview,
+                         ignore_errors=ignore_errors,
+                         grid=grid)
 
 
 class VariableCoveragesRequest(BaseTransformationRequest):
@@ -654,25 +654,25 @@ class VariableCoveragesRequest(BaseTransformationRequest):
         """
         variable_ids = [v.id for v in variables]
         super().__init__(variable_ids=variable_ids,
-                 spatial=spatial,
-                 temporal=temporal,
-                 dimensions=dimensions,
-                 crs=crs,
-                 destination_url=destination_url,
-                 format=format,
-                 granule_id=granule_id,
-                 granule_name=granule_name,
-                 height=height,
-                 interpolation=interpolation,
-                 max_results=max_results,
-                 scale_extent=scale_extent,
-                 scale_size=scale_size,
-                 shape=shape,
-                 width=width,
-                 concatenate=concatenate,
-                 skip_preview=skip_preview,
-                 ignore_errors=ignore_errors,
-                 grid=grid)
+                         spatial=spatial,
+                         temporal=temporal,
+                         dimensions=dimensions,
+                         crs=crs,
+                         destination_url=destination_url,
+                         format=format,
+                         granule_id=granule_id,
+                         granule_name=granule_name,
+                         height=height,
+                         interpolation=interpolation,
+                         max_results=max_results,
+                         scale_extent=scale_extent,
+                         scale_size=scale_size,
+                         shape=shape,
+                         width=width,
+                         concatenate=concatenate,
+                         skip_preview=skip_preview,
+                         ignore_errors=ignore_errors,
+                         grid=grid)
 
         self.variable_ids = variable_ids
 
@@ -696,6 +696,7 @@ class VariableCoveragesRequest(BaseTransformationRequest):
             error_msgs = super().error_messages()
 
         return error_msgs
+
 
 class LinkType(Enum):
     """The type of URL to provide when returning links to data.
