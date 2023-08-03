@@ -789,7 +789,7 @@ class Client:
             request: The Request to submit to Harmony (will be validated before sending)
 
         Returns:
-            The Harmony Job ID
+            The Harmony Job ID or download links or capability response
         """
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
@@ -802,8 +802,10 @@ class Client:
         if response.ok:
             if isinstance(request, CapabilitiesRequest):
                 return response.json()
+            elif response.json()['status'] == 'successful':
+                return response.json()['links']
             else:
-                return (response.json())['jobID']
+                return response.json()['jobID']
         else:
             self._handle_error_response(response)
 
