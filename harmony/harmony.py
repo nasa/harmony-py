@@ -34,7 +34,7 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple, Optional, \
-    Tuple, Generator
+    Tuple, Generator, Union
 
 import curlify
 import dateutil.parser
@@ -789,7 +789,9 @@ class Client:
             request: The Request to submit to Harmony (will be validated before sending)
 
         Returns:
-            The Harmony Job ID or download links or capability response
+            The Harmony Job ID for request done through async jobs
+            The JSON response for direct download request
+            The capabilities response for capabilities request
         """
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
@@ -803,7 +805,7 @@ class Client:
             if isinstance(request, CapabilitiesRequest):
                 return response.json()
             elif response.json()['status'] == 'successful':
-                return response.json()['links']
+                return response.json()
             else:
                 return response.json()['jobID']
         else:
@@ -1123,7 +1125,7 @@ class Client:
         return future
 
     def download_all(self,
-                     job_id: str,
+                     job_id_or_result_json: Union[str, dict],
                      directory: str = '',
                      overwrite: bool = False) -> Generator[Future, None, None]:
         """Using a job_id, fetches all the data files from a finished job.
@@ -1155,10 +1157,18 @@ class Client:
             A list of Futures, each of which will return the filename (with path) for each
             result.
         """
-        for url in self.result_urls(job_id, show_progress=False) or []:
-            if url.endswith('zarr'):
-                raise self.zarr_download_exception
-            yield self.executor.submit(self._download_file, url, directory, overwrite)
+        if isinstance(job_id_or_result_json, str):
+            for url in self.result_urls(job_id_or_result_json, show_progress=False) or []:
+                if url.endswith('zarr'):
+                    raise self.zarr_download_exception
+                yield self.executor.submit(self._download_file, url, directory, overwrite)
+        else:
+            for link in job_id_or_result_json.get('links', []):
+                if link['rel'] == 'data':
+                    url = link['href']
+                    if url.endswith('zarr'):
+                        raise self.zarr_download_exception
+                    yield self.executor.submit(self._download_file, url, directory, overwrite)
 
     def iterator(
         self,
