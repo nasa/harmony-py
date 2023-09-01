@@ -217,6 +217,8 @@ class Request(BaseRequest):
 
         dimensions: A list of dimensions to use for subsetting the data
 
+        extend: A list of dimensions to extend
+
         crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
           inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
           (http://www.opengis.net/def/crs/...)
@@ -267,6 +269,7 @@ class Request(BaseRequest):
                  spatial: BBox = None,
                  temporal: Mapping[str, datetime] = None,
                  dimensions: List[Dimension] = None,
+                 extend: List[str] = None,
                  crs: str = None,
                  destination_url: str = None,
                  format: str = None,
@@ -290,6 +293,7 @@ class Request(BaseRequest):
         self.spatial = spatial
         self.temporal = temporal
         self.dimensions = dimensions
+        self.extend = extend
         self.crs = crs
         self.destination_url = destination_url
         self.format = format
@@ -325,6 +329,7 @@ class Request(BaseRequest):
             'skip_preview': 'skipPreview',
             'ignore_errors': 'ignoreErrors',
             'grid': 'grid',
+            'extend': 'extend'
         }
 
         self.spatial_validations = [
