@@ -3,16 +3,19 @@ import datetime as dt
 from hypothesis import given, settings, strategies as st
 import pytest
 
-from harmony.harmony import BBox, Collection, Request, Dimension
+from harmony.harmony import BBox, Collection, BaseRequest, Request, CapabilitiesRequest, Dimension
 
 
 def test_request_has_collection_with_id():
     collection = Collection('foobar')
-
-    request = Request(collection)
-
+    request = BaseRequest(collection=collection)
     assert request.collection.id == 'foobar'
+    assert request.is_valid()
 
+def test_transformation_request_has_collection_with_id():
+    collection = Collection('foobar')
+    request = Request(collection)
+    assert request.collection.id == 'foobar'
 
 def test_request_with_only_a_collection():
     request = Request(collection=Collection('foobar'))
@@ -197,3 +200,37 @@ def test_request_destination_url_error_message():
 
     assert not request.is_valid()
     assert 'Destination URL must be an S3 location' in messages
+
+def test_collection_capabilities_without_coll_identifier():
+    request = CapabilitiesRequest(capabilities_version='2')
+    messages = request.error_messages()
+
+    assert not request.is_valid()
+    assert 'Must specify either collection_id or short_name for CapabilitiesRequest' in messages
+
+def test_collection_capabilities_two_coll_identifier():
+    request = CapabilitiesRequest(collection_id='C1234-PROV',
+                                  short_name='foobar',
+                                  capabilities_version='2')
+    messages = request.error_messages()
+
+    assert not request.is_valid()
+    assert 'CapabilitiesRequest cannot have both collection_id and short_name values' in messages
+
+def test_collection_capabilities_request_coll_id():
+    request = CapabilitiesRequest(collection_id='C1234-PROV')
+    assert request.is_valid()
+
+def test_collection_capabilities_request_shortname():
+    request = CapabilitiesRequest(short_name='foobar')
+    assert request.is_valid()
+
+def test_collection_capabilities_request_coll_id_version():
+    request = CapabilitiesRequest(collection_id='C1234-PROV',
+                                  capabilities_version='2')
+    assert request.is_valid()
+
+def test_collection_capabilities_request_shortname_version():
+    request = CapabilitiesRequest(short_name='foobar',
+                                  capabilities_version='2')
+    assert request.is_valid()

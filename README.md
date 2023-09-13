@@ -1,12 +1,12 @@
 # harmony-py
 
+[![Documentation Status](https://readthedocs.org/projects/harmony-py/badge/?version=latest)](https://harmony-py.readthedocs.io/en/latest/?badge=latest)
+
 Harmony-Py is a Python library for integrating with NASA's [Harmony](https://harmony.earthdata.nasa.gov/) Services.
 
 Harmony-Py provides a Python alternative to directly using [Harmony's RESTful API](https://harmony.earthdata.nasa.gov/docs/api/). It handles NASA [Earthdata Login (EDL)](https://urs.earthdata.nasa.gov/home) authentication and optionally integrates with the [CMR Python Wrapper](https://github.com/nasa/eo-metadata-tools) by accepting collection results as a request parameter. It's convenient for scientists who wish to use Harmony from Jupyter notebooks as well as machine-to-machine communication with larger Python applications.
 
 We welcome feedback on Harmony-Py via [GitHub Issues](https://github.com/nasa/harmony-py/issues)
-
-[![Documentation Status](https://readthedocs.org/projects/harmony-py/badge/?version=latest)](https://harmony-py.readthedocs.io/en/latest/?badge=latest)
 
 # Using Harmony Py
 

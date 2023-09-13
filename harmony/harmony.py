@@ -34,7 +34,7 @@ from contextlib import contextmanager
 from datetime import date, datetime
 from enum import Enum
 from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple, Optional, \
-    Tuple, Generator
+    Tuple, Generator, Union
 
 import curlify
 import dateutil.parser
@@ -173,7 +173,37 @@ _shapefile_exts_to_mimes = {
 _valid_shapefile_exts = ', '.join((_shapefile_exts_to_mimes.keys()))
 
 
-class Request:
+class BaseRequest:
+    """A Harmony base request with the CMR collection. It is the base class of all harmony requests.
+
+    Args:
+        collection: The CMR collection that should be queried
+
+    Returns:
+        A Harmony Request instance
+    """
+
+    def __init__(self,
+                 *,
+                 collection: Collection):
+        self.collection = collection
+        self.variable_name_to_query_param = {}
+
+    def error_messages(self) -> List[str]:
+        return []
+
+    def is_valid(self) -> bool:
+        """Determines if the request and its parameters are valid."""
+        return len(self.error_messages()) == 0
+
+    def parameter_values(self) -> List[Tuple[str, Any]]:
+        """Returns tuples of each query parameter that has been set and its value."""
+        pvs = [(param, getattr(self, variable))
+               for variable, param in self.variable_name_to_query_param.items()]
+        return [(p, v) for p, v in pvs if v is not None]
+
+
+class Request(BaseRequest):
     """A Harmony request with the CMR collection and various parameters expressing
     how the data is to be transformed.
 
@@ -186,6 +216,8 @@ class Request:
           keys to corresponding start/stop datetime.datetime objects
 
         dimensions: A list of dimensions to use for subsetting the data
+
+        extend: A list of dimensions to extend
 
         crs: reproject the output coverage to the given CRS.  Recognizes CRS types that can be
           inferred by gdal, including EPSG codes, Proj4 strings, and OGC URLs
@@ -228,7 +260,7 @@ class Request:
           match the UMM grid name in the CMR.
 
     Returns:
-        A Harmony Request instance
+        A Harmony Transformation Request instance
     """
 
     def __init__(self,
@@ -237,6 +269,7 @@ class Request:
                  spatial: BBox = None,
                  temporal: Mapping[str, datetime] = None,
                  dimensions: List[Dimension] = None,
+                 extend: List[str] = None,
                  crs: str = None,
                  destination_url: str = None,
                  format: str = None,
@@ -256,10 +289,11 @@ class Request:
                  grid: str = None):
         """Creates a new Request instance from all specified criteria.'
         """
-        self.collection = collection
+        super().__init__(collection=collection)
         self.spatial = spatial
         self.temporal = temporal
         self.dimensions = dimensions
+        self.extend = extend
         self.crs = crs
         self.destination_url = destination_url
         self.format = format
@@ -295,6 +329,7 @@ class Request:
             'skip_preview': 'skipPreview',
             'ignore_errors': 'ignoreErrors',
             'grid': 'grid',
+            'extend': 'extend'
         }
 
         self.spatial_validations = [
@@ -331,16 +366,6 @@ class Request:
              ('Destination URL must be an S3 location'))
         ]
 
-    def parameter_values(self) -> List[Tuple[str, Any]]:
-        """Returns tuples of each query parameter that has been set and its value."""
-        pvs = [(param, getattr(self, variable))
-               for variable, param in self.variable_name_to_query_param.items()]
-        return [(p, v) for p, v in pvs if v is not None]
-
-    def is_valid(self) -> bool:
-        """Determines if the request and its parameters are valid."""
-        return len(self.error_messages()) == 0
-
     def _shape_error_messages(self, shape) -> List[str]:
         """Returns a list of error message for the provided shape."""
         if not shape:
@@ -373,6 +398,50 @@ class Request:
                     dimension_msgs += msgs
 
         return spatial_msgs + temporal_msgs + shape_msgs + dimension_msgs + parameter_msgs
+
+
+class CapabilitiesRequest(BaseRequest):
+    """A Harmony request to get the harmony capabilities of a CMR collection
+    Args:
+        Keyword arguments with optional collection_id, short_name and capabilities_version fields
+        - collection_id: The CMR collection Id that should be queried
+        - short_name: The CMR collection shortName that should be queried
+        - capabilities_version: the version of the collection capabilities request api
+
+    Returns:
+        A Harmony Capability Request instance
+    """
+
+    def __init__(self,
+                 **request_params
+                 ):
+
+        coll_identifier = request_params.get('collection_id', request_params.get('short_name'))
+
+        super().__init__(collection=coll_identifier)
+        self.collection_id = request_params.get('collection_id')
+        self.short_name = request_params.get('short_name')
+        self.capabilities_version = request_params.get('capabilities_version')
+
+        self.variable_name_to_query_param = {
+            'collection_id': 'collectionid',
+            'short_name': 'shortname',
+            'capabilities_version': 'version',
+        }
+
+    def error_messages(self) -> List[str]:
+        """A list of error messages, if any, for the request."""
+        error_msgs = []
+        if self.collection_id is None and self.short_name is None:
+            error_msgs = [
+                'Must specify either collection_id or short_name for CapabilitiesRequest'
+            ]
+        elif self.collection_id and self.short_name:
+            error_msgs = [
+                'CapabilitiesRequest cannot have both collection_id and short_name values'
+            ]
+
+        return error_msgs
 
 
 class LinkType(Enum):
@@ -411,6 +480,11 @@ class Client:
     disabled by passing ``should_validate_auth=False``.
     """
 
+    zarr_download_exception_msg = 'The zarr library must be used for zarr files. '\
+        'See https://github.com/nasa/harmony/blob/main/docs/Harmony%20Feature%20Examples.ipynb '\
+        'for zarr library usage example.'
+    zarr_download_exception = Exception(zarr_download_exception_msg)
+
     def __init__(
         self,
         *,
@@ -448,15 +522,18 @@ class Client:
                 self.session = create_session(self.config, auth=self.auth)
         return self.session
 
-    def _submit_url(self, request: Request) -> str:
+    def _submit_url(self, request: BaseRequest) -> str:
         """Constructs the URL for the request that is used to submit a new Harmony Job."""
-        variables = [v.replace('/', '%2F') for v in request.variables]
-        vars = ','.join(variables)
-        return (
-            f'{self.config.root_url}'
-            f'/{request.collection.id}'
-            f'/ogc-api-coverages/1.0.0/collections/{vars}/coverage/rangeset'
-        )
+        if isinstance(request, CapabilitiesRequest):
+            return (f'{self.config.root_url}/capabilities')
+        else:
+            variables = [v.replace('/', '%2F') for v in request.variables]
+            vars = ','.join(variables)
+            return (
+                f'{self.config.root_url}'
+                f'/{request.collection.id}'
+                f'/ogc-api-coverages/1.0.0/collections/{vars}/coverage/rangeset'
+            )
 
     def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to get its status."""
@@ -473,19 +550,21 @@ class Client:
     def _cloud_access_url(self) -> str:
         return f'{self.config.root_url}/cloud-access'
 
-    def _params(self, request: Request) -> dict:
+    def _params(self, request: BaseRequest) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
-        params = {'forceAsync': 'true'}
+        params = {}
+        if not isinstance(request, CapabilitiesRequest):
+            params['forceAsync'] = 'true'
 
-        subset = self._spatial_subset_params(request) + \
-            self._temporal_subset_params(request) + \
-            self._dimension_subset_params(request)
+            subset = self._spatial_subset_params(request) + \
+                self._temporal_subset_params(request) + \
+                self._dimension_subset_params(request)
 
-        if len(subset) > 0:
-            params['subset'] = subset
+            if len(subset) > 0:
+                params['subset'] = subset
 
-        file_param_names = ['shapefile']
-        query_params = [pv for pv in request.parameter_values() if pv[0] not in file_param_names]
+        skipped_params = ['shapefile']
+        query_params = [pv for pv in request.parameter_values() if pv[0] not in skipped_params]
         for p, val in query_params:
             if type(val) == str:
                 params[p] = val
@@ -543,7 +622,7 @@ class Client:
 
         return self.headers
 
-    def _spatial_subset_params(self, request: Request) -> list:
+    def _spatial_subset_params(self, request: BaseRequest) -> list:
         """Creates a dictionary of spatial subset query parameters."""
         if request.spatial:
             lon_left, lat_lower, lon_right, lat_upper = request.spatial
@@ -551,7 +630,7 @@ class Client:
         else:
             return []
 
-    def _temporal_subset_params(self, request: Request) -> list:
+    def _temporal_subset_params(self, request: BaseRequest) -> list:
         """Creates a dictionary of temporal subset query parameters."""
         if request.temporal:
             t = request.temporal
@@ -563,7 +642,7 @@ class Client:
         else:
             return []
 
-    def _dimension_subset_params(self, request: Request) -> list:
+    def _dimension_subset_params(self, request: BaseRequest) -> list:
         """Creates a list of dimension subset query parameters."""
         if request.dimensions and len(request.dimensions) > 0:
             dimensions = []
@@ -621,7 +700,7 @@ class Client:
             result += [(key, (None, str(value), None)) for value in values]
         return result
 
-    def _get_prepared_request(self, request: Request) -> requests.models.PreparedRequest:
+    def _get_prepared_request(self, request: BaseRequest) -> requests.models.PreparedRequest:
         """Returns a :requests.models.PreparedRequest: object for the given harmony Request
 
         Args:
@@ -686,7 +765,7 @@ class Client:
                 raise Exception(response.reason, exception_message)
         response.raise_for_status()
 
-    def request_as_curl(self, request: Request) -> str:
+    def request_as_curl(self, request: BaseRequest) -> str:
         """Returns a curl command representation of the given request.
         **Note** Authorization headers will be masked to reduce risk of
         accidental exposure. Also, cookies containing the string 'token'
@@ -708,30 +787,34 @@ class Client:
             prepped_request.prepare_cookies(cooks)
         return curlify.to_curl(prepped_request)
 
-    def submit(self, request: Request) -> Optional[str]:
+    def submit(self, request: BaseRequest) -> any:
         """Submits a request to Harmony and returns the Harmony Job ID.
 
         Args:
             request: The Request to submit to Harmony (will be validated before sending)
 
         Returns:
-            The Harmony Job ID
+            The Harmony Job ID for request done through async jobs
+            The JSON response for direct download request
+            The capabilities response for capabilities request
         """
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
             raise Exception(f"Cannot submit the request due to the following errors: [{msgs}]")
 
-        job_id = None
         session = self._session()
 
         response = session.send(self._get_prepared_request(request))
 
         if response.ok:
-            job_id = (response.json())['jobID']
+            if isinstance(request, CapabilitiesRequest):
+                return response.json()
+            elif response.json()['status'] == 'successful':
+                return response.json()
+            else:
+                return response.json()['jobID']
         else:
             self._handle_error_response(response)
-
-        return job_id
 
     def status(self, job_id: str) -> dict:
         """Retrieve a submitted job's metadata from Harmony.
@@ -1017,7 +1100,10 @@ class Client:
                 print(filename)
             return filename
         else:
-            with session.get(url, stream=True) as r:
+            headers = {
+                "Accept-Encoding": "identity"
+            }
+            with session.get(url, stream=True, headers=headers) as r:
                 with open(filename, 'wb') as f:
                     shutil.copyfileobj(r.raw, f, length=chunksize)
             if verbose and verbose.upper() == 'TRUE':
@@ -1038,11 +1124,13 @@ class Client:
         Returns:
             A Future that resolves to the full path to the file.
         """
+        if url.endswith('zarr'):
+            raise self.zarr_download_exception
         future = self.executor.submit(self._download_file, url, directory, overwrite)
         return future
 
     def download_all(self,
-                     job_id: str,
+                     job_id_or_result_json: Union[str, dict],
                      directory: str = '',
                      overwrite: bool = False) -> Generator[Future, None, None]:
         """Using a job_id, fetches all the data files from a finished job.
@@ -1074,8 +1162,18 @@ class Client:
             A list of Futures, each of which will return the filename (with path) for each
             result.
         """
-        for url in self.result_urls(job_id, show_progress=False) or []:
-            yield self.executor.submit(self._download_file, url, directory, overwrite)
+        if isinstance(job_id_or_result_json, str):
+            for url in self.result_urls(job_id_or_result_json, show_progress=False) or []:
+                if url.endswith('zarr'):
+                    raise self.zarr_download_exception
+                yield self.executor.submit(self._download_file, url, directory, overwrite)
+        else:
+            for link in job_id_or_result_json.get('links', []):
+                if link['rel'] == 'data':
+                    url = link['href']
+                    if url.endswith('zarr'):
+                        raise self.zarr_download_exception
+                    yield self.executor.submit(self._download_file, url, directory, overwrite)
 
     def iterator(
         self,

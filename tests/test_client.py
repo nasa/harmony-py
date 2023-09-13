@@ -11,7 +11,8 @@ import dateutil.parser
 import pytest
 import responses
 
-from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Request, Dimension
+from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Dimension
+from harmony.harmony import Request, CapabilitiesRequest
 
 
 @pytest.fixture()
@@ -22,7 +23,6 @@ def examples_dir():
 def expected_submit_url(collection_id, variables='all'):
     return (f'https://harmony.earthdata.nasa.gov/{collection_id}'
             f'/ogc-api-coverages/1.0.0/collections/{variables}/coverage/rangeset')
-
 
 def expected_status_url(job_id, link_type: LinkType = LinkType.https):
     return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}'
@@ -63,6 +63,21 @@ def expected_full_submit_url(request):
 
     return f'{expected_submit_url(request.collection.id)}?{query_params}'
 
+def expected_capabilities_url(request_params: dict):
+    collection_id = request_params.get('collection_id')
+    short_name = request_params.get('short_name')
+    capabilities_version = request_params.get('capabilities_version')
+    url = 'https://harmony.earthdata.nasa.gov/capabilities'
+    if collection_id:
+        url = (f'{url}?collectionid={collection_id}')
+    elif short_name:
+        url = (f'{url}?shortname={short_name}')
+
+    if capabilities_version:
+        url = (f'{url}&version={capabilities_version}')
+
+    return url
+
 
 def fake_data_url(link_type: LinkType = LinkType.https):
     if link_type == LinkType.s3:
@@ -71,13 +86,11 @@ def fake_data_url(link_type: LinkType = LinkType.https):
         fake_data_url = f'{link_type.value}://harmony.earthdata.nasa.gov/service-results'
     return f'{fake_data_url}/fake.tif'
 
-
 def expected_user_agent_header_regex():
     # Since it's kinda overkill to find the exact character set
     #   allowed in platform/implementation/version/etc,
     #   the following regex may be a little bit more tolerant
     return r"\s*([^/\s]+/[^/\s]+)(\s+[^/\s]+/[^/\s]+)*\s*"
-
 
 def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https, extra_links=[]):
     return {
@@ -137,6 +150,46 @@ def expected_paused_job(collection_id, job_id, link_type: LinkType = LinkType.ht
     job['progress'] = 10
     return job
 
+def expected_capabilities(collection_id):
+    return {
+        'conceptId': 'C1940468263-POCLOUD',
+        'shortName': 'SMAP_RSS_L3_SSS_SMI_8DAY-RUNNINGMEAN_V4',
+        'variableSubset': False,
+        'bboxSubset': False,
+        'shapeSubset': False,
+        'concatenate': True,
+        'reproject': False,
+        'outputFormats': [
+            'application/x-zarr'
+        ],
+        'services': [
+            {
+                'name': 'harmony/netcdf-to-zarr',
+                'href': 'https://cmr.earthdata.nasa.gov/search/concepts/S2009180097-POCLOUD',
+                'capabilities': {
+                        'concatenation': True,
+                        'concatenate_by_default': False,
+                        'subsetting': {
+                            'variable': False
+                        },
+                    'output_formats': [
+                            'application/x-zarr'
+                        ]
+                }
+            }
+        ],
+        'variables': [
+            {
+                'name': 'fland',
+                'href': 'https://cmr.earthdata.nasa.gov/search/concepts/V2093907988-POCLOUD'
+            },
+            {
+                'name': 'time',
+                'href': 'https://cmr.earthdata.nasa.gov/search/concepts/V2112018545-POCLOUD'
+            }
+        ],
+        'capabilitiesVersion': '2'
+    }
 
 @responses.activate
 def test_when_multiple_submits_it_only_authenticates_once():
@@ -170,7 +223,6 @@ def test_when_multiple_submits_it_only_authenticates_once():
         responses.calls[1].request.url) == expected_full_submit_url(request)
     assert urllib.parse.unquote(
         responses.calls[2].request.url) == expected_full_submit_url(request)
-
 
 @responses.activate
 def test_with_bounding_box():
@@ -217,7 +269,6 @@ def test_with_single_dimension():
     assert urllib.parse.unquote(
         responses.calls[0].request.url) == expected_full_submit_url(request)
     assert actual_job_id == job_id
-
 
 @responses.activate
 def test_with_multiple_dimensions():
@@ -276,7 +327,6 @@ def test_with_temporal_range():
         responses.calls[0].request.url) == expected_full_submit_url(request)
     assert actual_job_id == job_id
 
-
 @responses.activate
 def test_with_bounding_box_and_temporal_range():
     collection = Collection(id='C333666999-EOSDIS')
@@ -303,7 +353,6 @@ def test_with_bounding_box_and_temporal_range():
     assert urllib.parse.unquote(
         responses.calls[0].request.url) == expected_full_submit_url(request)
     assert actual_job_id == job_id
-
 
 @responses.activate
 def test_with_shapefile(examples_dir):
@@ -344,7 +393,6 @@ def test_with_shapefile(examples_dir):
 
     assert actual_job_id == job_id
 
-
 def test_with_invalid_request():
     collection = Collection(id='C333666999-EOSDIS')
     request = Request(
@@ -354,7 +402,6 @@ def test_with_invalid_request():
 
     with pytest.raises(Exception):
         Client(should_validate_auth=False).submit(request)
-
 
 @responses.activate
 def test_get_request_has_user_agent_headers():
@@ -380,7 +427,6 @@ def test_get_request_has_user_agent_headers():
     assert re.match(
         expected_user_agent_header_regex(), user_agent_header
     )
-
 
 @responses.activate
 def test_post_request_has_user_agent_headers(examples_dir):
@@ -411,13 +457,13 @@ def test_post_request_has_user_agent_headers(examples_dir):
         expected_user_agent_header_regex(), user_agent_header
     )
 
-
 @pytest.mark.parametrize('param,expected', [
     ({'crs': 'epsg:3141'}, 'outputcrs=epsg:3141'),
     ({'destination_url': 's3://bucket'}, 'destinationUrl=s3://bucket'),
     ({'format': 'r2d2/hologram'}, 'format=r2d2/hologram'),
     ({'granule_id': ['G1', 'G2', 'G3']}, 'granuleId=G1&granuleId=G2&granuleId=G3'),
-    ({'granule_name': ['abc*123', 'ab?d123', 'abcd123']}, 'granuleName=abc*123&granuleName=ab?d123&granuleName=abcd123'),
+    ({'granule_name': ['abc*123', 'ab?d123', 'abcd123']},
+     'granuleName=abc*123&granuleName=ab?d123&granuleName=abcd123'),
     ({'height': 200}, 'height=200'),
     ({'interpolation': 'nearest'}, 'interpolation=nearest'),
     ({'max_results': 7}, 'maxResults=7'),
@@ -426,7 +472,10 @@ def test_post_request_has_user_agent_headers(examples_dir):
     ({'width': 100}, 'width=100'),
     ({'concatenate': True}, 'concatenate=true'),
     ({'grid': 'theGridName'}, 'grid=theGridName'),
+    ({'extend': ['lat', 'lon']}, 'extend=lat&extend=lon'),
+    ({'extend': ['singleDimension']}, 'extend=singleDimension'),
 ])
+
 @responses.activate
 def test_request_has_query_param(param, expected):
     collection = Collection('foobar')
@@ -445,7 +494,6 @@ def test_request_has_query_param(param, expected):
 
     assert len(responses.calls) == 1
     assert urllib.parse.unquote(responses.calls[0].request.url).index(expected) >= 0
-
 
 @responses.activate
 @pytest.mark.parametrize('variables,expected', [
@@ -467,7 +515,6 @@ def test_request_has_variables(variables, expected):
     )
 
     Client(should_validate_auth=False).submit(request)
-
 
 @responses.activate
 def test_status():
@@ -606,7 +653,7 @@ def test_pause_conflict_error():
         responses.GET,
         expected_pause_url(job_id),
         status=409,
-        json = exp_json
+        json=exp_json
     )
 
     with pytest.raises(Exception) as e:
@@ -643,7 +690,7 @@ def test_resume_conflict_error():
         responses.GET,
         expected_resume_url(job_id),
         status=409,
-        json = exp_json
+        json=exp_json
     )
 
     with pytest.raises(Exception) as e:
@@ -682,7 +729,6 @@ def test_wait_for_processing_with_show_progress(mocker, show_progress):
             progressbar_mock.update.assert_any_call(int(n))
     else:
         assert sleep_mock.call_count == len(expected_progress)
-
 
 @pytest.mark.parametrize('show_progress', [
     (True),
@@ -763,7 +809,6 @@ def test_result_json(mocker, show_progress, link_type):
     assert actual_json == expected_json
     wait_mock.assert_called_with(job_id, show_progress)
 
-
 @responses.activate
 @pytest.mark.parametrize('show_progress', [
     (True),
@@ -807,10 +852,12 @@ def test_result_urls(mocker, show_progress, link_type):
     mocker.patch('harmony.harmony.Client.wait_for_processing', processing_mock)
 
     client = Client(should_validate_auth=False)
-    actual_urls = list(client.result_urls(job_id, show_progress=show_progress, link_type=link_type))
+    actual_urls = list(client.result_urls(
+        job_id, show_progress=show_progress, link_type=link_type))
 
     assert actual_urls == expected_urls
-    result_json_mock.assert_called_with(f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}')
+    result_json_mock.assert_called_with(
+        f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}')
 
 
 @pytest.mark.parametrize('show_progress', [
@@ -835,11 +882,14 @@ def test_result_url_paging(mocker, show_progress, link_type):
     mocker.patch('harmony.harmony.Client.wait_for_processing', processing_mock)
 
     client = Client(should_validate_auth=False)
-    actual_urls = list(client.result_urls(job_id, show_progress=show_progress, link_type=link_type))
+    actual_urls = list(client.result_urls(
+        job_id, show_progress=show_progress, link_type=link_type))
 
     assert actual_urls == expected_urls
-    get_json_mock.assert_any_call(f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}')
-    get_json_mock.assert_any_call(f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}&page=2')
+    get_json_mock.assert_any_call(
+        f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}')
+    get_json_mock.assert_any_call(
+        f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}&page=2')
 
 
 @pytest.mark.parametrize('overwrite', [
@@ -908,6 +958,35 @@ def test_download_all(mocker):
     actual_file_names = [f.result() for f in client.download_all('abcd-1234')]
 
     assert actual_file_names == expected_file_names
+
+
+def test_download_all_zarr(mocker):
+    expected_urls = [
+        'http://www.example.com/1',
+        'http://www.example.com/2.zarr',
+        'http://www.example.com/3',
+    ]
+
+    result_urls_mock = mocker.Mock(return_value=expected_urls)
+    mocker.patch('harmony.harmony.Client.result_urls', result_urls_mock)
+    mocker.patch(
+        'harmony.harmony.Client._download_file',
+        lambda self, url, a, b: url.split('/')[-1]
+    )
+
+    client = Client(should_validate_auth=False)
+
+    with pytest.raises(Exception) as exc_info:
+        client.download_all('abcd-1234')
+        [f.result() for f in client.download_all('abcd-1234')]
+    assert 'The zarr library must be used for zarr files.' in str(exc_info.value)
+
+def test_download_zarr():
+    client = Client(should_validate_auth=False)
+
+    with pytest.raises(Exception) as exc_info:
+        client.download('https://www.example.com/file1.zarr')
+    assert 'The zarr library must be used for zarr files.' in str(exc_info.value)
 
 def side_effect_func_for_download_file(url: str, directory: str = '', overwrite: bool = False) -> str:
     filename = url.split('/')[-1]
@@ -1022,9 +1101,9 @@ def test_iterator(link_type, mocker):
     extra_links = extra_links_for_iteration(link_type.value)
     status_page_json = expected_job('C123', 'abc123')
     status_page_json['status'] = 'successful'
-    download_file_mock = mocker.Mock(side_effect = side_effect_func_for_download_file)
+    download_file_mock = mocker.Mock(side_effect=side_effect_func_for_download_file)
     mocker.patch('harmony.harmony.Client._download_file', download_file_mock)
-    get_json_mock = mocker.Mock(side_effect = side_effect_for_get_json(extra_links))
+    get_json_mock = mocker.Mock(side_effect=side_effect_for_get_json(extra_links))
     mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
     # speed up test by not waiting between polling the status page
     client = Client(should_validate_auth=False, check_interval=0)
@@ -1032,7 +1111,7 @@ def test_iterator(link_type, mocker):
     # first iteration in which job state is 'running' and two granules have completed
     iter = client.iterator(status_page_json['jobID'], '/tmp')
     granule_data = next(iter)
-    assert granule_data['bbox'] == BBox(-179.95,-89.95,179.95,89.95)
+    assert granule_data['bbox'] == BBox(-179.95, -89.95, 179.95, 89.95)
     assert granule_data['path'].result() == '/tmp/fake.tif'
 
     granule_data = next(iter)
@@ -1057,7 +1136,7 @@ def test_iterator(link_type, mocker):
     iter = client.iterator(status_page_json['jobID'], '/tmp')
     # initial granules returned are the same as before (they are not re-downloaded by default)
     granule_data = next(iter)
-    assert granule_data['bbox'] == BBox(-179.95,-89.95,179.95,89.95)
+    assert granule_data['bbox'] == BBox(-179.95, -89.95, 179.95, 89.95)
     assert granule_data['path'].result() == '/tmp/fake.tif'
     granule_data = next(iter)
     assert granule_data['bbox'] == BBox(*extra_links[0]['bbox'])
@@ -1098,14 +1177,14 @@ def side_effect_for_get_json_failed_job(extra_links) -> List[str]:
 def test_iterator_failed_job(link_type, mocker):
     # test with two successful work items followed by a failed job
     extra_links = extra_links_for_iteration(link_type.value)
-    get_json_mock = mocker.Mock(side_effect =
-        side_effect_for_get_json_failed_job(extra_links=extra_links))
+    get_json_mock = mocker.Mock(
+        side_effect=side_effect_for_get_json_failed_job(extra_links=extra_links))
     mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
     client = Client(should_validate_auth=False, check_interval=0)
 
     iter = client.iterator('foo123', '/tmp')
     granule_data = next(iter)
-    assert granule_data['bbox'] == BBox(-179.95,-89.95,179.95,89.95)
+    assert granule_data['bbox'] == BBox(-179.95, -89.95, 179.95, 89.95)
     assert granule_data['path'].result() == '/tmp/fake.tif'
 
     granule_data = next(iter)
@@ -1122,7 +1201,7 @@ def side_effect_func_for_get_json_with_error(url: str):
 def test_iterator_retry(mocker):
     os.environ['GET_JSON_RETRY_SLEEP'] = '0'
     os.environ['GET_JSON_RETRY_LIMIT'] = '2'
-    get_json_mock = mocker.Mock(side_effect = side_effect_func_for_get_json_with_error)
+    get_json_mock = mocker.Mock(side_effect=side_effect_func_for_get_json_with_error)
     mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
     client = Client(should_validate_auth=False)
 
@@ -1149,7 +1228,6 @@ def test_stac_catalog_url(link_type, mocker):
 
     assert actual_stac_catalog_url == expected_stac_catalog_url
 
-
 @responses.activate
 def test_read_text(mocker):
     url = 'http://www.example.com/1234'
@@ -1174,7 +1252,7 @@ def test_handle_error_response_with_description_key():
         collection=collection,
         spatial=BBox(-107, 40, -105, 42)
     )
-    error = { 'code': 'harmony.ServerError', 'description': 'Error: Harmony had an internal issue.' }
+    error = {'code': 'harmony.ServerError', 'description': 'Error: Harmony had an internal issue.'}
     responses.add(
         responses.GET,
         expected_submit_url(collection.id),
@@ -1205,7 +1283,6 @@ def test_handle_error_response_with_description_key():
         Client(should_validate_auth=False).progress(job_id)
     assert str(e.value) == f"('Internal Server Error', '{error['description']}')"
 
-
 @responses.activate
 def test_handle_error_response_no_description_key():
     job_id = '3141592653-abcd-1234'
@@ -1214,7 +1291,7 @@ def test_handle_error_response_no_description_key():
         collection=collection,
         spatial=BBox(-107, 40, -105, 42)
     )
-    error = { 'unrecognizable_key': 'Some information.' }
+    error = {'unrecognizable_key': 'Some information.'}
     responses.add(
         responses.GET,
         expected_submit_url(collection.id),
@@ -1346,3 +1423,103 @@ def test_request_as_curl_post(examples_dir):
     assert f'https://harmony.earthdata.nasa.gov/{collection.id}' \
            f'/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset' in curl_command
     assert '-X POST' in curl_command
+
+@responses.activate
+def test_collection_capabilities():
+    collection_id='C1940468263-POCLOUD'
+    params = {'collection_id': collection_id}
+    request = CapabilitiesRequest(collection_id=collection_id)
+    responses.add(
+        responses.GET,
+        expected_capabilities_url(params),
+        status=200,
+        json=expected_capabilities(collection_id)
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert result['conceptId'] == collection_id
+    assert ('services' in result.keys())
+    assert result['capabilitiesVersion'] == '2'
+
+
+@responses.activate
+def test_collection_capabilities_with_version():
+    collection_id = 'C1940468263-POCLOUD'
+    capabilitiesVersion = '2'
+    params = {'collection_id': collection_id,
+              'capabilities_version': capabilitiesVersion}
+    request = CapabilitiesRequest(collection_id=collection_id,
+                                  capabilities_version=capabilitiesVersion)
+    responses.add(
+        responses.GET,
+        expected_capabilities_url(params),
+        status=200,
+        json=expected_capabilities(collection_id)
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert result['conceptId'] == collection_id
+    assert ('services' in result.keys())
+    assert result['capabilitiesVersion'] == capabilitiesVersion
+
+@responses.activate
+def test_collection_capabilities_shortname():
+    collection_id='C1940468263-POCLOUD'
+    short_name='SMAP_RSS_L3_SSS_SMI_8DAY-RUNNINGMEAN_V4'
+    params = {'short_name': short_name}
+    request = CapabilitiesRequest(short_name=short_name)
+    responses.add(
+        responses.GET,
+        expected_capabilities_url(params),
+        status=200,
+        json=expected_capabilities(collection_id)
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert result['conceptId'] == collection_id
+    assert result['shortName'] == short_name
+    assert ('services' in result.keys())
+    assert result['capabilitiesVersion'] == '2'
+
+
+@responses.activate
+def test_collection_capabilities_with_shortname_version():
+    collection_id = 'C1940468263-POCLOUD'
+    short_name='SMAP_RSS_L3_SSS_SMI_8DAY-RUNNINGMEAN_V4'
+    capabilitiesVersion = '2'
+    params = {'short_name': short_name,
+              'capabilities_version': capabilitiesVersion}
+    request = CapabilitiesRequest(short_name=short_name,
+                                  capabilities_version=capabilitiesVersion)
+    responses.add(
+        responses.GET,
+        expected_capabilities_url(params),
+        status=200,
+        json=expected_capabilities(collection_id)
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(
+        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert result['conceptId'] == collection_id
+    assert result['shortName'] == short_name
+    assert ('services' in result.keys())
+    assert result['capabilitiesVersion'] == capabilitiesVersion

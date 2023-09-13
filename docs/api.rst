@@ -15,6 +15,8 @@ The classes in the ``harmony`` package that are used for crafting a request, sub
 
 .. autoclass:: harmony.Request
 
+.. autoclass:: harmony.CapabilitiesRequest
+
 .. autoclass:: harmony.Client
 
 When creating a request, the ``BBox`` and ``Collection`` classes are used to create a valid request.
