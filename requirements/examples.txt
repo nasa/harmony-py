@@ -1,5 +1,6 @@
 boto3 ~= 1.17
-ipyplot ~= 1.1
+pillow ~= 10.0.1
+ipyplot ~= 1.1.1
 ipywidgets ~= 7.6
 jupyterlab ~= 3.0
 matplotlib ~= 3.3
