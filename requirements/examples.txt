@@ -6,5 +6,6 @@ jupyterlab ~= 4.0
 matplotlib ~= 3.8
 netCDF4 ~= 1.6
 numpy ~= 1.26
+pillow ~= 10.1  # A dependency of ipyplot, pinned to avoid critical vulnerability.
 pystac ~= 1.9.0
 rasterio ~= 1.3
