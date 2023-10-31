@@ -472,6 +472,8 @@ def test_post_request_has_user_agent_headers(examples_dir):
     ({'width': 100}, 'width=100'),
     ({'concatenate': True}, 'concatenate=true'),
     ({'grid': 'theGridName'}, 'grid=theGridName'),
+    ({'extend': ['lat', 'lon']}, 'extend=lat&extend=lon'),
+    ({'extend': ['singleDimension']}, 'extend=singleDimension'),
 ])
 
 @responses.activate
