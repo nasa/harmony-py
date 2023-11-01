@@ -1187,14 +1187,16 @@ class Client:
         Each iteration returns a dictionary, or `None` when all granules have been iterated.
         The dictionary has the following form:
 
-        {
-            'path': Future
-            'bbox': BBox object containing the bounding box for the granule,
-            'temporal': {
-                'start': '2020-01-11T14:00:00.000Z',
-                'end': '2020-01-11T15:59:59.000Z'
+        .. code-block:: python
+
+            {
+                'path': Future
+                'bbox': BBox object containing the bounding box for the granule,
+                'temporal': {
+                    'start': '2020-01-11T14:00:00.000Z',
+                    'end': '2020-01-11T15:59:59.000Z'
+                }
             }
-        }
 
         The Future resolves to the path to the downloaded file.
 

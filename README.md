@@ -12,7 +12,7 @@ We welcome feedback on Harmony-Py via [GitHub Issues](https://github.com/nasa/ha
 
 ## Prerequisites
 
-* Python 3.7+
+* Python 3.8+
 
 
 ## Installing
