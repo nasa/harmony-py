@@ -6,3 +6,6 @@ include LICENSE
 
 # Include setup.py
 include setup.py
+
+# include requirements files opened in setup.py
+graft requirements
