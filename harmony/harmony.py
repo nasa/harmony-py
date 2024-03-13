@@ -174,7 +174,8 @@ _valid_shapefile_exts = ', '.join((_shapefile_exts_to_mimes.keys()))
 
 
 class BaseRequest:
-    """A Harmony base request with the CMR collection. It is the base class of all harmony requests.
+    """A Harmony base request with the CMR collection. It is the base class of all harmony
+    requests.
 
     Args:
         collection: The CMR collection that should be queried
@@ -522,6 +523,11 @@ class Client:
                 self.session = create_session(self.config, auth=self.auth)
         return self.session
 
+    def _http_method(self, request: BaseRequest) -> str:
+        """Returns the HTTP method to use for the given request."""
+        method = 'GET' if isinstance(request, CapabilitiesRequest) else 'POST'
+        return method
+
     def _submit_url(self, request: BaseRequest) -> str:
         """Constructs the URL for the request that is used to submit a new Harmony Job."""
         if isinstance(request, CapabilitiesRequest):
@@ -731,10 +737,17 @@ class Client:
                                             headers=headers)
                 prepped_request = session.prepare_request(r)
             else:
-                r = requests.models.Request('GET',
-                                            self._submit_url(request),
-                                            params=params,
-                                            headers=headers)
+                method = self._http_method(request)
+                if method == 'POST':
+                    r = requests.models.Request('POST',
+                                                self._submit_url(request),
+                                                data=params,
+                                                headers=headers)
+                else:
+                    r = requests.models.Request('GET',
+                                                self._submit_url(request),
+                                                params=params,
+                                                headers=headers)
                 prepped_request = session.prepare_request(r)
 
         return prepped_request
