@@ -655,7 +655,7 @@ class Client:
             for dim in request.dimensions:
                 dim_min = dim.min if dim.min is not None else '*'
                 dim_max = dim.max if dim.max is not None else '*'
-                dim_query_param = [f'{dim.name}({dim_min}:{dim_max})']
+                dim_query_param = f'{dim.name}({dim_min}:{dim_max})'
                 dimensions.append(dim_query_param)
             return dimensions
         else:
@@ -720,35 +720,34 @@ class Client:
         params = self._params(request)
         headers = self._headers()
 
+        method = self._http_method(request)
         with self._files(request) as files:
-            if files:
+            if files or method == 'POST':
                 # Ideally this should just be files=files, params=params but Harmony
                 # cannot accept both files and query params now.  (HARMONY-290)
                 # Inflate params to a list of tuples that can be passed as multipart
                 # form-data.  This must be done this way due to e.g. "subset" having
                 # multiple values
 
+                # Note: harmony only supports multipart/form-data which is why we use
+                # the workaround with files rather than `data=params` even when there
+                # is no shapefile to send
+
                 param_items = self._params_dict_to_files(params)
                 file_items = [(k, v) for k, v in files.items()]
+                all_files = param_items + file_items
 
                 r = requests.models.Request('POST',
                                             self._submit_url(request),
-                                            files=param_items + file_items,
+                                            files=all_files,
                                             headers=headers)
-                prepped_request = session.prepare_request(r)
             else:
                 method = self._http_method(request)
-                if method == 'POST':
-                    r = requests.models.Request('POST',
-                                                self._submit_url(request),
-                                                data=params,
-                                                headers=headers)
-                else:
-                    r = requests.models.Request('GET',
-                                                self._submit_url(request),
-                                                params=params,
-                                                headers=headers)
-                prepped_request = session.prepare_request(r)
+                r = requests.models.Request('GET',
+                                            self._submit_url(request),
+                                            params=params,
+                                            headers=headers)
+            prepped_request = session.prepare_request(r)
 
         return prepped_request
 

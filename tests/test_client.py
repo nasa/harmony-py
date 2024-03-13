@@ -33,8 +33,74 @@ def expected_pause_url(job_id, link_type: LinkType = LinkType.https):
 def expected_resume_url(job_id, link_type: LinkType = LinkType.https):
     return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}/resume?linktype={link_type.value}'
 
+def parse_multipart_data(request):
+    """Parses multipart/form-data request to extract fields as strings."""
+    body_bytes = request.body
+    content_type = request.headers['Content-Type']
+
+    # Extract boundary from Content-Type header
+    boundary = content_type.split("boundary=")[1]
+    boundary_bytes = ('--' + boundary).encode()
+
+    parts = body_bytes.split(boundary_bytes)
+
+    form_data = {}
+    cd_regex = re.compile(rb'Content-Disposition: form-data; name="([^"]+)"(?:; filename="([^"]+)")?', re.IGNORECASE)
+
+    for part in parts:
+        if part.strip():
+            # Splitting headers and body
+            parts_split = part.split(b'\r\n\r\n', 1)
+            if len(parts_split) == 2:
+                headers, body = parts_split
+                body = body.strip(b'\r\n')
+
+                cd_match = cd_regex.search(headers)
+                if cd_match:
+                    field_name = cd_match.group(1).decode('utf-8')
+                    filename = cd_match.group(2)
+
+                    if filename:
+                        filename = filename.decode('utf-8')
+                        form_data[field_name] = {'filename': filename, 'content': body}
+                    else:  # It's a regular form field
+                        value = body.decode('utf-8').strip()
+                        if field_name in form_data:
+                            # If it's already a list, append to it
+                            if isinstance(form_data[field_name], list):
+                                form_data[field_name].append(value)
+                            else:
+                                # If it's not a list, make it a list with the old and new value
+                                form_data[field_name] = [form_data[field_name], value]
+                        else:
+                            # If the field doesn't exist, add it normally
+                            form_data[field_name] = value
+
+    return form_data
+
+def construct_expected_params(query_string):
+    """Returns the expected parameters from a query string. Needed a custom function to
+    handle multiple values for the same parameter name such as `subset`.
+    """
+    parsed_params = urllib.parse.parse_qsl(query_string)
+    expected_params = {}
+    for key, value in parsed_params:
+        if key in expected_params:
+            # If the key already exists, and it's not a list, convert it to a list
+            if not isinstance(expected_params[key], list):
+                expected_params[key] = [expected_params[key]]
+            # Append the new value to the existing list
+            expected_params[key].append(value)
+        else:
+            # Add the key-value pair to the dictionary
+            expected_params[key] = value
+    return expected_params
+
 def is_expected_url_and_form_encoded_body(harmony_request, http_request):
-    body_params = dict(urllib.parse.parse_qsl(http_request.body))
+    """Returns True if the URL and form encoded body match what is expected based
+    on the harmony request object.
+    """
+    form_data_params = parse_multipart_data(http_request)
     async_params = ['forceAsync=true']
 
     spatial_params = []
@@ -62,9 +128,9 @@ def is_expected_url_and_form_encoded_body(harmony_request, http_request):
     if harmony_request.skip_preview is not None:
         query_params += f'&skipPreview={str(harmony_request.skip_preview).lower()}'
 
-    expected_params = dict(urllib.parse.parse_qsl(query_params))
+    expected_params = construct_expected_params(query_params)
 
-    return body_params == expected_params and http_request.url ==  expected_submit_url(harmony_request.collection.id)
+    return form_data_params == expected_params and http_request.url ==  expected_submit_url(harmony_request.collection.id)
 
 def expected_capabilities_url(request_params: dict):
     collection_id = request_params.get('collection_id')
@@ -490,9 +556,8 @@ def test_request_has_query_param(param, expected):
 
     assert len(responses.calls) == 1
 
-    body = responses.calls[0].request.body
-    body_params = dict(urllib.parse.parse_qsl(body))
-    expected_params = dict(urllib.parse.parse_qsl(expected))
+    body_params = parse_multipart_data(responses.calls[0].request)
+    expected_params = construct_expected_params(expected)
 
     assert body_params == expected_params
 
