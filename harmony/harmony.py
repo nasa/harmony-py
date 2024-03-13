@@ -742,7 +742,6 @@ class Client:
                                             files=all_files,
                                             headers=headers)
             else:
-                method = self._http_method(request)
                 r = requests.models.Request('GET',
                                             self._submit_url(request),
                                             params=params,
