@@ -33,35 +33,38 @@ def expected_pause_url(job_id, link_type: LinkType = LinkType.https):
 def expected_resume_url(job_id, link_type: LinkType = LinkType.https):
     return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}/resume?linktype={link_type.value}'
 
-def expected_full_submit_url(request):
+def is_expected_url_and_form_encoded_body(harmony_request, http_request):
+    body_params = dict(urllib.parse.parse_qsl(http_request.body))
     async_params = ['forceAsync=true']
 
     spatial_params = []
-    if request.spatial:
-        w, s, e, n = request.spatial
+    if harmony_request.spatial:
+        w, s, e, n = harmony_request.spatial
         spatial_params = [f'subset=lat({s}:{n})', f'subset=lon({w}:{e})']
 
     temporal_params = []
-    if request.temporal:
-        start = request.temporal['start']
-        stop = request.temporal['stop']
+    if harmony_request.temporal:
+        start = harmony_request.temporal['start']
+        stop = harmony_request.temporal['stop']
         temporal_params = [f'subset=time("{start.isoformat()}":"{stop.isoformat()}")']
 
     dimension_params = []
-    if request.dimensions:
-        for dim in request.dimensions:
+    if harmony_request.dimensions:
+        for dim in harmony_request.dimensions:
             name = dim.name
             min = dim.min if dim.min is not None else '*'
             max = dim.max if dim.max is not None else '*'
             dimension_params += [f'subset={name}({min}:{max})']
 
     query_params = '&'.join(async_params + spatial_params + temporal_params + dimension_params)
-    if request.format is not None:
-        query_params += f'&format{request.format}'
-    if request.skip_preview is not None:
-        query_params += f'&skipPreview={str(request.skip_preview).lower()}'
+    if harmony_request.format is not None:
+        query_params += f'&format{harmony_request.format}'
+    if harmony_request.skip_preview is not None:
+        query_params += f'&skipPreview={str(harmony_request.skip_preview).lower()}'
 
-    return f'{expected_submit_url(request.collection.id)}?{query_params}'
+    expected_params = dict(urllib.parse.parse_qsl(query_params))
+
+    return body_params == expected_params and http_request.url ==  expected_submit_url(harmony_request.collection.id)
 
 def expected_capabilities_url(request_params: dict):
     collection_id = request_params.get('collection_id')
@@ -206,7 +209,7 @@ def test_when_multiple_submits_it_only_authenticates_once():
         status=200
     )
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, job_id)
@@ -219,10 +222,8 @@ def test_when_multiple_submits_it_only_authenticates_once():
     assert len(responses.calls) == 3
     assert responses.calls[0].request.url == auth_url
     assert urllib.parse.unquote(responses.calls[0].request.url) == auth_url
-    assert urllib.parse.unquote(
-        responses.calls[1].request.url) == expected_full_submit_url(request)
-    assert urllib.parse.unquote(
-        responses.calls[2].request.url) == expected_full_submit_url(request)
+    assert is_expected_url_and_form_encoded_body(request, responses.calls[1].request)
+    assert is_expected_url_and_form_encoded_body(request, responses.calls[2].request)
 
 @responses.activate
 def test_with_bounding_box():
@@ -233,7 +234,7 @@ def test_with_bounding_box():
     )
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, job_id)
@@ -243,8 +244,7 @@ def test_with_bounding_box():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert is_expected_url_and_form_encoded_body(request, responses.calls[0].request)
     assert actual_job_id == job_id
 
 @responses.activate
@@ -256,7 +256,7 @@ def test_with_single_dimension():
     )
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, job_id)
@@ -266,8 +266,7 @@ def test_with_single_dimension():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert is_expected_url_and_form_encoded_body(request, responses.calls[0].request)
     assert actual_job_id == job_id
 
 @responses.activate
@@ -287,7 +286,7 @@ def test_with_multiple_dimensions():
     )
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, job_id)
@@ -297,8 +296,7 @@ def test_with_multiple_dimensions():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert is_expected_url_and_form_encoded_body(request, responses.calls[0].request)
     assert actual_job_id == job_id
 
 @responses.activate
@@ -313,7 +311,7 @@ def test_with_temporal_range():
     )
     job_id = '1234abcd-deed-9876-c001-f00dbad'
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, job_id)
@@ -323,8 +321,7 @@ def test_with_temporal_range():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert is_expected_url_and_form_encoded_body(request, responses.calls[0].request)
     assert actual_job_id == job_id
 
 @responses.activate
@@ -340,7 +337,7 @@ def test_with_bounding_box_and_temporal_range():
     )
     job_id = '1234abcd-1234-9876-6666-999999abcd'
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, job_id)
@@ -350,8 +347,7 @@ def test_with_bounding_box_and_temporal_range():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_full_submit_url(request)
+    assert is_expected_url_and_form_encoded_body(request, responses.calls[0].request)
     assert actual_job_id == job_id
 
 @responses.activate
@@ -410,7 +406,7 @@ def test_get_request_has_user_agent_headers():
         collection=collection,
     )
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, 'abcd-1234'),
@@ -436,7 +432,6 @@ def test_post_request_has_user_agent_headers(examples_dir):
         shape=os.path.join(examples_dir, 'asf_example.json'),
         spatial=BBox(-107, 40, -105, 42),
     )
-    job_id = '1234abcd-1234-9876-6666-999999abcd'
     responses.add(
         responses.POST,
         expected_submit_url(collection.id),
@@ -444,7 +439,7 @@ def test_post_request_has_user_agent_headers(examples_dir):
         json=expected_job(collection.id, 'abcd-1234'),
     )
 
-    actual_job_id = Client(should_validate_auth=False).submit(request)
+    Client(should_validate_auth=False).submit(request)
 
     assert len(responses.calls) == 1
     assert len(responses.calls) == 1
@@ -478,13 +473,14 @@ def test_post_request_has_user_agent_headers(examples_dir):
 
 @responses.activate
 def test_request_has_query_param(param, expected):
+    expected += '&forceAsync=true'
     collection = Collection('foobar')
     request = Request(
         collection=collection,
         **param
     )
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=200,
         json=expected_job(collection.id, 'abcd-1234'),
@@ -493,7 +489,12 @@ def test_request_has_query_param(param, expected):
     Client(should_validate_auth=False).submit(request)
 
     assert len(responses.calls) == 1
-    assert urllib.parse.unquote(responses.calls[0].request.url).index(expected) >= 0
+
+    body = responses.calls[0].request.body
+    body_params = dict(urllib.parse.parse_qsl(body))
+    expected_params = dict(urllib.parse.parse_qsl(expected))
+
+    assert body_params == expected_params
 
 @responses.activate
 @pytest.mark.parametrize('variables,expected', [
@@ -508,7 +509,7 @@ def test_request_has_variables(variables, expected):
         variables=variables
     )
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id, expected),
         status=200,
         json=expected_job(collection.id, 'abcd-1234'),
@@ -1254,7 +1255,7 @@ def test_handle_error_response_with_description_key():
     )
     error = {'code': 'harmony.ServerError', 'description': 'Error: Harmony had an internal issue.'}
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=500,
         json=error
@@ -1293,7 +1294,7 @@ def test_handle_error_response_no_description_key():
     )
     error = {'unrecognizable_key': 'Some information.'}
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=500,
         json=error
@@ -1331,7 +1332,7 @@ def test_handle_error_response_no_json():
         spatial=BBox(-107, 40, -105, 42)
     )
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=500,
         body='error'
@@ -1369,7 +1370,7 @@ def test_handle_error_response_invalid_json():
         spatial=BBox(-107, 40, -105, 42)
     )
     responses.add(
-        responses.GET,
+        responses.POST,
         expected_submit_url(collection.id),
         status=500,
         json='error'
@@ -1408,7 +1409,7 @@ def test_request_as_curl_get():
     curl_command = Client(should_validate_auth=False).request_as_curl(request)
     assert f'https://harmony.earthdata.nasa.gov/{collection.id}' \
            f'/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset' in curl_command
-    assert '-X GET' in curl_command
+    assert '-X POST' in curl_command
 
 
 def test_request_as_curl_post(examples_dir):
@@ -1440,8 +1441,7 @@ def test_collection_capabilities():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert responses.calls[0].request.url == expected_capabilities_url(params)
     assert result['conceptId'] == collection_id
     assert ('services' in result.keys())
     assert result['capabilitiesVersion'] == '2'
@@ -1466,8 +1466,7 @@ def test_collection_capabilities_with_version():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert responses.calls[0].request.url == expected_capabilities_url(params)
     assert result['conceptId'] == collection_id
     assert ('services' in result.keys())
     assert result['capabilitiesVersion'] == capabilitiesVersion
@@ -1489,8 +1488,7 @@ def test_collection_capabilities_shortname():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert responses.calls[0].request.url == expected_capabilities_url(params)
     assert result['conceptId'] == collection_id
     assert result['shortName'] == short_name
     assert ('services' in result.keys())
@@ -1517,8 +1515,7 @@ def test_collection_capabilities_with_shortname_version():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request is not None
-    assert urllib.parse.unquote(
-        responses.calls[0].request.url) == expected_capabilities_url(params)
+    assert responses.calls[0].request.url == expected_capabilities_url(params)
     assert result['conceptId'] == collection_id
     assert result['shortName'] == short_name
     assert ('services' in result.keys())
