@@ -700,9 +700,9 @@ class Client:
                 concatenated_values = ','.join(map(str, values))
                 result.append((key, (None, concatenated_values, None)))
             else:
-              if not isinstance(values, list):
-                  values = [values]
-              result += [(key, (None, str(value), None)) for value in values]
+                if not isinstance(values, list):
+                    values = [values]
+                result += [(key, (None, str(value), None)) for value in values]
         return result
 
     def _get_prepared_request(self, request: BaseRequest) -> requests.models.PreparedRequest:
