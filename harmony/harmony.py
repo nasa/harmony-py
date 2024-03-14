@@ -685,12 +685,6 @@ class Client:
 
     def _params_dict_to_files(self, params: Mapping[str, Any]) -> List[Tuple[None, str, None]]:
         """Returns the given parameter mapping as a list of tuples suitable for multipart POST
-
-        This method is a temporary need until HARMONY-290 is implemented, since we cannot
-        currently pass query parameters to a shapefile POST request.  Because we need to pass
-        them as a multipart POST body, we need to inflate them into a list of tuples, one for
-        each parameter value to allow us to call requests.post(..., files=params)
-
         Args:
             params: A dictionary of parameter mappings as returned by self._params(request)
 
@@ -698,12 +692,17 @@ class Client:
             A list of tuples suitable for passing to a requests multipart upload corresponding
             to the provided parameters
         """
-        # TODO: remove / refactor after HARMONY-290 is complete
         result = []
         for key, values in params.items():
-            if not isinstance(values, list):
-                values = [values]
-            result += [(key, (None, str(value), None)) for value in values]
+            if key == 'granuleId' and isinstance(values, list):
+                # Include all granuleId values in a single file boundary as a comma separated
+                # list to avoid creating too many file boundaries
+                concatenated_values = ','.join(map(str, values))
+                result.append((key, (None, concatenated_values, None)))
+            else:
+              if not isinstance(values, list):
+                  values = [values]
+              result += [(key, (None, str(value), None)) for value in values]
         return result
 
     def _get_prepared_request(self, request: BaseRequest) -> requests.models.PreparedRequest:
