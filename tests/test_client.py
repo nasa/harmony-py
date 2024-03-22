@@ -1162,12 +1162,14 @@ def side_effect_for_get_json(extra_links) -> List[str]:
 
     return [status_running1, status_running2, status_paused, status_resumed, status_successful, status_successful]
 
-def test_get_file_name_non_staged_link():
+def test_get_file_name_staged_link():
+    # For staged results, the filename should get prefixed with the work item id, to avoid collisions
     client = Client(should_validate_auth=False)
     actual_file_name = client.get_filename_from_url('https://harmony.earthdata.nasa.gov/service-results/staging-bucket/a36337f4-3e4b-4x57-ba26-a484a5877f3a/1047412/C1254854453-LARC_CLOUD_merged.nc4')
     assert actual_file_name == '1047412_C1254854453-LARC_CLOUD_merged.nc4'
 
-def test_get_file_name_staged_link():
+def test_get_file_name_non_staged_link():
+    # In this case, e.g. for a direct download data link, the filename should just be the last part of the URL path
     client = Client(should_validate_auth=False)
     actual_file_name = client.get_filename_from_url('https://harmony.earthdata.nasa.gov/service-results/test-data/C1261703151-EEDTEST/ATL08_20181014001049_02350102_006_02.h5')
     assert actual_file_name == 'ATL08_20181014001049_02350102_006_02.h5'
