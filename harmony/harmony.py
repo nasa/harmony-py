@@ -1126,7 +1126,7 @@ class Client:
         chunksize = int(self.config.DOWNLOAD_CHUNK_SIZE)
         session = self._session()
         filename = self.get_filename_from_url(url)
-        
+
         if directory:
             filename = os.path.join(directory, filename)
 
