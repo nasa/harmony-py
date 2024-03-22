@@ -1103,14 +1103,14 @@ class Client:
         return True
 
     def get_download_filename_from_url(self, url: str) -> str:
-        """Returns the filename for a URL. It will include
-        a Harmony generated ID if the data is staged.
+        """For a given URL, returns the filename that will be used for download.
+        It will include a Harmony generated ID prefix if the data is staged.
 
         Args:
             url: The location (URL) of the file to be downloaded
 
         Returns:
-            The filename that will be used to name the donwloaded file.
+            The filename that will be used to name the downloaded file.
         """
         url_parts = url.split('/')
         original_filename = url_parts[-1]
