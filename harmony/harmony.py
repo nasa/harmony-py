@@ -1125,27 +1125,26 @@ class Client:
         """
         chunksize = int(self.config.DOWNLOAD_CHUNK_SIZE)
         session = self._session()
-
         filename = self.get_filename_from_url(url)
-        path = filename
+        
         if directory:
-            path = os.path.join(directory, filename)
+            filename = os.path.join(directory, filename)
 
         verbose = os.getenv('VERBOSE', 'TRUE')
-        if not overwrite and os.path.isfile(path):
+        if not overwrite and os.path.isfile(filename):
             if verbose and verbose.upper() == 'TRUE':
-                print(path)
-            return path
+                print(filename)
+            return filename
         else:
             headers = {
                 "Accept-Encoding": "identity"
             }
             with session.get(url, stream=True, headers=headers) as r:
-                with open(path, 'wb') as f:
+                with open(filename, 'wb') as f:
                     shutil.copyfileobj(r.raw, f, length=chunksize)
             if verbose and verbose.upper() == 'TRUE':
-                print(path)
-            return path
+                print(filename)
+            return filename
 
     def download(self, url: str, directory: str = '', overwrite: bool = False) -> Future:
         """Downloads data and saves it to a file asynchronously.
