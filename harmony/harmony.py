@@ -706,7 +706,8 @@ class Client:
                 result += [(key, (None, str(value), None)) for value in values]
         return result
 
-    def _get_prepared_request(self, request: BaseRequest, for_browser=False) -> requests.models.PreparedRequest:
+    def _get_prepared_request(
+            self, request: BaseRequest, for_browser=False) -> requests.models.PreparedRequest:
         """Returns a :requests.models.PreparedRequest: object for the given harmony Request
 
         Args:
@@ -744,7 +745,7 @@ class Client:
                                             headers=headers)
             else:
                 if files:
-                    raise Exception(f"Cannot include shapefile as URL query parameter")
+                    raise Exception("Cannot include shapefile as URL query parameter")
 
                 r = requests.models.Request('GET',
                                             self._submit_url(request),
@@ -759,7 +760,7 @@ class Client:
 
     def _handle_error_response(self, response: Response):
         """Raises the appropriate exception based on the response
-        received from Harmony. Trys to pull out an error message
+        received from Harmony. Tries to pull out an error message
         from a Harmony JSON response when possible.
 
         Args:
