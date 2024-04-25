@@ -1502,6 +1502,28 @@ def test_request_as_curl_post(examples_dir):
            f'/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset' in curl_command
     assert '-X POST' in curl_command
 
+def test_request_as_url():
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+
+    url = Client(should_validate_auth=False).request_as_url(request)
+    assert url == 'https://harmony.earthdata.nasa.gov/C1940468263-POCLOUD/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset?forceAsync=true&subset=lat%2840%3A42%29&subset=lon%28-107%3A-105%29'
+
+def test_request_with_shapefile_as_url(examples_dir):
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        shape=os.path.join(examples_dir, 'asf_example.json'),
+        spatial=BBox(-107, 40, -105, 42)
+    )
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).request_as_url(request)
+    assert str(e.value) == "Cannot include shapefile as URL query parameter"
+
 @responses.activate
 def test_collection_capabilities():
     collection_id='C1940468263-POCLOUD'

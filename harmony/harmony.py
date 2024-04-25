@@ -706,11 +706,13 @@ class Client:
                 result += [(key, (None, str(value), None)) for value in values]
         return result
 
-    def _get_prepared_request(self, request: BaseRequest) -> requests.models.PreparedRequest:
+    def _get_prepared_request(
+            self, request: BaseRequest, for_browser=False) -> requests.models.PreparedRequest:
         """Returns a :requests.models.PreparedRequest: object for the given harmony Request
 
         Args:
             request: The Harmony Request to prepare
+            for_browser: if True only the url with query params will be returned
 
         Returns:
             A PreparedRequest
@@ -722,7 +724,7 @@ class Client:
 
         method = self._http_method(request)
         with self._files(request) as files:
-            if files or method == 'POST':
+            if (files or method == 'POST') and not for_browser:
                 # Ideally this should just be files=files, params=params but Harmony
                 # cannot accept both files and query params now.  (HARMONY-290)
                 # Inflate params to a list of tuples that can be passed as multipart
@@ -742,17 +744,23 @@ class Client:
                                             files=all_files,
                                             headers=headers)
             else:
+                if files:
+                    raise Exception("Cannot include shapefile as URL query parameter")
+
                 r = requests.models.Request('GET',
                                             self._submit_url(request),
                                             params=params,
                                             headers=headers)
+
             prepped_request = session.prepare_request(r)
+            if for_browser:
+                prepped_request.headers = None
 
         return prepped_request
 
     def _handle_error_response(self, response: Response):
         """Raises the appropriate exception based on the response
-        received from Harmony. Trys to pull out an error message
+        received from Harmony. Tries to pull out an error message
         from a Harmony JSON response when possible.
 
         Args:
@@ -797,6 +805,21 @@ class Client:
             cooks['token'] = '*****'
             prepped_request.prepare_cookies(cooks)
         return curlify.to_curl(prepped_request)
+
+    def request_as_url(self, request: BaseRequest) -> str:
+        """Returns a URL string representation of the given request.
+        **Note** Headers and cookies are not included, just the URL.
+        Shapefiles are not supported.
+
+        Args:
+            request: The Request to build the URL string for
+
+        Returns:
+            A URL string that can be pasted into a browser.
+        :raises
+            Exception: if a shapefile is included in the request.
+        """
+        return self._get_prepared_request(request, for_browser=True).url
 
     def submit(self, request: BaseRequest) -> any:
         """Submits a request to Harmony and returns the Harmony Job ID.
