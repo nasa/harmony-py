@@ -16,7 +16,6 @@ jobs:
         python-version: '3.11'
     - shell: bash
       env:
-        REPO_PASS: ${{ secrets.PYPI }}
         VERSION_TAG: ${{ github.event.release.tag_name }}
         BRANCH: ${{ github.event.release.target_commitish }}
       run: |
