@@ -22,7 +22,7 @@ def examples_dir():
 
 def expected_submit_url(collection_id, variables='all'):
     return (f'https://harmony.earthdata.nasa.gov/{collection_id}'
-            f'/ogc-api-coverages/1.0.0/collections/{variables}/coverage/rangeset')
+            f'/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset')
 
 def expected_status_url(job_id, link_type: LinkType = LinkType.https):
     return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}'
@@ -122,7 +122,9 @@ def is_expected_url_and_form_encoded_body(harmony_request, http_request):
             max = dim.max if dim.max is not None else '*'
             dimension_params += [f'subset={name}({min}:{max})']
 
-    query_params = '&'.join(async_params + spatial_params + temporal_params + dimension_params)
+    variable_params = ['variable=all']
+
+    query_params = '&'.join(async_params + spatial_params + temporal_params + dimension_params + variable_params)
     if harmony_request.format is not None:
         query_params += f'&format{harmony_request.format}'
     if harmony_request.skip_preview is not None:
@@ -203,11 +205,12 @@ def expected_job(collection_id, job_id, link_type: LinkType = LinkType.https, ex
         ],
         'request': (
             'https://harmony.earthdata.nasa.gov/{collection_id}/ogc-api-coverages/1.0.0'
-            '/collections/all/coverage/rangeset'
+            '/collections/parameter_vars/coverage/rangeset'
             '?forceAsync=True'
             '&subset=lat(52%3A77)'
             '&subset=lon(-165%3A-140)'
             '&subset=time(%222010-01-01T00%3A00%3A00%22%3A%222020-12-30T00%3A00%3A00%22)'
+            '&variable=all'
         ),
         'numInputGranules': 32,
         'jobID': f'{job_id}'
@@ -539,7 +542,7 @@ def test_post_request_has_user_agent_headers(examples_dir):
 
 @responses.activate
 def test_request_has_query_param(param, expected):
-    expected += '&forceAsync=true'
+    expected += '&forceAsync=true&variable=all'
     collection = Collection('foobar')
     request = Request(
         collection=collection,
@@ -1485,7 +1488,7 @@ def test_request_as_curl_get():
 
     curl_command = Client(should_validate_auth=False).request_as_curl(request)
     assert f'https://harmony.earthdata.nasa.gov/{collection.id}' \
-           f'/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset' in curl_command
+           f'/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset' in curl_command
     assert '-X POST' in curl_command
 
 
@@ -1499,7 +1502,7 @@ def test_request_as_curl_post(examples_dir):
 
     curl_command = Client(should_validate_auth=False).request_as_curl(request)
     assert f'https://harmony.earthdata.nasa.gov/{collection.id}' \
-           f'/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset' in curl_command
+           f'/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset' in curl_command
     assert '-X POST' in curl_command
 
 def test_request_as_url():
@@ -1510,7 +1513,7 @@ def test_request_as_url():
     )
 
     url = Client(should_validate_auth=False).request_as_url(request)
-    assert url == 'https://harmony.earthdata.nasa.gov/C1940468263-POCLOUD/ogc-api-coverages/1.0.0/collections/all/coverage/rangeset?forceAsync=true&subset=lat%2840%3A42%29&subset=lon%28-107%3A-105%29'
+    assert url == 'https://harmony.earthdata.nasa.gov/C1940468263-POCLOUD/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset?forceAsync=true&subset=lat%2840%3A42%29&subset=lon%28-107%3A-105%29&variable=all'
 
 def test_request_with_shapefile_as_url(examples_dir):
     collection = Collection(id='C1940468263-POCLOUD')
