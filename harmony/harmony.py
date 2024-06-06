@@ -234,6 +234,8 @@ class Request(BaseRequest):
         shape: a file path to an ESRI Shapefile zip, GeoJSON file, or KML file to use for
           spatial subsetting.  Note: not all collections support shapefile subsetting
 
+        variables: The list of variables to subset
+
         granule_id: The CMR Granule ID for the granule which should be retrieved
 
         granule_name: The granule ur or provider id for the granule(s) to be retrieved
@@ -331,7 +333,8 @@ class Request(BaseRequest):
             'skip_preview': 'skipPreview',
             'ignore_errors': 'ignoreErrors',
             'grid': 'grid',
-            'extend': 'extend'
+            'extend': 'extend',
+            'variables': 'variable'
         }
 
         self.spatial_validations = [
@@ -534,12 +537,10 @@ class Client:
         if isinstance(request, CapabilitiesRequest):
             return (f'{self.config.root_url}/capabilities')
         else:
-            variables = [v.replace('/', '%2F') for v in request.variables]
-            vars = ','.join(variables)
             return (
                 f'{self.config.root_url}'
                 f'/{request.collection.id}'
-                f'/ogc-api-coverages/1.0.0/collections/{vars}/coverage/rangeset'
+                f'/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset'
             )
 
     def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
