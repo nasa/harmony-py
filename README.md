@@ -4,7 +4,7 @@
 
 Harmony-Py is a Python library for integrating with NASA's [Harmony](https://harmony.earthdata.nasa.gov/) Services.
 
-Harmony-Py provides a Python alternative to directly using [Harmony's RESTful API](https://harmony.earthdata.nasa.gov/docs/api/). It handles NASA [Earthdata Login (EDL)](https://urs.earthdata.nasa.gov/home) authentication and optionally integrates with the [CMR Python Wrapper](https://github.com/nasa/eo-metadata-tools) by accepting collection results as a request parameter. It's convenient for scientists who wish to use Harmony from Jupyter notebooks as well as machine-to-machine communication with larger Python applications.
+Harmony-Py provides a Python alternative to directly using [Harmony's OGC Coverage RESTful API](https://harmony.earthdata.nasa.gov/docs/api/) and [Harmony's OGC EDR RESTful API](https://harmony.earthdata.nasa.gov/docs/edr-api/). It handles NASA [Earthdata Login (EDL)](https://urs.earthdata.nasa.gov/home) authentication and optionally integrates with the [CMR Python Wrapper](https://github.com/nasa/eo-metadata-tools) by accepting collection results as a request parameter. It's convenient for scientists who wish to use Harmony from Jupyter notebooks as well as machine-to-machine communication with larger Python applications.
 
 We welcome feedback on Harmony-Py via [GitHub Issues](https://github.com/nasa/harmony-py/issues)
 
@@ -80,9 +80,9 @@ For development, you may want to run the unit tests continuously as you update t
 
 ### Generating Request Parameters
 
-The `harmony.Request` constructor can accept parameters that are defined in the [Harmony OGC API schema](). If this schema has been changed and the `Request` constructor needs to be updated, you may run the generator utility. This tool reads the Harmony schema and generates a partial constructor signature with docstrings:
+The `harmony.Request` constructor can accept parameters that are defined in the [Harmony OGC API schema](https://harmony.earthdata.nasa.gov/schemas/ogc-api-coverages/1.0.0/ogc-api-coverages-v1.0.0.yml). If this schema has been changed and the `Request` constructor needs to be updated, you may run the generator utility. This tool reads the Harmony schema and generates a partial constructor signature with docstrings:
 
-        $ python internal/genparams.py ${HARMONY_DIR}/app/schemas/ogc-api-coverages/1.0.0/ogc-api-coverages-v1.0.0.yml
+        $ python internal/genparams.py ${HARMONY_DIR}/services/harmony/app/schemas/ogc-api-coverages/1.0.0/ogc-api-coverages-v1.0.0.yml
 
 Either set `HARMONY_DIR` or replace it with your Harmony project directory path. You may then write standard output to a file and then use it to update the `harmony.Request` constructor and code.
 
