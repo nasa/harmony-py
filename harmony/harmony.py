@@ -40,6 +40,8 @@ from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple,
 import curlify
 import dateutil.parser
 import progressbar
+from shapely.wkt import loads
+from shapely.lib import ShapelyError
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
@@ -51,6 +53,30 @@ progressbar_widgets = [
     ' [', progressbar.RotatingMarker(), ']',
 ]
 
+def is_wkt_valid(wkt_string: str) -> bool:
+    try:
+        # Attempt to load the WKT string
+        loads(wkt_string)
+        return True
+    except (ShapelyError, ValueError) as e:
+        # Handle WKT reading errors and invalid WKT strings
+        print(f"Invalid WKT: {e}")
+        return False
+
+def temporal_to_edr_datetime(temporal: dict) -> str:
+    datetime_format = '%Y-%m-%dT%H:%M:%SZ'
+
+    if 'start' in temporal and temporal['start'] is not None:
+        start_str = temporal['start'].strftime(datetime_format)
+    else:
+        start_str = '..'
+
+    if 'stop' in temporal and temporal['stop'] is not None:
+        stop_str = temporal['stop'].strftime(datetime_format)
+    else:
+        stop_str = '..'
+
+    return f'{start_str}/{stop_str}'
 
 class ProcessingFailedException(Exception):
     """Indicates a Harmony job has failed during processing"""
@@ -120,6 +146,19 @@ class BBox(NamedTuple):
     def __repr__(self) -> str:
         return f'BBox: West:{self.w}, South:{self.s}, East:{self.e}, North:{self.n}'
 
+class WKT:
+    """The WKT represntation of Spatial."""
+
+    def __init__(self, wkt: str):
+        """Constructs a WKT of spatial area.
+
+        Args:
+            wkt: WKT string
+
+        Returns:
+            A WKT
+        """
+        self.wkt = wkt
 
 class Dimension:
     """An arbitrary dimension to subset against. A dimension can take a minimum value and a
@@ -270,7 +309,7 @@ class Request(BaseRequest):
     def __init__(self,
                  collection: Collection,
                  *,
-                 spatial: BBox = None,
+                 spatial: Union[BBox, WKT] = None,
                  temporal: Mapping[str, datetime] = None,
                  dimensions: List[Dimension] = None,
                  extend: List[str] = None,
@@ -316,7 +355,30 @@ class Request(BaseRequest):
         self.ignore_errors = ignore_errors
         self.grid = grid
 
-        self.variable_name_to_query_param = {
+        if self.is_edr_request():
+            self.variable_name_to_query_param = {
+            'crs': 'crs',
+            'destination_url': 'destinationUrl',
+            'interpolation': 'interpolation',
+            'scale_extent': 'scaleExtent',
+            'scale_size': 'scaleSize',
+            'shape': 'shapefile',
+            'granule_id': 'granuleId',
+            'granule_name': 'granuleName',
+            'width': 'width',
+            'height': 'height',
+            'format': 'f',
+            'max_results': 'maxResults',
+            'concatenate': 'concatenate',
+            'skip_preview': 'skipPreview',
+            'ignore_errors': 'ignoreErrors',
+            'grid': 'grid',
+            'extend': 'extend',
+            'variables': 'parameter-name'
+            }
+            self.spatial_validations = [(lambda s: is_wkt_valid(s.wkt), f'WKT {spatial.wkt} is not valid'),]
+        else:
+            self.variable_name_to_query_param = {
             'crs': 'outputcrs',
             'destination_url': 'destinationUrl',
             'interpolation': 'interpolation',
@@ -335,20 +397,21 @@ class Request(BaseRequest):
             'grid': 'grid',
             'extend': 'extend',
             'variables': 'variable'
-        }
+            }
 
-        self.spatial_validations = [
-            (lambda bb: bb.s <= bb.n, ('Southern latitude must be less than '
-                                       'or equal to Northern latitude')),
-            (lambda bb: bb.s >= -90.0, 'Southern latitude must be greater than -90.0'),
-            (lambda bb: bb.n >= -90.0, 'Northern latitude must be greater than -90.0'),
-            (lambda bb: bb.s <= 90.0, 'Southern latitude must be less than 90.0'),
-            (lambda bb: bb.n <= 90.0, 'Northern latitude must be less than 90.0'),
-            (lambda bb: bb.w >= -180.0, 'Western longitude must be greater than -180.0'),
-            (lambda bb: bb.e >= -180.0, 'Eastern longitude must be greater than -180.0'),
-            (lambda bb: bb.w <= 180.0, 'Western longitude must be less than 180.0'),
-            (lambda bb: bb.e <= 180.0, 'Eastern longitude must be less than 180.0'),
-        ]
+            self.spatial_validations = [
+                (lambda bb: bb.s <= bb.n, ('Southern latitude must be less than '
+                                           'or equal to Northern latitude')),
+                (lambda bb: bb.s >= -90.0, 'Southern latitude must be greater than -90.0'),
+                (lambda bb: bb.n >= -90.0, 'Northern latitude must be greater than -90.0'),
+                (lambda bb: bb.s <= 90.0, 'Southern latitude must be less than 90.0'),
+                (lambda bb: bb.n <= 90.0, 'Northern latitude must be less than 90.0'),
+                (lambda bb: bb.w >= -180.0, 'Western longitude must be greater than -180.0'),
+                (lambda bb: bb.e >= -180.0, 'Eastern longitude must be greater than -180.0'),
+                (lambda bb: bb.w <= 180.0, 'Western longitude must be less than 180.0'),
+                (lambda bb: bb.e <= 180.0, 'Eastern longitude must be less than 180.0'),
+            ]
+
         self.temporal_validations = [
             (lambda tr: 'start' in tr or 'stop' in tr,
              ('When included in the request, the temporal range should include a '
@@ -384,6 +447,10 @@ class Request(BaseRequest):
             return [f'The provided shape path "{shape}" has extension "{ext}" which is not '
                     + f'recognized.  Valid file extensions: [{_valid_shapefile_exts}]']
         return []
+
+    def is_edr_request(self) -> bool:
+        """Return true if the request needs to be submitted as an EDR request, i.e. Spatial is WKT."""
+        return isinstance(self.spatial, WKT)
 
     def error_messages(self) -> List[str]:
         """A list of error messages, if any, for the request."""
@@ -536,6 +603,13 @@ class Client:
         """Constructs the URL for the request that is used to submit a new Harmony Job."""
         if isinstance(request, CapabilitiesRequest):
             return (f'{self.config.root_url}/capabilities')
+        elif request.is_edr_request():
+            return (
+                f'{self.config.root_url}'
+                f'/ogc-api-edr/1.1.0/collections'
+                f'/{request.collection.id}'
+                f'/area'
+            )
         else:
             return (
                 f'{self.config.root_url}'
@@ -562,14 +636,24 @@ class Client:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
         if not isinstance(request, CapabilitiesRequest):
-            params['forceAsync'] = 'true'
+            if  request.is_edr_request():
+                params['forceAsync'] = True
+                if request.spatial:
+                    params['coords'] = request.spatial.wkt
+                if request.temporal:
+                    params['datetime'] = temporal_to_edr_datetime(request.temporal)
 
-            subset = self._spatial_subset_params(request) + \
-                self._temporal_subset_params(request) + \
-                self._dimension_subset_params(request)
+                subset = self._dimension_subset_params(request)
+                if len(subset) > 0:
+                    params['subset'] = subset
+            else:
+                params['forceAsync'] = 'true'
+                subset = self._spatial_subset_params(request) + \
+                    self._temporal_subset_params(request) + \
+                    self._dimension_subset_params(request)
 
-            if len(subset) > 0:
-                params['subset'] = subset
+                if len(subset) > 0:
+                    params['subset'] = subset
 
         skipped_params = ['shapefile']
         query_params = [pv for pv in request.parameter_values() if pv[0] not in skipped_params]
@@ -588,7 +672,7 @@ class Client:
     def _headers(self) -> dict:
         """
         Create (if needed) and return a dictionary of headers.
-        Code partially adaped from:
+        Code partially adapted from:
             https://github.com/requests/toolbelt/blob/master/requests_toolbelt/utils/user_agent.py
         """
         if 'headers' not in self.__dict__:
@@ -736,14 +820,20 @@ class Client:
                 # the workaround with files rather than `data=params` even when there
                 # is no shapefile to send
 
-                param_items = self._params_dict_to_files(params)
-                file_items = [(k, v) for k, v in files.items()]
-                all_files = param_items + file_items
-
-                r = requests.models.Request('POST',
+                if request.is_edr_request():
+                    r = requests.models.Request('POST',
                                             self._submit_url(request),
-                                            files=all_files,
+                                            json=params,
                                             headers=headers)
+                else:
+                    param_items = self._params_dict_to_files(params)
+                    file_items = [(k, v) for k, v in files.items()]
+                    all_files = param_items + file_items
+
+                    r = requests.models.Request('POST',
+                                                self._submit_url(request),
+                                                files=all_files,
+                                                headers=headers)
             else:
                 if files:
                     raise Exception("Cannot include shapefile as URL query parameter")

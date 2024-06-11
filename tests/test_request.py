@@ -3,7 +3,7 @@ import datetime as dt
 from hypothesis import given, settings, strategies as st
 import pytest
 
-from harmony.harmony import BBox, Collection, BaseRequest, Request, CapabilitiesRequest, Dimension
+from harmony.harmony import BBox, WKT, Collection, BaseRequest, Request, CapabilitiesRequest, Dimension
 
 
 def test_request_has_collection_with_id():
@@ -81,6 +81,18 @@ def test_request_spatial_bounding_box(west, south, east, north):
         assert west <= 180.0
         assert east <= 180.0
 
+@pytest.mark.parametrize('key, value', [
+    ('spatial', WKT('POINT(0 51.48)')),
+    ('spatial', WKT('LINESTRING(30 10, 10 30, 40 40)')),
+    ('spatial', WKT('POLYGON((30 10, 40 40, 20 40, 10 20, 30 10))')),
+    ('spatial', WKT('POLYGON((35 10, 45 45, 15 40, 10 20, 35 10),(20 30, 35 35, 30 20, 20 30))')),
+    ('spatial', WKT('MULTIPOINT((10 40), (40 30), (20 20), (30 10))')),
+    ('spatial', WKT('MULTILINESTRING((10 10, 20 20, 10 40),(40 40, 30 30, 40 20, 30 10))')),
+    ('spatial', WKT('MULTIPOLYGON(((30 20, 45 40, 10 40, 30 20)),((15 5, 40 10, 10 20, 5 10, 15 5)))')),
+])
+def test_request_spatial_wkt(key, value):
+    request = Request(Collection('foo'), **{key: value})
+    assert request.is_valid()
 
 @settings(max_examples=100)
 @given(key_a=st.one_of(st.none(), st.sampled_from(['start', 'stop']), st.text()),
@@ -147,6 +159,18 @@ def test_request_spatial_error_messages(key, value, message):
 def test_request_dimensions_error_messages(value):
     message = 'Dimension minimum value must be less than or equal to the maximum value'
     request = Request(Collection('foo'), **{'dimensions': value})
+    messages = request.error_messages()
+
+    assert not request.is_valid()
+    assert message in messages
+
+@pytest.mark.parametrize('key, value, message', [
+    ('spatial', WKT('BBOX(-140,20,-50,60)'), 'WKT BBOX(-140,20,-50,60) is not valid'),
+    ('spatial', WKT('APOINT(0 51.48)'), 'WKT APOINT(0 51.48) is not valid'),
+    ('spatial', WKT('CIRCULARSTRING(0 0, 1 1, 1 0)'), 'WKT CIRCULARSTRING(0 0, 1 1, 1 0) is not valid'),
+])
+def test_request_spatial_error_messages(key, value, message):
+    request = Request(Collection('foo'), **{key: value})
     messages = request.error_messages()
 
     assert not request.is_valid()
