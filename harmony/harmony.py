@@ -53,6 +53,7 @@ progressbar_widgets = [
     ' [', progressbar.RotatingMarker(), ']',
 ]
 
+
 def is_wkt_valid(wkt_string: str) -> bool:
     try:
         # Attempt to load the WKT string
@@ -62,6 +63,7 @@ def is_wkt_valid(wkt_string: str) -> bool:
         # Handle WKT reading errors and invalid WKT strings
         print(f"Invalid WKT: {e}")
         return False
+
 
 def temporal_to_edr_datetime(temporal: dict) -> str:
     datetime_format = '%Y-%m-%dT%H:%M:%SZ'
@@ -77,6 +79,7 @@ def temporal_to_edr_datetime(temporal: dict) -> str:
         stop_str = '..'
 
     return f'{start_str}/{stop_str}'
+
 
 class ProcessingFailedException(Exception):
     """Indicates a Harmony job has failed during processing"""
@@ -146,6 +149,7 @@ class BBox(NamedTuple):
     def __repr__(self) -> str:
         return f'BBox: West:{self.w}, South:{self.s}, East:{self.e}, North:{self.n}'
 
+
 class WKT:
     """The WKT represntation of Spatial."""
 
@@ -159,6 +163,7 @@ class WKT:
             A WKT
         """
         self.wkt = wkt
+
 
 class Dimension:
     """An arbitrary dimension to subset against. A dimension can take a minimum value and a
@@ -357,46 +362,48 @@ class Request(BaseRequest):
 
         if self.is_edr_request():
             self.variable_name_to_query_param = {
-            'crs': 'crs',
-            'destination_url': 'destinationUrl',
-            'interpolation': 'interpolation',
-            'scale_extent': 'scaleExtent',
-            'scale_size': 'scaleSize',
-            'shape': 'shapefile',
-            'granule_id': 'granuleId',
-            'granule_name': 'granuleName',
-            'width': 'width',
-            'height': 'height',
-            'format': 'f',
-            'max_results': 'maxResults',
-            'concatenate': 'concatenate',
-            'skip_preview': 'skipPreview',
-            'ignore_errors': 'ignoreErrors',
-            'grid': 'grid',
-            'extend': 'extend',
-            'variables': 'parameter-name'
+                'crs': 'crs',
+                'destination_url': 'destinationUrl',
+                'interpolation': 'interpolation',
+                'scale_extent': 'scaleExtent',
+                'scale_size': 'scaleSize',
+                'shape': 'shapefile',
+                'granule_id': 'granuleId',
+                'granule_name': 'granuleName',
+                'width': 'width',
+                'height': 'height',
+                'format': 'f',
+                'max_results': 'maxResults',
+                'concatenate': 'concatenate',
+                'skip_preview': 'skipPreview',
+                'ignore_errors': 'ignoreErrors',
+                'grid': 'grid',
+                'extend': 'extend',
+                'variables': 'parameter-name'
             }
-            self.spatial_validations = [(lambda s: is_wkt_valid(s.wkt), f'WKT {spatial.wkt} is not valid'),]
+            self.spatial_validations = [
+                (lambda s: is_wkt_valid(s.wkt), f'WKT {spatial.wkt} is not valid'),
+            ]
         else:
             self.variable_name_to_query_param = {
-            'crs': 'outputcrs',
-            'destination_url': 'destinationUrl',
-            'interpolation': 'interpolation',
-            'scale_extent': 'scaleExtent',
-            'scale_size': 'scaleSize',
-            'shape': 'shapefile',
-            'granule_id': 'granuleId',
-            'granule_name': 'granuleName',
-            'width': 'width',
-            'height': 'height',
-            'format': 'format',
-            'max_results': 'maxResults',
-            'concatenate': 'concatenate',
-            'skip_preview': 'skipPreview',
-            'ignore_errors': 'ignoreErrors',
-            'grid': 'grid',
-            'extend': 'extend',
-            'variables': 'variable'
+                'crs': 'outputcrs',
+                'destination_url': 'destinationUrl',
+                'interpolation': 'interpolation',
+                'scale_extent': 'scaleExtent',
+                'scale_size': 'scaleSize',
+                'shape': 'shapefile',
+                'granule_id': 'granuleId',
+                'granule_name': 'granuleName',
+                'width': 'width',
+                'height': 'height',
+                'format': 'format',
+                'max_results': 'maxResults',
+                'concatenate': 'concatenate',
+                'skip_preview': 'skipPreview',
+                'ignore_errors': 'ignoreErrors',
+                'grid': 'grid',
+                'extend': 'extend',
+                'variables': 'variable'
             }
 
             self.spatial_validations = [
@@ -449,7 +456,8 @@ class Request(BaseRequest):
         return []
 
     def is_edr_request(self) -> bool:
-        """Return true if the request needs to be submitted as an EDR request, i.e. Spatial is WKT."""
+        """Return true if the request needs to be submitted as an EDR request,
+        i.e. Spatial is WKT."""
         return isinstance(self.spatial, WKT)
 
     def error_messages(self) -> List[str]:
@@ -636,7 +644,7 @@ class Client:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
         if not isinstance(request, CapabilitiesRequest):
-            if  request.is_edr_request():
+            if request.is_edr_request():
                 params['forceAsync'] = True
                 if request.spatial:
                     params['coords'] = request.spatial.wkt
@@ -822,9 +830,9 @@ class Client:
 
                 if request.is_edr_request():
                     r = requests.models.Request('POST',
-                                            self._submit_url(request),
-                                            json=params,
-                                            headers=headers)
+                                                self._submit_url(request),
+                                                json=params,
+                                                headers=headers)
                 else:
                     param_items = self._params_dict_to_files(params)
                     file_items = [(k, v) for k, v in files.items()]
