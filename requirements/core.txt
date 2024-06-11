@@ -4,3 +4,4 @@ progressbar2 ~= 4.2.0
 requests ~= 2.28
 sphinxcontrib-napoleon ~= 0.7
 curlify ~= 2.2.1
+shapely ~= 2.0.4
