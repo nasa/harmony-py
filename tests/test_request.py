@@ -165,9 +165,9 @@ def test_request_dimensions_error_messages(value):
     assert message in messages
 
 @pytest.mark.parametrize('key, value, message', [
-    ('spatial', WKT('BBOX(-140,20,-50,60)'), 'WKT BBOX(-140,20,-50,60) is not valid'),
-    ('spatial', WKT('APOINT(0 51.48)'), 'WKT APOINT(0 51.48) is not valid'),
-    ('spatial', WKT('CIRCULARSTRING(0 0, 1 1, 1 0)'), 'WKT CIRCULARSTRING(0 0, 1 1, 1 0) is not valid'),
+    ('spatial', WKT('BBOX(-140,20,-50,60)'), 'WKT BBOX(-140,20,-50,60) is invalid'),
+    ('spatial', WKT('APOINT(0 51.48)'), 'WKT APOINT(0 51.48) is invalid'),
+    ('spatial', WKT('CIRCULARSTRING(0 0, 1 1, 1 0)'), 'WKT CIRCULARSTRING(0 0, 1 1, 1 0) is invalid'),
 ])
 def test_request_spatial_error_messages(key, value, message):
     request = Request(Collection('foo'), **{key: value})

@@ -151,16 +151,16 @@ class BBox(NamedTuple):
 
 
 class WKT:
-    """The WKT represntation of Spatial."""
+    """The Well Known Text (WKT) representation of Spatial."""
 
     def __init__(self, wkt: str):
-        """Constructs a WKT of spatial area.
+        """Constructs a WKT instance of spatial area.
 
         Args:
-            wkt: WKT string
+            wkt: the WKT string
 
         Returns:
-            A WKT
+            A WKT instance
         """
         self.wkt = wkt
 
@@ -382,7 +382,7 @@ class Request(BaseRequest):
                 'variables': 'parameter-name'
             }
             self.spatial_validations = [
-                (lambda s: is_wkt_valid(s.wkt), f'WKT {spatial.wkt} is not valid'),
+                (lambda s: is_wkt_valid(s.wkt), f'WKT {spatial.wkt} is invalid'),
             ]
         else:
             self.variable_name_to_query_param = {
