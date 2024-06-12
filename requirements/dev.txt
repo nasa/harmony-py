@@ -12,6 +12,6 @@ pytest-cov ~= 2.11
 pytest-mock ~= 3.5
 pytest-watch ~= 4.2
 responses ~= 0.12
-setuptools >= 54.2
+setuptools >= 65.5.1
 sphinx ~= 7.1.2
 wheel >= 0.36
