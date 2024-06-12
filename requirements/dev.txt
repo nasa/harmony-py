@@ -7,4 +7,3 @@ pytest-cov ~= 2.11
 pytest-mock ~= 3.5
 pytest-watch ~= 4.2
 responses ~= 0.12
-setuptools >= 65.5.1
