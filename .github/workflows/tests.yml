@@ -28,5 +28,6 @@ jobs:
     - name: Archive code coverage results
       uses: actions/upload-artifact@v4
       with:
-        name: code-coverage-report
+        name: code-coverage-report ${{ github.event.pull_request.head.sha }}
         path: htmlcov/*
+      if: ${{ github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize') }}
