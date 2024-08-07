@@ -48,8 +48,6 @@ setup(
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
@@ -58,7 +56,7 @@ setup(
     ],
     keywords='nasa, harmony, remote-sensing, science, geoscience',
     packages=find_packages(exclude=['tests']),
-    python_requires='>=3.6, <4',
+    python_requires='>=3.8, <4',
     install_requires=DEPENDENCIES,
     extras_require={
         'dev': DEV_DEPENDENCIES,
