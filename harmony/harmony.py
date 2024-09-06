@@ -607,6 +607,20 @@ class Client:
         method = 'GET' if isinstance(request, CapabilitiesRequest) else 'POST'
         return method
 
+    def _wkt_to_edr_route(self, wkt_string: str) -> str:
+        """Returns the EDR route for the given WKT string."""
+        # Load the WKT string into a Shapely geometry object
+        geometry = loads(wkt_string)
+
+        if geometry.geom_type == 'Polygon' or geometry.geom_type == 'MultiPolygon':
+            return 'area'
+        elif geometry.geom_type == 'Point' or geometry.geom_type == 'MultiPoint':
+            return 'position'
+        elif geometry.geom_type == 'LineString' or geometry.geom_type == 'MultiLineString':
+            return 'trajectory'
+        else:
+            raise Exception(f"Unsupported geometry type: {geometry.geom_type}")
+
     def _submit_url(self, request: BaseRequest) -> str:
         """Constructs the URL for the request that is used to submit a new Harmony Job."""
         if isinstance(request, CapabilitiesRequest):
@@ -616,7 +630,7 @@ class Client:
                 f'{self.config.root_url}'
                 f'/ogc-api-edr/1.1.0/collections'
                 f'/{request.collection.id}'
-                f'/area'
+                f'/{self._wkt_to_edr_route(request.spatial.wkt)}'
             )
         else:
             return (
