@@ -156,8 +156,11 @@ class WKT:
 
     Example:
         spatial=WKT('POINT(-40 10)')
+
         spatial=WKT('MULTIPOINT((-77 38.9),(-40 10))')
+
         spatial=WKT('POLYGON((-140 20, -50 20, -50 60, -140 60, -140 20))')
+
         spatial=WKT('MULTIPOLYGON(((10 10, 20 20, 30 10, 10 10)),((40 40, 50 50, 60 40, 40 40)))')
     """
 
