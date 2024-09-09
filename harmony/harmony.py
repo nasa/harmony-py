@@ -151,7 +151,15 @@ class BBox(NamedTuple):
 
 
 class WKT:
-    """The Well Known Text (WKT) representation of Spatial."""
+    """The Well Known Text (WKT) representation of Spatial.
+    Supported WKT geometry types are: POINT, MULTIPOINT, POLYGON, MULTIPOLYGON.
+
+    Example:
+        spatial=WKT('POINT(-40 10)')
+        spatial=WKT('MULTIPOINT((-77 38.9),(-40 10))')
+        spatial=WKT('POLYGON((-140 20, -50 20, -50 60, -140 60, -140 20))')
+        spatial=WKT('MULTIPOLYGON(((10 10, 20 20, 30 10, 10 10)),((40 40, 50 50, 60 40, 40 40)))')
+    """
 
     def __init__(self, wkt: str):
         """Constructs a WKT instance of spatial area.
@@ -256,7 +264,8 @@ class Request(BaseRequest):
     Args:
         collection: The CMR collection that should be queried
 
-        spatial: Bounding box spatial constraints on the data
+        spatial: Bounding box spatial constraints on the data or Well Known Text (WKT) string
+          describing the spatial constraints.
 
         temporal: Date/time constraints on the data provided as a dict mapping "start" and "stop"
           keys to corresponding start/stop datetime.datetime objects
