@@ -152,7 +152,8 @@ class BBox(NamedTuple):
 
 class WKT:
     """The Well Known Text (WKT) representation of Spatial.
-    Supported WKT geometry types are: POINT, MULTIPOINT, POLYGON, MULTIPOLYGON.
+    Supported WKT geometry types are:
+    POINT, MULTIPOINT, POLYGON, MULTIPOLYGON, LINESTRING and MULTILINESTRING.
 
     Example:
         spatial=WKT('POINT(-40 10)')
@@ -162,6 +163,10 @@ class WKT:
         spatial=WKT('POLYGON((-140 20, -50 20, -50 60, -140 60, -140 20))')
 
         spatial=WKT('MULTIPOLYGON(((10 10, 20 20, 30 10, 10 10)),((40 40, 50 50, 60 40, 40 40)))')
+
+        spatial=WKT('LINESTRING(-155.75 19.26, -155.3 19.94)')
+
+        spatial=WKT('MULTILINESTRING((-155.75 19.26, -155.3 19.94),(10 1, 10 30))')
     """
 
     def __init__(self, wkt: str):
