@@ -692,11 +692,11 @@ class Client:
         skipped_params = ['shapefile']
         query_params = [pv for pv in request.parameter_values() if pv[0] not in skipped_params]
         for p, val in query_params:
-            if type(val) == str:
+            if isinstance(val, str):
                 params[p] = val
-            elif type(val) == bool:
+            elif isinstance(val, bool):
                 params[p] = str(val).lower()
-            elif type(val) == list and type(val[0]) != str:
+            elif isinstance(val, list) and not isinstance(val[0], str):
                 params[p] = ','.join([str(v) for v in val])
             else:
                 params[p] = val

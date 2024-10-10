@@ -1,0 +1,60 @@
+# License and classifier list:
+# https://pypi.org/pypi?%3Aaction=list_classifiers
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "harmony-py"
+description = "Python library for integrating with NASA's Harmony Services."
+authors = [
+    {name = "NASA EOSDIS Harmony Team", email = "christopher.d.durbin@nasa.gov"}
+]
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.8, <4"
+keywords = ["nasa", "harmony", "remote-sensing", "science", "geoscience"]
+classifiers = [
+    'Development Status :: 3 - Alpha',
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dynamic = ["dependencies", "optional-dependencies", "version"]
+
+[project.urls]
+Homepage = "https://github.com/nasa/harmony-py"
+Documentation = "https://harmony-py.readthedocs.io/en/main/"
+Repository = "https://github.com/nasa/harmony-py.git"
+
+[project.dependencies]
+dependencies = ["-r requirements/core.txt"]
+
+[project.optional-dependencies]
+dev = ["-r requirements/dev.txt"]
+docs = ["-r requirements/docs.txt"]
+examples = ["-r requirements/examples.txt"]
+
+[tool.setuptools.dynamic]
+# Will read __version__ from harmony.__init__.py
+version = {attr = "harmony.__version__"}
+
+[tool.setuptools.packages.find]
+exclude = ["contrib", "docs", "tests*"]
+
+[tool.setuptools]
+include_package_data = true
+
+[tool.setuptools.test]
+test_suite = "tests"
+
+[tool.flake8]
+max-line-length = 99
+ignore = ["F401", "W503"]
+
