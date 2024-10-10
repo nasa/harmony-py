@@ -1,11 +1,10 @@
 # Include the README, et. al.
 include *.md
 
-# Include the license file
+# Include license and setup files
 include LICENSE
-
-# Include setup.py
 include setup.py
+include pyproject.toml
 
 # include requirements files opened in setup.py
 graft requirements
