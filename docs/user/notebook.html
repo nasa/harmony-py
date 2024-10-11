@@ -7495,12 +7495,12 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In [1]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span><span class="p">;</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">'..'</span><span class="p">)</span>
-<span class="o">!{</span>sys.executable<span class="o">}</span><span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-q<span class="w"> </span>-r<span class="w"> </span>../requirements/examples.txt
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">helper</span>
 
-<span class="c1"># Install harmony-py requirements.  Not necessary if you ran `pip install harmony-py` in your kernel</span>
-<span class="o">!{</span>sys.executable<span class="o">}</span><span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-q<span class="w"> </span>-r<span class="w"> </span>../requirements/core.txt
+<span class="c1"># Install the project and 'examples' dependencies</span>
+<span class="n">helper</span><span class="o">.</span><span class="n">install_project_and_dependencies</span><span class="p">(</span><span class="s1">'..'</span><span class="p">,</span> <span class="n">libs</span><span class="o">=</span><span class="p">[</span><span class="s1">'examples'</span><span class="p">])</span>
 
+<span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">datetime</span> <span class="k">as</span> <span class="nn">dt</span>
 <span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">display</span><span class="p">,</span> <span class="n">JSON</span>
 <span class="kn">import</span> <span class="nn">rasterio</span>
@@ -7508,7 +7508,7 @@ a.anchor-link {
 <span class="kn">import</span> <span class="nn">netCDF4</span> <span class="k">as</span> <span class="nn">nc4</span>
 <span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">helper</span>
+
 
 <span class="kn">from</span> <span class="nn">harmony</span> <span class="kn">import</span> <span class="n">BBox</span><span class="p">,</span> <span class="n">WKT</span><span class="p">,</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">Request</span><span class="p">,</span> <span class="n">Environment</span>
 </pre></div>
@@ -7719,7 +7719,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>/tmp/4856803_2020_01_01_7f00ff_global_blue_var_regridded_subsetted.tif
+<pre>/tmp/4857471_2020_01_01_7f00ff_global_blue_var_regridded_subsetted.tif
 </pre>
 </div>
 </div>
@@ -7732,7 +7732,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>/tmp/4856804_2020_01_01_7f00ff_global_blue_var_regridded_subsetted.tif
+<pre>/tmp/4857470_2020_01_01_7f00ff_global_blue_var_regridded_subsetted.tif
 </pre>
 </div>
 </div>
@@ -7745,7 +7745,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>/tmp/4856805_2020_01_02_3200ff_global_blue_var_regridded_subsetted.tif
+<pre>/tmp/4857472_2020_01_02_3200ff_global_blue_var_regridded_subsetted.tif
 </pre>
 </div>
 </div>
@@ -7758,7 +7758,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>/tmp/4856806_2020_01_03_0019ff_global_blue_var_regridded_subsetted.tif
+<pre>/tmp/4857473_2020_01_03_0019ff_global_blue_var_regridded_subsetted.tif
 </pre>
 </div>
 </div>
@@ -7771,7 +7771,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>/tmp/4856807_2020_01_04_0065ff_global_blue_var_regridded_subsetted.tif
+<pre>/tmp/4857474_2020_01_04_0065ff_global_blue_var_regridded_subsetted.tif
 </pre>
 </div>
 </div>
@@ -7784,7 +7784,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>/tmp/4856808_2020_01_05_00b2ff_global_blue_var_regridded_subsetted.tif
+<pre>/tmp/4857475_2020_01_05_00b2ff_global_blue_var_regridded_subsetted.tif
 </pre>
 </div>
 </div>
@@ -7797,7 +7797,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>/tmp/4856809_2020_01_06_00feff_global_blue_var_regridded_subsetted.tif
+<pre>/tmp/4857476_2020_01_06_00feff_global_blue_var_regridded_subsetted.tif
 </pre>
 </div>
 </div>
@@ -7810,7 +7810,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>/tmp/4856810_2020_01_07_00ffb2_global_blue_var_regridded_subsetted.tif
+<pre>/tmp/4857477_2020_01_07_00ffb2_global_blue_var_regridded_subsetted.tif
 </pre>
 </div>
 </div>
@@ -7823,7 +7823,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>/tmp/4856811_2020_01_08_00ff66_global_blue_var_regridded_subsetted.tif
+<pre>/tmp/4857478_2020_01_08_00ff66_global_blue_var_regridded_subsetted.tif
 </pre>
 </div>
 </div>
@@ -7836,7 +7836,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>/tmp/4856812_2020_01_09_00ff19_global_blue_var_regridded_subsetted.tif
+<pre>/tmp/4857479_2020_01_09_00ff19_global_blue_var_regridded_subsetted.tif
 </pre>
 </div>
 </div>
@@ -8009,7 +8009,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
 <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[11]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>&lt;matplotlib.image.AxesImage at 0x1271cefd0&gt;</pre>
+<pre>&lt;matplotlib.image.AxesImage at 0x127e9ac90&gt;</pre>
 </div>
 </div>
 <div class="jp-OutputArea-child">
@@ -8060,7 +8060,7 @@ a.anchor-link {
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
 <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[12]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>'3d9ff057-50af-430b-bc9c-8edd13430078'</pre>
+<pre>'123009cc-8c6d-4f2c-8d04-8fe10ee30d82'</pre>
 </div>
 </div>
 </div>
@@ -8192,7 +8192,7 @@ root group (NETCDF4 data model, file format HDF5):
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
 <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[15]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>'b049d8f3-6fea-439b-aad6-60da59dcf1f7'</pre>
+<pre>'0248674b-0d72-4688-8783-a869d8841db4'</pre>
 </div>
 </div>
 </div>
@@ -8232,7 +8232,7 @@ root group (NETCDF4 data model, file format HDF5):
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
 <pre>
-  /tmp/4856817_001_00_7f00ff_global_blue_var_regridded.nc.png
+  /tmp/4857488_001_00_7f00ff_global_blue_var_regridded.nc.png
 </pre>
 </div>
 </div>

@@ -26,20 +26,57 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3 :: Only",
 ]
-dynamic = ["dependencies", "optional-dependencies", "version"]
+dynamic = ["version"]
+dependencies = [
+    "python-dateutil ~= 2.8.2",
+    "python-dotenv ~= 0.20.0",
+    "progressbar2 ~= 4.2.0",
+    "requests ~= 2.32.3",
+    "sphinxcontrib-napoleon ~= 0.7",
+    "curlify ~= 2.2.1",
+    "shapely ~= 2.0.4"
+]
 
 [project.urls]
 Homepage = "https://github.com/nasa/harmony-py"
 Documentation = "https://harmony-py.readthedocs.io/en/main/"
 Repository = "https://github.com/nasa/harmony-py.git"
 
-[project.dependencies]
-dependencies = ["-r requirements/core.txt"]
-
 [project.optional-dependencies]
-dev = ["-r requirements/dev.txt"]
-docs = ["-r requirements/docs.txt"]
-examples = ["-r requirements/examples.txt"]
+dev = [
+    "coverage ~= 5.4",
+    "flake8 ~= 7.1.1",
+    "hypothesis ~= 6.2",
+    "PyYAML ~= 6.0.1",
+    "pytest ~= 6.2",
+    "pytest-cov ~= 2.11",
+    "pytest-mock ~= 3.5",
+    "pytest-watch ~= 4.2",
+    "responses ~= 0.25.3"
+]
+docs = [
+    "curlify ~= 2.2.1",
+    "Jinja2 ~= 3.1.2",
+    "load-dotenv ~=0.1.0",
+    "nbconvert ~= 7.10.0",
+    "progressbar2 ~= 4.2.0",
+    "sphinx ~= 7.1.2",
+    "sphinx-rtd-theme ~= 1.3.0",
+    "shapely ~= 2.0.4"
+]
+examples = [
+    "boto3 ~= 1.28",
+    "intake-stac ~= 0.4.0",
+    "ipyplot ~= 1.1",
+    "ipywidgets ~= 8.1",
+    "jupyterlab ~= 4.0",
+    "matplotlib ~= 3.8",
+    "netCDF4 ~= 1.6",
+    "numpy ~= 1.26",
+    "pillow ~= 10.1",  # A dependency of ipyplot, pinned to avoid critical vulnerability.
+    "pystac ~= 1.9.0",
+    "rasterio ~= 1.3"
+]
 
 [tool.setuptools.dynamic]
 # Will read __version__ from harmony.__init__.py
@@ -47,12 +84,6 @@ version = {attr = "harmony.__version__"}
 
 [tool.setuptools.packages.find]
 exclude = ["contrib", "docs", "tests*"]
-
-[tool.setuptools]
-include_package_data = true
-
-[tool.setuptools.test]
-test_suite = "tests"
 
 [tool.flake8]
 max-line-length = 99

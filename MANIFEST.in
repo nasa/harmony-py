@@ -6,5 +6,3 @@ include LICENSE
 include setup.py
 include pyproject.toml
 
-# include requirements files opened in setup.py
-graft requirements

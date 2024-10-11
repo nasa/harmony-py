@@ -15,7 +15,10 @@ build:
 sphinx:
    configuration: docs/conf.py
 
-# Optionally set the version of Python and requirements required to build your docs
+# Install Python dependencies using pyproject.toml
 python:
    install:
-   - requirements: requirements/docs.txt
+     - method: pip
+       path: .
+       extra_requirements:
+         - docs
