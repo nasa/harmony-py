@@ -15,10 +15,11 @@ clean-docs:
 
 install:
 	python -m pip install --upgrade pip
-	pip install -r requirements/core.txt -r requirements/dev.txt -r requirements/docs.txt
+	pip install .
+	pip install .[dev,docs]
 
 install-examples: install
-	pip install -r requirements/examples.txt
+	pip install .[examples]
 
 examples: install-examples
 	jupyter-lab
