@@ -3,6 +3,5 @@ include *.md
 
 # Include license and setup files
 include LICENSE
-include setup.py
 include pyproject.toml
 

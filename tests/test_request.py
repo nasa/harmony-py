@@ -208,8 +208,8 @@ def test_request_valid_shape():
 
 @pytest.mark.parametrize('key, value, messages', [
     ('shape', './tests/', ['The provided shape path "./tests/" is not a file']),
-    ('shape', './setup.py',
-     ['The provided shape path "./setup.py" has extension "py" which is not recognized.  '
+    ('shape', './pyproject.toml',
+     ['The provided shape path "./pyproject.toml" has extension "toml" which is not recognized.  '
       + 'Valid file extensions: [json, geojson, kml, shz, zip]']),
 ])
 def test_request_shape_file_error_message(key, value, messages):

@@ -19,7 +19,7 @@ def install_project_and_dependencies(project_root, libs=None):
     Change to the project root, install the project and its optional dependencies,
     then switch back to the original directory.
 
-    :param project_root: Path to the project root directory where pyproject.toml or setup.py is located.
+    :param project_root: Path to the project root directory where pyproject.toml is located.
     :param libs: List of optional pip extra dependencies (e.g., ['examples', 'dev']).
     """
     # Save the current working directory
