@@ -36,6 +36,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple, Optional, \
     Tuple, Generator, Union
+from urllib import parse
 
 import curlify
 import dateutil.parser
@@ -1308,10 +1309,17 @@ class Client:
                 print(filename)
             return filename
         else:
+            data_dict = {}
+            parse_result = parse.urlparse(url)
+            is_opendap = parse_result.netloc.startswith('opendap')
+            method = 'post' if is_opendap else 'get'
+            if is_opendap: # remove the query params from the URL and convert to dict
+                url = parse.urlunparse(parse_result._replace(query=""))
+                data_dict = dict(parse.parse_qsl(parse.urlsplit(url).query))
             headers = {
                 "Accept-Encoding": "identity"
             }
-            with session.get(url, stream=True, headers=headers) as r:
+            with getattr(session, method)(url, data=data_dict, stream=True, headers=headers) as r:
                 with open(filename, 'wb') as f:
                     shutil.copyfileobj(r.raw, f, length=chunksize)
             if verbose and verbose.upper() == 'TRUE':
