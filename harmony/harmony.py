@@ -1309,7 +1309,7 @@ class Client:
                 print(filename)
             return filename
         else:
-            data_dict = {}
+            data_dict = None
             parse_result = parse.urlparse(url)
             is_opendap = parse_result.netloc.startswith('opendap')
             method = 'post' if is_opendap else 'get'
