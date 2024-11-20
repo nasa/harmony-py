@@ -1243,6 +1243,8 @@ class Client:
         Returns:
             A boolean indicating whether the data is staged data.
         """
+        if 'harmony' not in url:
+            return False
         url_parts = url.split('/')
         possible_uuid = url_parts[-3]
         possible_item_id = url_parts[-2]
@@ -1266,10 +1268,11 @@ class Client:
         Returns:
             The filename that will be used to name the downloaded file.
         """
-        url_parts = url.split('/')
+        url_no_query = parse.urlunparse(parse.urlparse(url)._replace(query=""))
+        url_parts = url_no_query.split('/')
         original_filename = url_parts[-1]
 
-        is_staged_result = self._is_staged_result(url)
+        is_staged_result = self._is_staged_result(url_no_query)
         if not is_staged_result:
             return original_filename
         item_id = url_parts[-2]
