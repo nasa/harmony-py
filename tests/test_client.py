@@ -1019,16 +1019,16 @@ def test_download_opendap_file():
         file_obj.write(expected_data)
         file_obj.seek(0)
         with responses.RequestsMock() as resp_mock:
-            resp_mock.add(responses.POST, path + expected_filename, body=file_obj.read(), stream=True)
+            resp_mock.add(responses.POST, path + expected_filename, body=file_obj.read(), stream=True,
+                match=[responses.matchers.urlencoded_params_matcher({"dap4.ce": "/ds_surf_type[0:1:4]"})])
             client = Client(should_validate_auth=False)
             actual_output = client._download_file(url, overwrite=False)
-    
-    # TODO assert POST body params are as expected
     
     assert actual_output == expected_filename
     with open(expected_filename, 'rb') as temp_file:
         data = temp_file.read()
         assert data == expected_data
+
     os.unlink(actual_output)
 
 def test_download_all(mocker):
