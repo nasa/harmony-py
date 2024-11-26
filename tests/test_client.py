@@ -1009,17 +1009,18 @@ def test_download_file(overwrite):
 
 def test_download_opendap_file():
     expected_data = bytes('abcde', encoding='utf-8')
-    expected_filename = 'SC:ATL03.006:264549068'
+    filename = 'SC:ATL03.006:264549068'
+    expected_filename = 'SC_ATL03.006_264549068'
     query = '?dap4.ce=/ds_surf_type[0:1:4]'
     path = 'https://opendap.uat.earthdata.nasa.gov/collections/C1261703111-EEDTEST/granules/'
-    url = path + expected_filename + query
+    url = path + filename + query
     actual_output = None
 
     with io.BytesIO() as file_obj:
         file_obj.write(expected_data)
         file_obj.seek(0)
         with responses.RequestsMock() as resp_mock:
-            resp_mock.add(responses.POST, path + expected_filename, body=file_obj.read(), stream=True,
+            resp_mock.add(responses.POST, path + filename, body=file_obj.read(), stream=True,
                 match=[responses.matchers.urlencoded_params_matcher({"dap4.ce": "/ds_surf_type[0:1:4]"})])
             client = Client(should_validate_auth=False)
             actual_output = client._download_file(url, overwrite=False)
