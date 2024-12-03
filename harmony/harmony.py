@@ -1276,7 +1276,7 @@ class Client:
         is_staged_result = self._is_staged_result(url_no_query)
         if not is_staged_result:
             name_result = original_filename
-        else:    
+        else:
             item_id = url_parts[-2]
             name_result = f'{item_id}_{original_filename}'
         return name_result.replace(':', '_')
