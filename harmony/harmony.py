@@ -1268,15 +1268,18 @@ class Client:
         Returns:
             The filename that will be used to name the downloaded file.
         """
+        name_result = None
         url_no_query = parse.urlunparse(parse.urlparse(url)._replace(query=""))
         url_parts = url_no_query.split('/')
         original_filename = url_parts[-1]
 
         is_staged_result = self._is_staged_result(url_no_query)
         if not is_staged_result:
-            return original_filename
-        item_id = url_parts[-2]
-        return f'{item_id}_{original_filename}'
+            name_result = original_filename
+        else:
+            item_id = url_parts[-2]
+            name_result = f'{item_id}_{original_filename}'
+        return name_result.replace(':', '_')
 
     def _download_file(self, url: str, directory: str = '', overwrite: bool = False) -> str:
         """Downloads data, saves it to a file, and returns the filename.
