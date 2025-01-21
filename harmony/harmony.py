@@ -48,7 +48,7 @@ from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
 from harmony import __version__ as harmony_version
 
-DEFAULT_JOB_LABEL = "harmony_py"
+DEFAULT_JOB_LABEL = "harmony-py"
 
 progressbar_widgets = [
     ' [ Processing: ', progressbar.Percentage(), ' ] ',
