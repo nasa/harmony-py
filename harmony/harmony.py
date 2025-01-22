@@ -677,6 +677,9 @@ class Client:
 
     def _cloud_access_url(self) -> str:
         return f'{self.config.root_url}/cloud-access'
+    
+    def _labels_url(self) -> str:
+        return f'{self.config.root_url}/labels'
 
     def _params(self, request: BaseRequest) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
@@ -1097,6 +1100,25 @@ class Client:
         if response.ok:
             json = response.json()
             return int(json['progress']), json['status'], json['message']
+        else:
+            self._handle_error_response(response)
+
+    def label(self, job_ids: List[str], labels: List[str]) -> dict:
+        """Add one or more labels to one or more of your jobs.
+
+        Args:
+            job_ids: IDs of the jobsto label.
+            labels: Labels to add to the jobs.
+
+        Returns:
+
+        Raises:
+            
+        """
+        session = self._session()
+        response = session.put(self._labels_url, data={ 'jobId': job_ids, 'label' : labels })
+        if response.ok:
+            return 'The labels were added successfully.'
         else:
             self._handle_error_response(response)
 
