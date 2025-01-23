@@ -48,6 +48,8 @@ from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
 from harmony import __version__ as harmony_version
 
+DEFAULT_JOB_LABEL = "harmony-py"
+
 progressbar_widgets = [
     ' [ Processing: ', progressbar.Percentage(), ' ] ',
     progressbar.Bar(),
@@ -352,7 +354,8 @@ class Request(BaseRequest):
                  concatenate: bool = None,
                  skip_preview: bool = None,
                  ignore_errors: bool = None,
-                 grid: str = None):
+                 grid: str = None,
+                 labels: List[str] = None):
         """Creates a new Request instance from all specified criteria.'
         """
         super().__init__(collection=collection)
@@ -377,6 +380,7 @@ class Request(BaseRequest):
         self.skip_preview = skip_preview
         self.ignore_errors = ignore_errors
         self.grid = grid
+        self.labels = labels
 
         if self.is_edr_request():
             self.variable_name_to_query_param = {
@@ -397,7 +401,8 @@ class Request(BaseRequest):
                 'ignore_errors': 'ignoreErrors',
                 'grid': 'grid',
                 'extend': 'extend',
-                'variables': 'parameter-name'
+                'variables': 'parameter-name',
+                'labels': 'label',
             }
             self.spatial_validations = [
                 (lambda s: is_wkt_valid(s.wkt), f'WKT {spatial.wkt} is invalid'),
@@ -421,7 +426,8 @@ class Request(BaseRequest):
                 'ignore_errors': 'ignoreErrors',
                 'grid': 'grid',
                 'extend': 'extend',
-                'variables': 'variable'
+                'variables': 'variable',
+                'labels': 'label',
             }
 
             self.spatial_validations = [
@@ -694,6 +700,10 @@ class Client:
 
                 if len(subset) > 0:
                     params['subset'] = subset
+            if (os.getenv('EXCLUDE_DEFAULT_LABEL') != 'true'):
+                labels = getattr(params, 'labels', [])
+                labels.append(DEFAULT_JOB_LABEL)
+                params['label'] = labels
 
         skipped_params = ['shapefile']
         query_params = [pv for pv in request.parameter_values() if pv[0] not in skipped_params]
@@ -1235,7 +1245,7 @@ class Client:
 
     def _is_staged_result(self, url: str) -> str:
         """Check if the URL indicates that the data is associated with actual
-        service ouputs (as opposed to a download link for example).
+        service outputs (as opposed to a download link for example).
 
         Args:
             url: The location (URL) of the file to be downloaded

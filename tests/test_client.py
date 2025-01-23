@@ -12,7 +12,7 @@ import pytest
 import responses
 
 from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Dimension
-from harmony.harmony import Request, CapabilitiesRequest
+from harmony.harmony import Request, CapabilitiesRequest, DEFAULT_JOB_LABEL
 
 
 @pytest.fixture()
@@ -94,6 +94,8 @@ def construct_expected_params(query_string):
         else:
             # Add the key-value pair to the dictionary
             expected_params[key] = value
+    if (os.getenv('EXCLUDE_DEFAULT_LABEL') != 'true'):
+            expected_params['label'] = DEFAULT_JOB_LABEL
     return expected_params
 
 def is_expected_url_and_form_encoded_body(harmony_request, http_request):
@@ -520,6 +522,52 @@ def test_post_request_has_user_agent_headers(examples_dir):
     assert re.match(
         expected_user_agent_header_regex(), user_agent_header
     )
+
+@responses.activate
+def test_post_request_has_default_label(examples_dir):
+    collection = Collection('foobar')
+    request = Request(
+        collection=collection,
+        shape=os.path.join(examples_dir, 'asf_example.json'),
+        spatial=BBox(-107, 40, -105, 42),
+    )
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, 'abcd-1234'),
+    )
+
+    Client(should_validate_auth=False).submit(request)
+    form_data_params = parse_multipart_data(responses.calls[0].request)
+    label = form_data_params['label']
+    assert label == DEFAULT_JOB_LABEL
+
+@responses.activate
+def test_post_request_can_skip_default_label(examples_dir):
+    collection = Collection('foobar')
+    request = Request(
+        collection=collection,
+        shape=os.path.join(examples_dir, 'asf_example.json'),
+        spatial=BBox(-107, 40, -105, 42),
+    )
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, 'abcd-1234'),
+    )
+
+    origninal_exclude_label = os.getenv('EXCLUDE_DEFAULT_LABEL')
+
+    os.environ['EXCLUDE_DEFAULT_LABEL'] = 'true'
+
+    Client(should_validate_auth=False).submit(request)
+    form_data_params = parse_multipart_data(responses.calls[0].request)
+    assert 'label' not in form_data_params
+
+    os.environ['EXCLUDE_DEFAULT_LABEL'] = origninal_exclude_label or ''
+
 
 @pytest.mark.parametrize('param,expected', [
     ({'crs': 'epsg:3141'}, 'outputcrs=epsg:3141'),
@@ -1024,7 +1072,6 @@ def test_download_opendap_file():
                 match=[responses.matchers.urlencoded_params_matcher({"dap4.ce": "/ds_surf_type[0:1:4]"})])
             client = Client(should_validate_auth=False)
             actual_output = client._download_file(url, overwrite=False)
-    
     assert actual_output == expected_filename
     with open(expected_filename, 'rb') as temp_file:
         data = temp_file.read()
@@ -1537,7 +1584,7 @@ def test_request_as_url():
     )
 
     url = Client(should_validate_auth=False).request_as_url(request)
-    assert url == 'https://harmony.earthdata.nasa.gov/C1940468263-POCLOUD/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset?forceAsync=true&subset=lat%2840%3A42%29&subset=lon%28-107%3A-105%29&variable=all'
+    assert url == f'https://harmony.earthdata.nasa.gov/C1940468263-POCLOUD/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset?forceAsync=true&subset=lat%2840%3A42%29&subset=lon%28-107%3A-105%29&label={DEFAULT_JOB_LABEL}&variable=all'
 
 def test_request_with_shapefile_as_url(examples_dir):
     collection = Collection(id='C1940468263-POCLOUD')
