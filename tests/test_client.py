@@ -544,12 +544,34 @@ def test_post_request_has_default_label(examples_dir):
     assert label == DEFAULT_JOB_LABEL
 
 @responses.activate
-def test_post_request_can_skip_default_label(examples_dir):
+def test_user_labels_and_default_label(examples_dir):
     collection = Collection('foobar')
     request = Request(
         collection=collection,
         shape=os.path.join(examples_dir, 'asf_example.json'),
         spatial=BBox(-107, 40, -105, 42),
+        labels=['one', 'two'],
+    )
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, 'abcd-1234'),
+    )
+
+    Client(should_validate_auth=False).submit(request)
+    form_data_params = parse_multipart_data(responses.calls[0].request)
+    label = form_data_params['label']
+    assert label == ['one', 'two', DEFAULT_JOB_LABEL]
+
+@responses.activate
+def test_user_labels_and_no_default_label(examples_dir):
+    collection = Collection('foobar')
+    request = Request(
+        collection=collection,
+        shape=os.path.join(examples_dir, 'asf_example.json'),
+        spatial=BBox(-107, 40, -105, 42),
+        labels=['one', 'two'],
     )
     responses.add(
         responses.POST,
@@ -564,7 +586,8 @@ def test_post_request_can_skip_default_label(examples_dir):
 
     Client(should_validate_auth=False).submit(request)
     form_data_params = parse_multipart_data(responses.calls[0].request)
-    assert 'label' not in form_data_params
+    label = form_data_params['label']
+    assert label == ['one', 'two']
 
     os.environ['EXCLUDE_DEFAULT_LABEL'] = origninal_exclude_label or ''
 

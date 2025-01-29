@@ -29,7 +29,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "python-dateutil ~= 2.8.2",
+    "python-dateutil ~= 2.9",
     "python-dotenv ~= 0.20.0",
     "progressbar2 ~= 4.2.0",
     "requests ~= 2.32.3",
@@ -45,15 +45,15 @@ Repository = "https://github.com/nasa/harmony-py.git"
 
 [project.optional-dependencies]
 dev = [
-    "coverage ~= 5.4",
+    "coverage ~= 7.4",
     "flake8 ~= 7.1.1",
-    "hypothesis ~= 6.2",
+    "hypothesis ~= 6.103",
     "PyYAML ~= 6.0.1",
-    "pytest ~= 6.2",
-    "pytest-cov ~= 2.11",
-    "pytest-mock ~= 3.5",
+    "pytest ~= 8.2",
+    "pytest-cov ~= 5.0",
+    "pytest-mock ~= 3.14",
     "pytest-watch ~= 4.2",
-    "responses ~= 0.25.3"
+    "responses ~= 0.25.6"
 ]
 docs = [
     "curlify ~= 2.2.1",
