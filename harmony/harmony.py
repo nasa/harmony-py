@@ -327,6 +327,10 @@ class Request(BaseRequest):
         grid: The name of the output grid to use for regridding requests. The name must
           match the UMM grid name in the CMR.
 
+        labels: The list of labels to include for the request. By default a 'harmony-py'
+          label is added to all requests unless the environment variable EXCLUDE_DEFAULT_LABEL
+          is set to 'true'.
+
     Returns:
         A Harmony Transformation Request instance
     """
@@ -681,6 +685,7 @@ class Client:
     def _params(self, request: BaseRequest) -> dict:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
+        skipped_params = ['shapefile']
         if not isinstance(request, CapabilitiesRequest):
             if request.is_edr_request():
                 params['forceAsync'] = True
@@ -701,11 +706,11 @@ class Client:
                 if len(subset) > 0:
                     params['subset'] = subset
             if (os.getenv('EXCLUDE_DEFAULT_LABEL') != 'true'):
-                labels = getattr(params, 'labels', [])
+                labels = request.labels or []
                 labels.append(DEFAULT_JOB_LABEL)
                 params['label'] = labels
+                skipped_params.append('label')
 
-        skipped_params = ['shapefile']
         query_params = [pv for pv in request.parameter_values() if pv[0] not in skipped_params]
         for p, val in query_params:
             if isinstance(val, str):
