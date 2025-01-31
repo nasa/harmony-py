@@ -509,12 +509,14 @@ class Request(BaseRequest):
 
 
 class CapabilitiesRequest(BaseRequest):
-    """A Harmony request to get the harmony capabilities of a CMR collection
+    """A Harmony request to get the harmony capabilities of a CMR collection.
+
+    Keyword arguments with optional collection_id, short_name and capabilities_version fields
+
     Args:
-        Keyword arguments with optional collection_id, short_name and capabilities_version fields
-        - collection_id: The CMR collection Id that should be queried
-        - short_name: The CMR collection shortName that should be queried
-        - capabilities_version: the version of the collection capabilities request api
+        collection_id: The CMR collection Id that should be queried
+        short_name: The CMR collection shortName that should be queried
+        capabilities_version: the version of the collection capabilities request api
 
     Returns:
         A Harmony Capability Request instance
@@ -556,6 +558,7 @@ class LinkType(Enum):
     """The type of URL to provide when returning links to data.
 
     s3: Returns an Amazon Web Services (AWS) S3 URL
+
     https: Returns a standard HTTP URL
     """
     s3 = 's3'
