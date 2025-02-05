@@ -242,12 +242,6 @@ class HttpMethod(Enum):
 
     This enum defines the standard HTTP methods that can be used when making requests
     to the Harmony API.
-
-    Attributes:
-        GET (str): The HTTP GET method, used for retrieving resources.
-        PUT (str): The HTTP PUT method, used for updating or replacing resources.
-        POST (str): The HTTP POST method, used for creating new resources.
-        DELETE (str): The HTTP DELETE method, used for removing resources.
     """
     GET = "GET"
     PUT = "PUT"
@@ -557,13 +551,6 @@ class CapabilitiesRequest(BaseRequest):
         capabilities_version (str, optional): The version of the collection
             capabilities request API.
 
-    Attributes:
-        collection_id (str or None): The CMR collection ID.
-        short_name (str or None): The short name of the CMR collection.
-        capabilities_version (str or None): The version of the capabilities API.
-        variable_name_to_query_param (dict): Mapping of attribute names to
-            their corresponding query parameter names.
-
     Returns:
         CapabilitiesRequest: An instance of the request configured with
         the provided parameters.
@@ -610,12 +597,6 @@ class LabelsRequest(BaseRequest):
         labels (List[str]): A list of labels to be added or removed.
         job_ids (List[str]): A list of job IDs to which the labels apply.
 
-    Attributes:
-        labels (List[str]): The labels to be created or deleted.
-        job_ids (List[str]): The IDs of the jobs associated with the labels.
-        variable_name_to_query_param (dict): Mapping of attribute names to
-            their corresponding query parameter names.
-
     Returns:
         LabelsRequest: An instance of the request configured with the provided parameters.
     """
@@ -642,12 +623,7 @@ class LabelsRequest(BaseRequest):
 
 
 class LinkType(Enum):
-    """The type of URL to provide when returning links to data.
-
-        s3: Returns an Amazon Web Services (AWS) S3 URL.
-        http: Returns a standard HTTP URL.
-        https: Returns a standard HTTPS URL.
-    """
+    """The type of URL to provide when returning links to data."""
     s3 = 's3'
     http = 'http'
     https = 'https'
