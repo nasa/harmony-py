@@ -237,8 +237,17 @@ _shapefile_exts_to_mimes = {
 _valid_shapefile_exts = ', '.join((_shapefile_exts_to_mimes.keys()))
 
 
+class HttpMethod(Enum):
+    """The http method of a harmony request.
+    """
+    GET = "GET"
+    PUT = "PUT"
+    POST = "POST"
+    DELETE = "DELETE"
+
+
 class BaseRequest:
-    """A Harmony base request with the CMR collection. It is the base class of all harmony
+    """A Harmony base request for all client requests. It is the base class of all harmony
     requests.
 
     Args:
@@ -250,9 +259,8 @@ class BaseRequest:
 
     def __init__(self,
                  *,
-                 collection: Collection):
-        self.collection = collection
-        self.variable_name_to_query_param = {}
+                 http_method: HttpMethod = HttpMethod.GET):
+        self.http_method = http_method
 
     def error_messages(self) -> List[str]:
         return []
@@ -268,7 +276,26 @@ class BaseRequest:
         return [(p, v) for p, v in pvs if v is not None]
 
 
-class Request(BaseRequest):
+class OgcBaseRequest(BaseRequest):
+    """A Harmony OGC base request with the CMR collection. It is the base class of OGC harmony
+    requests.
+
+    Args:
+        collection: The CMR collection that should be queried
+
+    Returns:
+        A Harmony Request instance
+    """
+
+    def __init__(self,
+                 *,
+                 collection: Collection):
+        super().__init__(http_method=HttpMethod.POST)
+        self.collection = collection
+        self.variable_name_to_query_param = {}
+
+
+class Request(OgcBaseRequest):
     """A Harmony request with the CMR collection and various parameters expressing
     how the data is to be transformed.
 
@@ -509,12 +536,14 @@ class Request(BaseRequest):
 
 
 class CapabilitiesRequest(BaseRequest):
-    """A Harmony request to get the harmony capabilities of a CMR collection
+    """A Harmony request to get the harmony capabilities of a CMR collection.
+
+    Keyword arguments with optional collection_id, short_name and capabilities_version fields
+
     Args:
-        Keyword arguments with optional collection_id, short_name and capabilities_version fields
-        - collection_id: The CMR collection Id that should be queried
-        - short_name: The CMR collection shortName that should be queried
-        - capabilities_version: the version of the collection capabilities request api
+        collection_id: The CMR collection Id that should be queried
+        short_name: The CMR collection shortName that should be queried
+        capabilities_version: the version of the collection capabilities request api
 
     Returns:
         A Harmony Capability Request instance
@@ -524,9 +553,7 @@ class CapabilitiesRequest(BaseRequest):
                  **request_params
                  ):
 
-        coll_identifier = request_params.get('collection_id', request_params.get('short_name'))
-
-        super().__init__(collection=coll_identifier)
+        super().__init__()
         self.collection_id = request_params.get('collection_id')
         self.short_name = request_params.get('short_name')
         self.capabilities_version = request_params.get('capabilities_version')
@@ -552,15 +579,48 @@ class CapabilitiesRequest(BaseRequest):
         return error_msgs
 
 
+class LabelsRequest(BaseRequest):
+    """A Harmony request to create or delete labels."""
+
+    def __init__(self,
+                 *,
+                 http_method: HttpMethod,
+                 labels: List[str],
+                 job_ids: List[str]
+                 ):
+        super().__init__(http_method=http_method)
+        self.labels = labels
+        self.job_ids = job_ids
+
+        self.variable_name_to_query_param = {
+                'labels': 'label',
+                'job_ids': 'jobID',
+            }
+
+    def error_messages(self) -> List[str]:
+        """A list of error messages, if any, for the request."""
+
+        return []
+
+
 class LinkType(Enum):
     """The type of URL to provide when returning links to data.
 
-    s3: Returns an Amazon Web Services (AWS) S3 URL
-    https: Returns a standard HTTP URL
+        s3: Returns an Amazon Web Services (AWS) S3 URL.
+        http: Returns a standard HTTP URL.
+        https: Returns a standard HTTPS URL.
     """
     s3 = 's3'
     http = 'http'
     https = 'https'
+
+
+# Mapping of request types to their corresponding URL endpoints
+# Uses lambda functions to dynamically construct URLs based on the request type
+request_url_map = {
+    CapabilitiesRequest: lambda self: f'{self.config.root_url}/capabilities',
+    LabelsRequest: lambda self: f'{self.config.root_url}/labels',
+}
 
 
 class Client:
@@ -632,8 +692,7 @@ class Client:
 
     def _http_method(self, request: BaseRequest) -> str:
         """Returns the HTTP method to use for the given request."""
-        method = 'GET' if isinstance(request, CapabilitiesRequest) else 'POST'
-        return method
+        return request.http_method.value
 
     def _wkt_to_edr_route(self, wkt_string: str) -> str:
         """Returns the EDR route for the given WKT string."""
@@ -651,21 +710,22 @@ class Client:
 
     def _submit_url(self, request: BaseRequest) -> str:
         """Constructs the URL for the request that is used to submit a new Harmony Job."""
-        if isinstance(request, CapabilitiesRequest):
-            return (f'{self.config.root_url}/capabilities')
-        elif request.is_edr_request():
-            return (
-                f'{self.config.root_url}'
-                f'/ogc-api-edr/1.1.0/collections'
-                f'/{request.collection.id}'
-                f'/{self._wkt_to_edr_route(request.spatial.wkt)}'
-            )
+        if isinstance(request, OgcBaseRequest):
+            if request.is_edr_request():
+                return (
+                    f'{self.config.root_url}'
+                    f'/ogc-api-edr/1.1.0/collections'
+                    f'/{request.collection.id}'
+                    f'/{self._wkt_to_edr_route(request.spatial.wkt)}'
+                )
+            else:
+                return (
+                    f'{self.config.root_url}'
+                    f'/{request.collection.id}'
+                    f'/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset'
+                )
         else:
-            return (
-                f'{self.config.root_url}'
-                f'/{request.collection.id}'
-                f'/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset'
-            )
+            return request_url_map[type(request)](self)
 
     def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to get its status."""
@@ -686,7 +746,7 @@ class Client:
         """Creates a dictionary of request query parameters from the given request."""
         params = {}
         skipped_params = ['shapefile']
-        if not isinstance(request, CapabilitiesRequest):
+        if isinstance(request, OgcBaseRequest):
             if request.is_edr_request():
                 params['forceAsync'] = True
                 if request.spatial:
@@ -769,7 +829,7 @@ class Client:
 
         return self.headers
 
-    def _spatial_subset_params(self, request: BaseRequest) -> list:
+    def _spatial_subset_params(self, request: OgcBaseRequest) -> list:
         """Creates a dictionary of spatial subset query parameters."""
         if request.spatial:
             lon_left, lat_lower, lon_right, lat_upper = request.spatial
@@ -777,7 +837,7 @@ class Client:
         else:
             return []
 
-    def _temporal_subset_params(self, request: BaseRequest) -> list:
+    def _temporal_subset_params(self, request: OgcBaseRequest) -> list:
         """Creates a dictionary of temporal subset query parameters."""
         if request.temporal:
             t = request.temporal
@@ -789,7 +849,7 @@ class Client:
         else:
             return []
 
-    def _dimension_subset_params(self, request: BaseRequest) -> list:
+    def _dimension_subset_params(self, request: OgcBaseRequest) -> list:
         """Creates a list of dimension subset query parameters."""
         if request.dimensions and len(request.dimensions) > 0:
             dimensions = []
@@ -893,7 +953,7 @@ class Client:
                 if files:
                     raise Exception("Cannot include shapefile as URL query parameter")
 
-                r = requests.models.Request('GET',
+                r = requests.models.Request(method,
                                             self._submit_url(request),
                                             params=params,
                                             headers=headers)
@@ -987,12 +1047,13 @@ class Client:
         response = session.send(self._get_prepared_request(request))
 
         if response.ok:
-            if isinstance(request, CapabilitiesRequest):
-                return response.json()
-            elif response.json()['status'] == 'successful':
-                return response.json()
+            if isinstance(request, OgcBaseRequest):
+                if response.json()['status'] == 'successful':
+                    return response.json()
+                else:
+                    return response.json()['jobID']
             else:
-                return response.json()['jobID']
+                return response.json()
         else:
             self._handle_error_response(response)
 

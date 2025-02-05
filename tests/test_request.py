@@ -3,12 +3,12 @@ import datetime as dt
 from hypothesis import given, settings, strategies as st
 import pytest
 
-from harmony.harmony import BBox, WKT, Collection, BaseRequest, Request, CapabilitiesRequest, Dimension
+from harmony.harmony import BBox, WKT, Collection, OgcBaseRequest, Request, CapabilitiesRequest, Dimension
 
 
 def test_request_has_collection_with_id():
     collection = Collection('foobar')
-    request = BaseRequest(collection=collection)
+    request = OgcBaseRequest(collection=collection)
     assert request.collection.id == 'foobar'
     assert request.is_valid()
 
