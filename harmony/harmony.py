@@ -238,7 +238,16 @@ _valid_shapefile_exts = ', '.join((_shapefile_exts_to_mimes.keys()))
 
 
 class HttpMethod(Enum):
-    """The http method of a harmony request.
+    """Enumeration of HTTP methods used in Harmony requests.
+
+    This enum defines the standard HTTP methods that can be used when making requests
+    to the Harmony API.
+
+    Attributes:
+        GET (str): The HTTP GET method, used for retrieving resources.
+        PUT (str): The HTTP PUT method, used for updating or replacing resources.
+        POST (str): The HTTP POST method, used for creating new resources.
+        DELETE (str): The HTTP DELETE method, used for removing resources.
     """
     GET = "GET"
     PUT = "PUT"
@@ -536,17 +545,28 @@ class Request(OgcBaseRequest):
 
 
 class CapabilitiesRequest(BaseRequest):
-    """A Harmony request to get the harmony capabilities of a CMR collection.
+    """A Harmony request to retrieve the capabilities of a CMR collection.
 
-    Keyword arguments with optional collection_id, short_name and capabilities_version fields
+    This request queries the Harmony API for the capabilities of a specified CMR
+    (Common Metadata Repository) collection, allowing users to retrieve metadata
+    about available processing and data access options.
 
     Args:
-        collection_id: The CMR collection Id that should be queried
-        short_name: The CMR collection shortName that should be queried
-        capabilities_version: the version of the collection capabilities request api
+        collection_id (str, optional): The CMR collection ID to query.
+        short_name (str, optional): The short name of the CMR collection.
+        capabilities_version (str, optional): The version of the collection
+            capabilities request API.
+
+    Attributes:
+        collection_id (str or None): The CMR collection ID.
+        short_name (str or None): The short name of the CMR collection.
+        capabilities_version (str or None): The version of the capabilities API.
+        variable_name_to_query_param (dict): Mapping of attribute names to
+            their corresponding query parameter names.
 
     Returns:
-        A Harmony Capability Request instance
+        CapabilitiesRequest: An instance of the request configured with
+        the provided parameters.
     """
 
     def __init__(self,
@@ -580,7 +600,25 @@ class CapabilitiesRequest(BaseRequest):
 
 
 class LabelsRequest(BaseRequest):
-    """A Harmony request to create or delete labels."""
+    """A Harmony request to create or delete labels for jobs.
+
+    This request allows users to associate labels with Harmony jobs or remove
+    existing labels, facilitating job management and categorization.
+
+    Args:
+        http_method (HttpMethod): The HTTP method to use for the request (e.g., PUT, DELETE).
+        labels (List[str]): A list of labels to be added or removed.
+        job_ids (List[str]): A list of job IDs to which the labels apply.
+
+    Attributes:
+        labels (List[str]): The labels to be created or deleted.
+        job_ids (List[str]): The IDs of the jobs associated with the labels.
+        variable_name_to_query_param (dict): Mapping of attribute names to
+            their corresponding query parameter names.
+
+    Returns:
+        LabelsRequest: An instance of the request configured with the provided parameters.
+    """
 
     def __init__(self,
                  *,
@@ -593,9 +631,9 @@ class LabelsRequest(BaseRequest):
         self.job_ids = job_ids
 
         self.variable_name_to_query_param = {
-                'labels': 'label',
-                'job_ids': 'jobID',
-            }
+            'labels': 'label',
+            'job_ids': 'jobID',
+        }
 
     def error_messages(self) -> List[str]:
         """A list of error messages, if any, for the request."""
