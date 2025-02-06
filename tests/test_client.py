@@ -12,7 +12,7 @@ import pytest
 import responses
 
 from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Dimension
-from harmony.harmony import Request, CapabilitiesRequest, DEFAULT_JOB_LABEL, HttpMethod, LabelsRequest
+from harmony.harmony import Request, CapabilitiesRequest, DEFAULT_JOB_LABEL, AddLabelsRequest
 
 
 @pytest.fixture()
@@ -1719,8 +1719,7 @@ def test_collection_capabilities_with_shortname_version():
 
 @responses.activate
 def test_create_labels_on_jobs():
-    request = LabelsRequest(
-        http_method=HttpMethod.PUT,
+    request = AddLabelsRequest(
         labels=['foo', 'bar'],
         job_ids=['job_1', 'job_2'],
     )
