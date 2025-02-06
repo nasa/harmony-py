@@ -4,6 +4,7 @@ from hypothesis import given, settings, strategies as st
 import pytest
 
 from harmony.harmony import BBox, WKT, Collection, OgcBaseRequest, Request, CapabilitiesRequest, Dimension
+from harmony.harmony import HttpMethod, LabelsRequest
 
 
 def test_request_has_collection_with_id():
@@ -12,42 +13,51 @@ def test_request_has_collection_with_id():
     assert request.collection.id == 'foobar'
     assert request.is_valid()
 
+
 def test_transformation_request_has_collection_with_id():
     collection = Collection('foobar')
     request = Request(collection)
     assert request.collection.id == 'foobar'
 
+
 def test_request_with_only_a_collection():
     request = Request(collection=Collection('foobar'))
     assert request.is_valid()
+
 
 def test_request_with_skip_preview_false():
     request = Request(collection=Collection('foobar'), skip_preview=False)
     assert request.is_valid()
     assert request.skip_preview is not None and request.skip_preview == False
 
+
 def test_request_with_skip_preview_true():
     request = Request(collection=Collection('foobar'), skip_preview=True)
     assert request.is_valid()
     assert request.skip_preview is not None and request.skip_preview == True
 
+
 def test_request_defaults_to_skip_preview_false():
     request = Request(collection=Collection('foobar'))
     assert not request.skip_preview
+
 
 def test_request_with_ignore_errors_false():
     request = Request(collection=Collection('foobar'), ignore_errors=False)
     assert request.is_valid()
     assert request.ignore_errors is not None and request.ignore_errors == False
 
+
 def test_request_with_ignore_errors_true():
     request = Request(collection=Collection('foobar'), ignore_errors=True)
     assert request.is_valid()
     assert request.ignore_errors is not None and request.ignore_errors == True
 
+
 def test_request_defaults_to_ignore_errors_false():
     request = Request(collection=Collection('foobar'))
     assert not request.ignore_errors
+
 
 @settings(max_examples=100)
 @given(west=st.floats(allow_infinity=True),
@@ -81,6 +91,7 @@ def test_request_spatial_bounding_box(west, south, east, north):
         assert west <= 180.0
         assert east <= 180.0
 
+
 @pytest.mark.parametrize('key, value', [
     ('spatial', WKT('POINT(0 51.48)')),
     ('spatial', WKT('LINESTRING(30 10, 10 30, 40 40)')),
@@ -93,6 +104,7 @@ def test_request_spatial_bounding_box(west, south, east, north):
 def test_request_spatial_wkt(key, value):
     request = Request(Collection('foo'), **{key: value})
     assert request.is_valid()
+
 
 @settings(max_examples=100)
 @given(key_a=st.one_of(st.none(), st.sampled_from(['start', 'stop']), st.text()),
@@ -115,6 +127,7 @@ def test_request_temporal_range(key_a, key_b, datetime_a, datetime_b):
         if 'start' in request.temporal and 'stop' in request.temporal:
             assert request.temporal['start'] < request.temporal['stop']
 
+
 @settings(max_examples=100)
 @given(min=st.one_of(st.floats(allow_infinity=True), st.integers()),
        max=st.one_of(st.floats(allow_infinity=True), st.integers()))
@@ -131,6 +144,7 @@ def test_request_dimensions(min, max):
         max_actual = request.dimensions[0].max
         assert min == min_actual
         assert max == max_actual
+
 
 @pytest.mark.parametrize('key, value, message', [
     ('spatial', BBox(10, -10, 20, -20), 'Southern latitude must be less than or equal to Northern latitude'),
@@ -150,6 +164,7 @@ def test_request_spatial_error_messages(key, value, message):
     assert not request.is_valid()
     assert message in messages
 
+
 @pytest.mark.parametrize('value', [
     [Dimension('foo', 0, -100.0)],
     [Dimension('foo', 0, -100.0), Dimension('bar', 50.0, 0)],
@@ -164,6 +179,7 @@ def test_request_dimensions_error_messages(value):
     assert not request.is_valid()
     assert message in messages
 
+
 @pytest.mark.parametrize('key, value, message', [
     ('spatial', WKT('BBOX(-140,20,-50,60)'), 'WKT BBOX(-140,20,-50,60) is invalid'),
     ('spatial', WKT('APOINT(0 51.48)'), 'WKT APOINT(0 51.48) is invalid'),
@@ -175,6 +191,7 @@ def test_request_spatial_error_messages(key, value, message):
 
     assert not request.is_valid()
     assert message in messages
+
 
 @pytest.mark.parametrize('key, value, message', [
     (
@@ -218,6 +235,7 @@ def test_request_shape_file_error_message(key, value, messages):
     assert not request.is_valid()
     assert request.error_messages() == messages
 
+
 def test_request_destination_url_error_message():
     request = Request(Collection('foo'), destination_url='http://somesite.com')
     messages = request.error_messages()
@@ -225,12 +243,14 @@ def test_request_destination_url_error_message():
     assert not request.is_valid()
     assert 'Destination URL must be an S3 location' in messages
 
+
 def test_collection_capabilities_without_coll_identifier():
     request = CapabilitiesRequest(capabilities_version='2')
     messages = request.error_messages()
 
     assert not request.is_valid()
     assert 'Must specify either collection_id or short_name for CapabilitiesRequest' in messages
+
 
 def test_collection_capabilities_two_coll_identifier():
     request = CapabilitiesRequest(collection_id='C1234-PROV',
@@ -241,20 +261,67 @@ def test_collection_capabilities_two_coll_identifier():
     assert not request.is_valid()
     assert 'CapabilitiesRequest cannot have both collection_id and short_name values' in messages
 
+
 def test_collection_capabilities_request_coll_id():
     request = CapabilitiesRequest(collection_id='C1234-PROV')
     assert request.is_valid()
 
+
 def test_collection_capabilities_request_shortname():
     request = CapabilitiesRequest(short_name='foobar')
     assert request.is_valid()
+
 
 def test_collection_capabilities_request_coll_id_version():
     request = CapabilitiesRequest(collection_id='C1234-PROV',
                                   capabilities_version='2')
     assert request.is_valid()
 
+
 def test_collection_capabilities_request_shortname_version():
     request = CapabilitiesRequest(short_name='foobar',
                                   capabilities_version='2')
     assert request.is_valid()
+
+
+def test_valid_create_labels_request():
+    request = LabelsRequest(http_method=HttpMethod.PUT,
+                            labels=['label1', 'label2'],
+                            job_ids=['job_1', 'job_2'],)
+    assert request.is_valid()
+
+
+def test_create_labels_request_missing_labels():
+    with pytest.raises(TypeError, match=".*missing 1 required keyword-only argument: 'labels'"):
+        LabelsRequest(
+            http_method=HttpMethod.PUT,
+            job_ids=['job_123']
+        )
+
+
+def test_create_labels_request_missing_job_ids():
+    with pytest.raises(TypeError, match=".*missing 1 required keyword-only argument: 'job_ids'"):
+        LabelsRequest(
+            http_method=HttpMethod.PUT,
+            labels=['label1']
+        )
+
+
+def test_create_labels_request_missing_http_method():
+    with pytest.raises(TypeError, match=".*missing 1 required keyword-only argument: 'http_method'"):
+        LabelsRequest(
+            labels=['label1'],
+            job_ids=['job_123']
+        )
+
+
+def test_create_labels_request_missing_labels_and_job_ids():
+    with pytest.raises(TypeError, match=".*missing 2 required keyword-only arguments: 'labels' and 'job_ids'"):
+        LabelsRequest(
+            http_method=HttpMethod.PUT
+        )
+
+
+def test_create_labels_request_missing_all_arguments():
+    with pytest.raises(TypeError, match=".*missing 3 required keyword-only arguments: 'http_method', 'labels', and 'job_ids'"):
+        LabelsRequest()
