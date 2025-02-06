@@ -4,7 +4,7 @@ from hypothesis import given, settings, strategies as st
 import pytest
 
 from harmony.harmony import BBox, WKT, Collection, OgcBaseRequest, Request, CapabilitiesRequest, Dimension
-from harmony.harmony import HttpMethod, LabelsRequest
+from harmony.harmony import AddLabelsRequest
 
 
 def test_request_has_collection_with_id():
@@ -284,44 +284,27 @@ def test_collection_capabilities_request_shortname_version():
     assert request.is_valid()
 
 
-def test_valid_create_labels_request():
-    request = LabelsRequest(http_method=HttpMethod.PUT,
-                            labels=['label1', 'label2'],
+def test_valid_add_labels_request():
+    request = AddLabelsRequest(labels=['label1', 'label2'],
                             job_ids=['job_1', 'job_2'],)
     assert request.is_valid()
 
 
-def test_create_labels_request_missing_labels():
+def test_valid_add_labels_request_invalid_arguments():
+    with pytest.raises(TypeError, match=".*got an unexpected keyword argument 'job_labels'"):
+        AddLabelsRequest(job_labels=['label1'])
+
+
+def test_add_labels_request_missing_labels():
     with pytest.raises(TypeError, match=".*missing 1 required keyword-only argument: 'labels'"):
-        LabelsRequest(
-            http_method=HttpMethod.PUT,
-            job_ids=['job_123']
-        )
+        AddLabelsRequest(job_ids=['job_123'])
 
 
-def test_create_labels_request_missing_job_ids():
+def test_add_labels_request_missing_job_ids():
     with pytest.raises(TypeError, match=".*missing 1 required keyword-only argument: 'job_ids'"):
-        LabelsRequest(
-            http_method=HttpMethod.PUT,
-            labels=['label1']
-        )
+        AddLabelsRequest(labels=['label1'])
 
 
-def test_create_labels_request_missing_http_method():
-    with pytest.raises(TypeError, match=".*missing 1 required keyword-only argument: 'http_method'"):
-        LabelsRequest(
-            labels=['label1'],
-            job_ids=['job_123']
-        )
-
-
-def test_create_labels_request_missing_labels_and_job_ids():
+def test_add_labels_request_missing_all_arguments():
     with pytest.raises(TypeError, match=".*missing 2 required keyword-only arguments: 'labels' and 'job_ids'"):
-        LabelsRequest(
-            http_method=HttpMethod.PUT
-        )
-
-
-def test_create_labels_request_missing_all_arguments():
-    with pytest.raises(TypeError, match=".*missing 3 required keyword-only arguments: 'http_method', 'labels', and 'job_ids'"):
-        LabelsRequest()
+        AddLabelsRequest()

@@ -586,28 +586,26 @@ class CapabilitiesRequest(BaseRequest):
         return error_msgs
 
 
-class LabelsRequest(BaseRequest):
+class AddLabelsRequest(BaseRequest):
     """A Harmony request to create or delete labels for jobs.
 
     This request allows users to associate labels with Harmony jobs or remove
     existing labels, facilitating job management and categorization.
 
     Args:
-        http_method (HttpMethod): The HTTP method to use for the request (e.g., PUT, DELETE).
         labels (List[str]): A list of labels to be added or removed.
         job_ids (List[str]): A list of job IDs to which the labels apply.
 
     Returns:
-        LabelsRequest: An instance of the request configured with the provided parameters.
+        AddLabelsRequest: An instance of the request configured with the provided parameters.
     """
 
     def __init__(self,
                  *,
-                 http_method: HttpMethod,
                  labels: List[str],
                  job_ids: List[str]
                  ):
-        super().__init__(http_method=http_method)
+        super().__init__(http_method=HttpMethod.PUT)
         self.labels = labels
         self.job_ids = job_ids
 
@@ -633,7 +631,7 @@ class LinkType(Enum):
 # Uses lambda functions to dynamically construct URLs based on the request type
 request_url_map = {
     CapabilitiesRequest: lambda self: f'{self.config.root_url}/capabilities',
-    LabelsRequest: lambda self: f'{self.config.root_url}/labels',
+    AddLabelsRequest: lambda self: f'{self.config.root_url}/labels',
 }
 
 
