@@ -587,10 +587,7 @@ class CapabilitiesRequest(BaseRequest):
 
 
 class AddLabelsRequest(BaseRequest):
-    """A Harmony request to create or delete labels for jobs.
-
-    This request allows users to associate labels with Harmony jobs or remove
-    existing labels, facilitating job management and categorization.
+    """A Harmony request to add labels on jobs.
 
     Args:
         labels (List[str]): A list of labels to be added or removed.
@@ -620,6 +617,38 @@ class AddLabelsRequest(BaseRequest):
         return []
 
 
+class JobsRequest(BaseRequest):
+    """A Harmony request to list or search for jobs.
+
+    Args:
+        page (int): The current page number.
+        limit (int): The number of jobs in each page.
+        labels (List[str]): A list of labels to search jobs.
+
+    Returns:
+        JobsRequest: An instance of the jobs request configured with the provided parameters.
+    """
+
+    def __init__(self,
+                 *,
+                 page: int = None,
+                 limit: int = None,
+                 ):
+        super().__init__()
+        self.page = page
+        self.limit = limit
+
+        self.variable_name_to_query_param = {
+            'page': 'page',
+            'limit': 'limit',
+        }
+
+    def error_messages(self) -> List[str]:
+        """A list of error messages, if any, for the request."""
+
+        return []
+
+
 class LinkType(Enum):
     """The type of URL to provide when returning links to data."""
     s3 = 's3'
@@ -632,6 +661,7 @@ class LinkType(Enum):
 request_url_map = {
     CapabilitiesRequest: lambda self: f'{self.config.root_url}/capabilities',
     AddLabelsRequest: lambda self: f'{self.config.root_url}/labels',
+    JobsRequest: lambda self: f'{self.config.root_url}/jobs',
 }
 
 

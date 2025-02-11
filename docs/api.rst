@@ -15,9 +15,11 @@ The classes in the ``harmony`` package that are used for crafting a request, sub
 
 .. autoclass:: harmony.Request
 
+.. autoclass:: harmony.AddLabelsRequest
+
 .. autoclass:: harmony.CapabilitiesRequest
 
-.. autoclass:: harmony.AddLabelsRequest
+.. autoclass:: harmony.JobsRequest
 
 .. autoclass:: harmony.Client
 

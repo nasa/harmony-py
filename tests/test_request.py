@@ -4,7 +4,7 @@ from hypothesis import given, settings, strategies as st
 import pytest
 
 from harmony.harmony import BBox, WKT, Collection, OgcBaseRequest, Request, CapabilitiesRequest, Dimension
-from harmony.harmony import AddLabelsRequest
+from harmony.harmony import AddLabelsRequest, JobsRequest
 
 
 def test_request_has_collection_with_id():
@@ -286,7 +286,7 @@ def test_collection_capabilities_request_shortname_version():
 
 def test_valid_add_labels_request():
     request = AddLabelsRequest(labels=['label1', 'label2'],
-                            job_ids=['job_1', 'job_2'],)
+                               job_ids=['job_1', 'job_2'],)
     assert request.is_valid()
 
 
@@ -308,3 +308,18 @@ def test_add_labels_request_missing_job_ids():
 def test_add_labels_request_missing_all_arguments():
     with pytest.raises(TypeError, match=".*missing 2 required keyword-only arguments: 'labels' and 'job_ids'"):
         AddLabelsRequest()
+
+
+def test_valid_get_jobs_request():
+    request = JobsRequest()
+    assert request.is_valid()
+
+
+def test_valid_get_jobs_request_with_page_limit():
+    request = JobsRequest(page=1, limit=10)
+    assert request.is_valid()
+
+
+def test_get_jobs_request_with_invalid_argument():
+    with pytest.raises(TypeError, match=".*got an unexpected keyword argument 'page_num'"):
+        JobsRequest(page_num=1)

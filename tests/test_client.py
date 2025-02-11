@@ -12,7 +12,7 @@ import pytest
 import responses
 
 from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Dimension
-from harmony.harmony import Request, CapabilitiesRequest, DEFAULT_JOB_LABEL, AddLabelsRequest
+from harmony.harmony import Request, CapabilitiesRequest, DEFAULT_JOB_LABEL, AddLabelsRequest, JobsRequest
 
 
 @pytest.fixture()
@@ -1718,7 +1718,7 @@ def test_collection_capabilities_with_shortname_version():
     assert result['capabilitiesVersion'] == capabilitiesVersion
 
 @responses.activate
-def test_create_labels_on_jobs():
+def test_add_labels_on_jobs():
     request = AddLabelsRequest(
         labels=['foo', 'bar'],
         job_ids=['job_1', 'job_2'],
@@ -1738,5 +1738,28 @@ def test_create_labels_on_jobs():
 
     assert len(responses.calls) == 1
     assert responses.calls[0].request.method == 'PUT'
+    assert responses.calls[0].request.url == expected_url
+    assert result == expected_result
+
+
+@responses.activate
+def test_get_jobs():
+    request = JobsRequest()
+
+    expected_url = 'https://harmony.earthdata.nasa.gov/jobs'
+    # dummy result
+    expected_result = {"count":1,"jobs":[{"username":"user1","status":"successful"}]}
+
+    responses.add(
+        responses.GET,
+        expected_url,
+        status=200,
+        json=expected_result,
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request.method == 'GET'
     assert responses.calls[0].request.url == expected_url
     assert result == expected_result
