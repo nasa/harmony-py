@@ -6,6 +6,7 @@ from shapely.wkt import loads
 from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple, Optional, \
     Tuple, Generator, Union
 
+
 class Collection:
     """The identity of a CMR Collection."""
 

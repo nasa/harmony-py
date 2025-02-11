@@ -2,6 +2,7 @@
 __version__ = "0.7.0"
 
 from harmony.config import Environment
-from harmony.request import BBox, WKT, Collection, LinkType, Dimension, Request, CapabilitiesRequest, AddLabelsRequest, JobsRequest
+from harmony.request import BBox, WKT, Collection, LinkType, Dimension, Request, \
+    CapabilitiesRequest, AddLabelsRequest, JobsRequest
 from harmony.harmony import Client
 from harmony.util import s3_components

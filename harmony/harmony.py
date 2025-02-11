@@ -33,6 +33,7 @@ import requests.models
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import date, datetime
+from shapely.wkt import loads
 from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple, Optional, \
     Tuple, Generator, Union
 from urllib import parse
@@ -43,8 +44,8 @@ import progressbar
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
-from harmony.request import Collection, BBox, WKT, BaseRequest, OgcBaseRequest, CapabilitiesRequest, \
-    AddLabelsRequest, JobsRequest, LinkType, _shapefile_exts_to_mimes
+from harmony.request import Collection, BBox, WKT, BaseRequest, OgcBaseRequest, \
+    CapabilitiesRequest, AddLabelsRequest, JobsRequest, LinkType, _shapefile_exts_to_mimes
 from harmony import __version__ as harmony_version
 
 DEFAULT_JOB_LABEL = "harmony-py"
