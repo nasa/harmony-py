@@ -11,8 +11,8 @@ import dateutil.parser
 import pytest
 import responses
 
-from harmony.harmony import BBox, Client, Collection, LinkType, ProcessingFailedException, Dimension
-from harmony.harmony import Request, CapabilitiesRequest, DEFAULT_JOB_LABEL, AddLabelsRequest, JobsRequest
+from harmony.request import BBox, Collection, LinkType, Request, Dimension, CapabilitiesRequest, AddLabelsRequest, JobsRequest
+from harmony.harmony import Client, ProcessingFailedException, DEFAULT_JOB_LABEL
 
 
 @pytest.fixture()
