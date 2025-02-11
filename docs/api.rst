@@ -91,6 +91,14 @@ harmony.config module
    :undoc-members:
    :show-inheritance:
 
+harmony.request module
+----------------------
+
+.. automodule:: harmony.request
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 harmony.harmony module
 ----------------------
 

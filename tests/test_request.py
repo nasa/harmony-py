@@ -3,8 +3,8 @@ import datetime as dt
 from hypothesis import given, settings, strategies as st
 import pytest
 
-from harmony.harmony import BBox, WKT, Collection, OgcBaseRequest, Request, CapabilitiesRequest, Dimension
-from harmony.harmony import AddLabelsRequest, JobsRequest
+from harmony.request import BBox, WKT, Collection, OgcBaseRequest, Request, CapabilitiesRequest, Dimension
+from harmony.request import AddLabelsRequest, JobsRequest
 
 
 def test_request_has_collection_with_id():
