@@ -320,6 +320,26 @@ def test_valid_get_jobs_request_with_page_limit():
     assert request.is_valid()
 
 
+def test_valid_get_jobs_request_with_all_params():
+    request = JobsRequest(page=1, limit=10, labels=['foo'])
+    assert request.is_valid()
+
+
+def test_valid_get_jobs_request_with_labels_in_string():
+    request = JobsRequest(labels='foo')
+    assert request.is_valid()
+
+
+def test_valid_get_jobs_request_with_multiple_labels():
+    request = JobsRequest(labels=['foo', 'bar'])
+    assert request.is_valid()
+
+
+def test_valid_get_jobs_request_with_multiple_labels_in_string():
+    request = JobsRequest(labels='foo,bar')
+    assert request.is_valid()
+
+
 def test_get_jobs_request_with_invalid_argument():
     with pytest.raises(TypeError, match=".*got an unexpected keyword argument 'page_num'"):
         JobsRequest(page_num=1)

@@ -623,7 +623,7 @@ class JobsRequest(BaseRequest):
     Args:
         page (int): The current page number.
         limit (int): The number of jobs in each page.
-        labels (List[str]): A list of labels to search jobs.
+        labels (List[str]): A list of labels to search jobs with.
 
     Returns:
         JobsRequest: An instance of the jobs request configured with the provided parameters.
@@ -633,14 +633,17 @@ class JobsRequest(BaseRequest):
                  *,
                  page: int = None,
                  limit: int = None,
+                 labels: List[str] = None,
                  ):
         super().__init__()
         self.page = page
         self.limit = limit
+        self.labels = labels
 
         self.variable_name_to_query_param = {
             'page': 'page',
             'limit': 'limit',
+            'labels': 'label',
         }
 
     def error_messages(self) -> List[str]:
