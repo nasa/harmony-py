@@ -12,7 +12,7 @@ import pytest
 import responses
 
 from harmony.request import BBox, Collection, LinkType, Request, Dimension, CapabilitiesRequest, AddLabelsRequest, JobsRequest
-from harmony.harmony import Client, ProcessingFailedException, DEFAULT_JOB_LABEL
+from harmony.client import Client, ProcessingFailedException, DEFAULT_JOB_LABEL
 
 
 @pytest.fixture()
@@ -852,13 +852,13 @@ def test_wait_for_processing_with_show_progress(mocker, show_progress):
     progressbar_mock = mocker.Mock()
     progressbar_mock.__enter__ = lambda _: progressbar_mock
     progressbar_mock.__exit__ = lambda a, b, d, c: None
-    mocker.patch('harmony.harmony.progressbar.ProgressBar', return_value=progressbar_mock)
+    mocker.patch('harmony.client.progressbar.ProgressBar', return_value=progressbar_mock)
 
     sleep_mock = mocker.Mock()
-    mocker.patch('harmony.harmony.time.sleep', sleep_mock)
+    mocker.patch('harmony.client.time.sleep', sleep_mock)
 
     progress_mock = mocker.Mock(side_effect=expected_progress)
-    mocker.patch('harmony.harmony.Client.progress', progress_mock)
+    mocker.patch('harmony.client.Client.progress', progress_mock)
 
     client = Client(should_validate_auth=False)
     client.wait_for_processing(job_id, show_progress=show_progress)
@@ -881,16 +881,16 @@ def test_wait_for_processing_with_failed_status(mocker, show_progress):
     progressbar_mock = mocker.Mock()
     progressbar_mock.__enter__ = lambda _: progressbar_mock
     progressbar_mock.__exit__ = lambda a, b, d, c: None
-    mocker.patch('harmony.harmony.progressbar.ProgressBar', return_value=progressbar_mock)
+    mocker.patch('harmony.client.progressbar.ProgressBar', return_value=progressbar_mock)
 
     progress_mock = mocker.Mock(side_effect=expected_progress)
-    mocker.patch('harmony.harmony.Client.progress', progress_mock)
+    mocker.patch('harmony.client.Client.progress', progress_mock)
 
     client = Client(should_validate_auth=False)
 
     with pytest.raises(ProcessingFailedException) as e:
         client.wait_for_processing(job_id, show_progress=show_progress)
-    assert e.exconly() == 'harmony.harmony.ProcessingFailedException: Pod exploded'
+    assert e.exconly() == 'harmony.client.ProcessingFailedException: Pod exploded'
 
 @pytest.mark.parametrize('show_progress', [
     (True),
@@ -903,15 +903,15 @@ def test_wait_for_processing_with_paused_status(mocker, show_progress):
     job_id = '12345'
 
     sleep_mock = mocker.Mock()
-    mocker.patch('harmony.harmony.time.sleep', sleep_mock)
+    mocker.patch('harmony.client.time.sleep', sleep_mock)
 
     progressbar_mock = mocker.Mock()
     progressbar_mock.__enter__ = lambda _: progressbar_mock
     progressbar_mock.__exit__ = lambda a, b, d, c: None
-    mocker.patch('harmony.harmony.progressbar.ProgressBar', return_value=progressbar_mock)
+    mocker.patch('harmony.client.progressbar.ProgressBar', return_value=progressbar_mock)
 
     progress_mock = mocker.Mock(side_effect=expected_progress)
-    mocker.patch('harmony.harmony.Client.progress', progress_mock)
+    mocker.patch('harmony.client.Client.progress', progress_mock)
 
     client = Client(should_validate_auth=False)
     client.wait_for_processing(job_id, show_progress=show_progress)
@@ -935,7 +935,7 @@ def test_result_json(mocker, show_progress, link_type):
     job_id = '1234'
 
     wait_mock = mocker.Mock()
-    mocker.patch('harmony.harmony.Client.wait_for_processing', wait_mock)
+    mocker.patch('harmony.client.Client.wait_for_processing', wait_mock)
 
     responses.add(
         responses.GET,
@@ -960,7 +960,7 @@ def test_result_json_with_failed_request_doesnt_throw_exception(mocker, show_pro
     job_id = '1234'
 
     wait_mock = mocker.Mock(side_effect=ProcessingFailedException(job_id, "Pod exploded"))
-    mocker.patch('harmony.harmony.Client.wait_for_processing', wait_mock)
+    mocker.patch('harmony.client.Client.wait_for_processing', wait_mock)
 
     responses.add(
         responses.GET,
@@ -988,8 +988,8 @@ def test_result_urls(mocker, show_progress, link_type):
 
     result_json_mock = mocker.Mock(return_value=expected_json)
     processing_mock = mocker.Mock(return_value=None)
-    mocker.patch('harmony.harmony.Client._get_json', result_json_mock)
-    mocker.patch('harmony.harmony.Client.wait_for_processing', processing_mock)
+    mocker.patch('harmony.client.Client._get_json', result_json_mock)
+    mocker.patch('harmony.client.Client.wait_for_processing', processing_mock)
 
     client = Client(should_validate_auth=False)
     actual_urls = list(client.result_urls(
@@ -1018,8 +1018,8 @@ def test_result_url_paging(mocker, show_progress, link_type):
 
     get_json_mock = mocker.Mock(side_effect=[expected_json_first_page, expected_json_last_page])
     processing_mock = mocker.Mock(return_value=None)
-    mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
-    mocker.patch('harmony.harmony.Client.wait_for_processing', processing_mock)
+    mocker.patch('harmony.client.Client._get_json', get_json_mock)
+    mocker.patch('harmony.client.Client.wait_for_processing', processing_mock)
 
     client = Client(should_validate_auth=False)
     actual_urls = list(client.result_urls(
@@ -1111,9 +1111,9 @@ def test_download_all(mocker):
     expected_file_names = ['1', '2', '3']
 
     result_urls_mock = mocker.Mock(return_value=expected_urls)
-    mocker.patch('harmony.harmony.Client.result_urls', result_urls_mock)
+    mocker.patch('harmony.client.Client.result_urls', result_urls_mock)
     mocker.patch(
-        'harmony.harmony.Client._download_file',
+        'harmony.client.Client._download_file',
         lambda self, url, a, b: url.split('/')[-1]
     )
 
@@ -1131,9 +1131,9 @@ def test_download_all_zarr(mocker):
     ]
 
     result_urls_mock = mocker.Mock(return_value=expected_urls)
-    mocker.patch('harmony.harmony.Client.result_urls', result_urls_mock)
+    mocker.patch('harmony.client.Client.result_urls', result_urls_mock)
     mocker.patch(
-        'harmony.harmony.Client._download_file',
+        'harmony.client.Client._download_file',
         lambda self, url, a, b: url.split('/')[-1]
     )
 
@@ -1277,9 +1277,9 @@ def test_iterator(link_type, mocker):
     status_page_json = expected_job('C123', 'abc123')
     status_page_json['status'] = 'successful'
     download_file_mock = mocker.Mock(side_effect=side_effect_func_for_download_file)
-    mocker.patch('harmony.harmony.Client._download_file', download_file_mock)
+    mocker.patch('harmony.client.Client._download_file', download_file_mock)
     get_json_mock = mocker.Mock(side_effect=side_effect_for_get_json(extra_links))
-    mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
+    mocker.patch('harmony.client.Client._get_json', get_json_mock)
     # speed up test by not waiting between polling the status page
     client = Client(should_validate_auth=False, check_interval=0)
 
@@ -1354,7 +1354,7 @@ def test_iterator_failed_job(link_type, mocker):
     extra_links = extra_links_for_iteration(link_type.value)
     get_json_mock = mocker.Mock(
         side_effect=side_effect_for_get_json_failed_job(extra_links=extra_links))
-    mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
+    mocker.patch('harmony.client.Client._get_json', get_json_mock)
     client = Client(should_validate_auth=False, check_interval=0)
 
     iter = client.iterator('foo123', '/tmp')
@@ -1377,7 +1377,7 @@ def test_iterator_retry(mocker):
     os.environ['GET_JSON_RETRY_SLEEP'] = '0'
     os.environ['GET_JSON_RETRY_LIMIT'] = '2'
     get_json_mock = mocker.Mock(side_effect=side_effect_func_for_get_json_with_error)
-    mocker.patch('harmony.harmony.Client._get_json', get_json_mock)
+    mocker.patch('harmony.client.Client._get_json', get_json_mock)
     client = Client(should_validate_auth=False)
 
     # first iteration in which job state is 'running' and two granules have completed
@@ -1393,7 +1393,7 @@ def test_stac_catalog_url(link_type, mocker):
     collection = Collection(id='C1940468263-POCLOUD')
     expected_json = expected_job(collection.id, job_id)
     result_json_mock = mocker.Mock(return_value=expected_json)
-    mocker.patch('harmony.harmony.Client.result_json', result_json_mock)
+    mocker.patch('harmony.client.Client.result_json', result_json_mock)
 
     expected_stac_catalog_url = (f'https://harmony.earthdata.nasa.gov/stac'
                                  f'/{job_id}/?linktype={link_type.value}')
