@@ -99,10 +99,10 @@ harmony.request module
    :undoc-members:
    :show-inheritance:
 
-harmony.harmony module
+harmony.client module
 ----------------------
 
-.. automodule:: harmony.harmony
+.. automodule:: harmony.client
    :members:
    :undoc-members:
    :show-inheritance:
