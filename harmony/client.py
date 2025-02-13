@@ -44,8 +44,9 @@ import progressbar
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
-from harmony.request import Collection, BBox, WKT, BaseRequest, OgcBaseRequest, \
-    CapabilitiesRequest, AddLabelsRequest, JobsRequest, LinkType, _shapefile_exts_to_mimes
+from harmony.request import Collection, BBox, WKT, LinkType, _shapefile_exts_to_mimes, \
+    BaseRequest, OgcBaseRequest, CapabilitiesRequest, AddLabelsRequest, \
+    DeleteLabelsRequest, JobsRequest
 from harmony import __version__ as harmony_version
 
 DEFAULT_JOB_LABEL = "harmony-py"
@@ -91,6 +92,7 @@ class ProcessingFailedException(Exception):
 request_url_map = {
     CapabilitiesRequest: lambda self: f'{self.config.root_url}/capabilities',
     AddLabelsRequest: lambda self: f'{self.config.root_url}/labels',
+    DeleteLabelsRequest: lambda self: f'{self.config.root_url}/labels',
     JobsRequest: lambda self: f'{self.config.root_url}/jobs',
 }
 
@@ -525,7 +527,10 @@ class Client:
                 else:
                     return response.json()['jobID']
             else:
-                return response.json()
+                try:
+                    return response.json()
+                except requests.exceptions.JSONDecodeError:
+                    print(f'Request is successful. Raw response: {response.text}')
         else:
             self._handle_error_response(response)
 
