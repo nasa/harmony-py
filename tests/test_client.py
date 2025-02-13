@@ -11,7 +11,8 @@ import dateutil.parser
 import pytest
 import responses
 
-from harmony.request import BBox, Collection, LinkType, Request, Dimension, CapabilitiesRequest, AddLabelsRequest, JobsRequest
+from harmony.request import BBox, Collection, LinkType, Request, Dimension, CapabilitiesRequest, \
+    AddLabelsRequest, DeleteLabelsRequest, JobsRequest
 from harmony.client import Client, ProcessingFailedException, DEFAULT_JOB_LABEL
 
 
@@ -1740,6 +1741,29 @@ def test_add_labels_on_jobs():
     assert responses.calls[0].request.method == 'PUT'
     assert responses.calls[0].request.url == expected_url
     assert result == expected_result
+
+
+@responses.activate
+def test_delete_labels_on_jobs():
+    request = DeleteLabelsRequest(
+        labels=['foo', 'bar'],
+        job_ids=['job_1', 'job_2'],
+    )
+
+    expected_url = 'https://harmony.earthdata.nasa.gov/labels?label=foo&label=bar&jobID=job_1&jobID=job_2'
+
+    responses.add(
+        responses.DELETE,
+        expected_url,
+        status=204,
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request.method == 'DELETE'
+    assert responses.calls[0].request.url == expected_url
+    assert result == None
 
 
 @responses.activate

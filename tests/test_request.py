@@ -3,8 +3,8 @@ import datetime as dt
 from hypothesis import given, settings, strategies as st
 import pytest
 
-from harmony.request import BBox, WKT, Collection, OgcBaseRequest, Request, CapabilitiesRequest, Dimension
-from harmony.request import AddLabelsRequest, JobsRequest
+from harmony.request import BBox, WKT, Collection, OgcBaseRequest, Request, Dimension, \
+    CapabilitiesRequest, AddLabelsRequest, DeleteLabelsRequest, JobsRequest
 
 
 def test_request_has_collection_with_id():
@@ -290,7 +290,7 @@ def test_valid_add_labels_request():
     assert request.is_valid()
 
 
-def test_valid_add_labels_request_invalid_arguments():
+def test_add_labels_request_invalid_arguments():
     with pytest.raises(TypeError, match=".*got an unexpected keyword argument 'job_labels'"):
         AddLabelsRequest(job_labels=['label1'])
 
@@ -308,6 +308,32 @@ def test_add_labels_request_missing_job_ids():
 def test_add_labels_request_missing_all_arguments():
     with pytest.raises(TypeError, match=".*missing 2 required keyword-only arguments: 'labels' and 'job_ids'"):
         AddLabelsRequest()
+
+
+def test_valid_delete_labels_request():
+    request = DeleteLabelsRequest(labels=['label1', 'label2'],
+                               job_ids=['job_1', 'job_2'],)
+    assert request.is_valid()
+
+
+def test_delete_labels_request_invalid_arguments():
+    with pytest.raises(TypeError, match=".*got an unexpected keyword argument 'job_labels'"):
+        DeleteLabelsRequest(job_labels=['label1'])
+
+
+def test_delete_labels_request_missing_labels():
+    with pytest.raises(TypeError, match=".*missing 1 required keyword-only argument: 'labels'"):
+        DeleteLabelsRequest(job_ids=['job_123'])
+
+
+def test_delete_labels_request_missing_job_ids():
+    with pytest.raises(TypeError, match=".*missing 1 required keyword-only argument: 'job_ids'"):
+        DeleteLabelsRequest(labels=['label1'])
+
+
+def test_delete_labels_request_missing_all_arguments():
+    with pytest.raises(TypeError, match=".*missing 2 required keyword-only arguments: 'labels' and 'job_ids'"):
+        DeleteLabelsRequest()
 
 
 def test_valid_get_jobs_request():

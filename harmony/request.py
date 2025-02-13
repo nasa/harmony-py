@@ -176,6 +176,9 @@ class BaseRequest:
         self.http_method = http_method
 
     def error_messages(self) -> List[str]:
+        """A list of error messages, if any, for the request.
+        Validation of request parameters should go here.
+        Returns the list of validation error messages back if any"""
         return []
 
     def is_valid(self) -> bool:
@@ -511,7 +514,7 @@ class AddLabelsRequest(BaseRequest):
     """A Harmony request to add labels on jobs.
 
     Args:
-        labels (List[str]): A list of labels to be added or removed.
+        labels (List[str]): A list of labels to be added.
         job_ids (List[str]): A list of job IDs to which the labels apply.
 
     Returns:
@@ -532,10 +535,31 @@ class AddLabelsRequest(BaseRequest):
             'job_ids': 'jobID',
         }
 
-    def error_messages(self) -> List[str]:
-        """A list of error messages, if any, for the request."""
 
-        return []
+class DeleteLabelsRequest(BaseRequest):
+    """A Harmony request to delete labels from jobs.
+
+    Args:
+        labels (List[str]): A list of labels to be removed.
+        job_ids (List[str]): A list of job IDs to which the labels apply.
+
+    Returns:
+        DeleteLabelsRequest: An instance of the request configured with the provided parameters.
+    """
+
+    def __init__(self,
+                 *,
+                 labels: List[str],
+                 job_ids: List[str]
+                 ):
+        super().__init__(http_method=HttpMethod.DELETE)
+        self.labels = labels
+        self.job_ids = job_ids
+
+        self.variable_name_to_query_param = {
+            'labels': 'label',
+            'job_ids': 'jobID',
+        }
 
 
 class JobsRequest(BaseRequest):
@@ -566,11 +590,6 @@ class JobsRequest(BaseRequest):
             'limit': 'limit',
             'labels': 'label',
         }
-
-    def error_messages(self) -> List[str]:
-        """A list of error messages, if any, for the request."""
-
-        return []
 
 
 class LinkType(Enum):
