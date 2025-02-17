@@ -1,5 +1,5 @@
 # Automatically updated by `make build`
-__version__ = "0.7.0"
+__version__ = "1.0.0"
 
 from harmony.config import Environment
 from harmony.request import BBox, WKT, Collection, LinkType, Dimension, Request, \
