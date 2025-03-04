@@ -967,7 +967,8 @@ class Client:
                     yield self.executor.submit(self._download_file, url, directory, overwrite)
             except ProcessingFailedException:
                 print('\nJob Status is failed. There is no file to download.', file=sys.stderr)
-                # set num_files to 1 to bypass the extra error reporting below as it has already been reported
+                # set num_files to 1 to bypass the extra error reporting below
+                # as it has already been reported
                 num_files = 1
 
             if num_files == 0:
