@@ -958,23 +958,20 @@ class Client:
             result.
         """
         if isinstance(job_id_or_result_json, str):
-            num_files = 0
             try:
+                num_files = 0
                 for url in self.result_urls(job_id_or_result_json, show_progress=False) or []:
                     num_files += 1
                     if url.endswith('zarr'):
                         raise self.zarr_download_exception
                     yield self.executor.submit(self._download_file, url, directory, overwrite)
+
+                if num_files == 0:
+                    print('\nThere is no file to download.', file=sys.stderr)
+                    status, message = self.job_status_message(job_id_or_result_json)
+                    print(f'\nJob status is {status} with message: {message}.', file=sys.stderr)
             except ProcessingFailedException:
                 print('\nJob Status is failed. There is no file to download.', file=sys.stderr)
-                # set num_files to 1 to bypass the extra error reporting below
-                # as it has already been reported
-                num_files = 1
-
-            if num_files == 0:
-                print('\nThere is no file to download.', file=sys.stderr)
-                status, message = self.job_status_message(job_id_or_result_json)
-                print(f'\nJob status is {status} with message: {message}.', file=sys.stderr)
         else:
             for link in job_id_or_result_json.get('links', []):
                 if link['rel'] == 'data':
