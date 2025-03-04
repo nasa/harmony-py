@@ -887,6 +887,24 @@ class Client:
                 print(filename)
             return filename
 
+    def job_status_message(self, job_id: str) -> str:
+        """Extract the job status and message from job results.
+
+        Blocks until the Harmony job is done processing.
+
+        Args:
+            job_id: UUID string for the job you wish to interrogate.
+
+        Returns:
+            the job status and message.
+
+        :raises
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+            can't be reached.
+        """
+        data = self.result_json(job_id)
+        return data['status'], data['message']
+
     def download(self, url: str, directory: str = '', overwrite: bool = False) -> Future:
         """Downloads data and saves it to a file asynchronously.
 
@@ -940,10 +958,22 @@ class Client:
             result.
         """
         if isinstance(job_id_or_result_json, str):
-            for url in self.result_urls(job_id_or_result_json, show_progress=False) or []:
-                if url.endswith('zarr'):
-                    raise self.zarr_download_exception
-                yield self.executor.submit(self._download_file, url, directory, overwrite)
+            num_files = 0
+            try:
+                for url in self.result_urls(job_id_or_result_json, show_progress=False) or []:
+                    num_files += 1
+                    if url.endswith('zarr'):
+                        raise self.zarr_download_exception
+                    yield self.executor.submit(self._download_file, url, directory, overwrite)
+            except ProcessingFailedException:
+                print('\nJob Status is failed. There is no file to download.', file=sys.stderr)
+                # set num_files to 1 to bypass the extra error reporting below as it has already been reported
+                num_files = 1
+
+            if num_files == 0:
+                print('\nThere is no file to download.', file=sys.stderr)
+                status, message = self.job_status_message(job_id_or_result_json)
+                print(f'\nJob status is {status} with message: {message}.', file=sys.stderr)
         else:
             for link in job_id_or_result_json.get('links', []):
                 if link['rel'] == 'data':
