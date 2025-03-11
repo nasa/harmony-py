@@ -369,3 +369,19 @@ def test_valid_get_jobs_request_with_multiple_labels_in_string():
 def test_get_jobs_request_with_invalid_argument():
     with pytest.raises(TypeError, match=".*got an unexpected keyword argument 'page_num'"):
         JobsRequest(page_num=1)
+
+def test_request_with_pixel_subset_false():
+    request = Request(collection=Collection('foobar'), pixel_subset=False)
+    assert request.is_valid()
+    assert request.pixel_subset is not None and request.pixel_subset == False
+
+
+def test_request_with_pixel_subset_true():
+    request = Request(collection=Collection('foobar'), pixel_subset=True)
+    assert request.is_valid()
+    assert request.pixel_subset is not None and request.pixel_subset == True
+
+
+def test_request_defaults_to_pixel_subset_none():
+    request = Request(collection=Collection('foobar'))
+    assert request.pixel_subset is None

@@ -57,6 +57,8 @@ progressbar_widgets = [
     ' [', progressbar.RotatingMarker(), ']',
 ]
 
+boolean_params = ['forceAsync', 'concatenate', 'skipPreview', 'ignoreErrors', 'pixelSubset']
+
 
 def temporal_to_edr_datetime(temporal: dict) -> str:
     datetime_format = '%Y-%m-%dT%H:%M:%SZ'
@@ -222,7 +224,9 @@ class Client:
         skipped_params = ['shapefile']
         if isinstance(request, OgcBaseRequest):
             if request.is_edr_request():
-                params['forceAsync'] = True
+                # use string in lowercase as value to match how boolean values
+                # in params are converted below
+                params['forceAsync'] = 'true'
                 if request.spatial:
                     params['coords'] = request.spatial.wkt
                 if request.temporal:
@@ -257,6 +261,17 @@ class Client:
                 params[p] = val
 
         return params
+
+    def _params_to_json(self, params: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Returns the given parameter mapping as a JSON POST body
+        Args:
+            params: A dictionary of parameter mappings as returned by self._params(request)
+
+        Returns:
+            A JSON map that can be submitted as a POST body
+        """
+        return {key: (value == 'true' if key in boolean_params else value)
+                for key, value in params.items()}
 
     def _headers(self) -> dict:
         """
@@ -412,7 +427,7 @@ class Client:
                 if request.is_edr_request():
                     r = requests.models.Request('POST',
                                                 self._submit_url(request),
-                                                json=params,
+                                                json=self._params_to_json(params),
                                                 headers=headers)
                 else:
                     param_items = self._params_dict_to_files(params)

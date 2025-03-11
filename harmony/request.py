@@ -285,6 +285,8 @@ class Request(OgcBaseRequest):
           label is added to all requests unless the environment variable EXCLUDE_DEFAULT_LABEL
           is set to 'true'.
 
+        pixel_subset: Whether to perform pixel subset
+
     Returns:
         A Harmony Transformation Request instance
     """
@@ -313,7 +315,8 @@ class Request(OgcBaseRequest):
                  skip_preview: bool = None,
                  ignore_errors: bool = None,
                  grid: str = None,
-                 labels: List[str] = None):
+                 labels: List[str] = None,
+                 pixel_subset: bool = None):
         """Creates a new Request instance from all specified criteria.'
         """
         super().__init__(collection=collection)
@@ -339,6 +342,7 @@ class Request(OgcBaseRequest):
         self.ignore_errors = ignore_errors
         self.grid = grid
         self.labels = labels
+        self.pixel_subset = pixel_subset
 
         if self.is_edr_request():
             self.variable_name_to_query_param = {
@@ -361,6 +365,7 @@ class Request(OgcBaseRequest):
                 'extend': 'extend',
                 'variables': 'parameter-name',
                 'labels': 'label',
+                'pixel_subset': 'pixelSubset',
             }
             self.spatial_validations = [
                 (lambda s: is_wkt_valid(s.wkt), f'WKT {spatial.wkt} is invalid'),
@@ -386,6 +391,7 @@ class Request(OgcBaseRequest):
                 'extend': 'extend',
                 'variables': 'variable',
                 'labels': 'label',
+                'pixel_subset': 'pixelSubset',
             }
 
             self.spatial_validations = [
