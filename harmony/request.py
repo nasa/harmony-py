@@ -426,7 +426,15 @@ class Request(OgcBaseRequest):
         ]
         self.parameter_validations = [  # for simple, one-off validations
             (True if self.destination_url is None else self.destination_url.startswith('s3://'),
-             ('Destination URL must be an S3 location'))
+             'Destination URL must be an S3 location'),
+            (self.concatenate is None or isinstance(self.concatenate, bool),
+             'concatenate must be either True of False'),
+            (self.ignore_errors is None or isinstance(self.ignore_errors, bool),
+             'ignore_errors must be either True of False'),
+            (self.skip_preview is None or isinstance(self.skip_preview, bool),
+             'skip_preview must be either True of False'),
+            (self.pixel_subset is None or isinstance(self.pixel_subset, bool),
+             'pixel_subset must be either True of False')
         ]
 
     def _shape_error_messages(self, shape) -> List[str]:
