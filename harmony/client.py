@@ -262,17 +262,6 @@ class Client:
 
         return params
 
-    def _params_to_json(self, params: Mapping[str, Any]) -> Mapping[str, Any]:
-        """Returns the given parameter mapping as a JSON POST body
-        Args:
-            params: A dictionary of parameter mappings as returned by self._params(request)
-
-        Returns:
-            A JSON map that can be submitted as a POST body
-        """
-        return {key: (value == 'true' if key in boolean_params else value)
-                for key, value in params.items()}
-
     def _headers(self) -> dict:
         """
         Create (if needed) and return a dictionary of headers.
@@ -427,7 +416,7 @@ class Client:
                 if request.is_edr_request():
                     r = requests.models.Request('POST',
                                                 self._submit_url(request),
-                                                json=self._params_to_json(params),
+                                                json=params,
                                                 headers=headers)
                 else:
                     param_items = self._params_dict_to_files(params)
