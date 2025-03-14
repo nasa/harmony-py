@@ -390,4 +390,4 @@ def test_request_with_pixel_subset_invalid():
     request = Request(collection=Collection('foobar'), pixel_subset='invalid')
     messages = request.error_messages()
     assert not request.is_valid()
-    assert 'pixel_subset must be either True of False' in messages
+    assert 'pixel_subset must be a boolean (True or False)' in messages
