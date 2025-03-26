@@ -34,6 +34,9 @@ def expected_pause_url(job_id, link_type: LinkType = LinkType.https):
 def expected_resume_url(job_id, link_type: LinkType = LinkType.https):
     return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}/resume?linktype={link_type.value}'
 
+def expected_cancel_url(job_id):
+    return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}/cancel'
+
 def parse_multipart_data(request):
     """Parses multipart/form-data request to extract fields as strings."""
     body_bytes = request.body
@@ -837,6 +840,43 @@ def test_resume_conflict_error():
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).resume(job_id)
     assert str(e.value) == "('Conflict', 'Error: Job status is running - only paused jobs can be resumed.')"
+
+@responses.activate
+def test_cancel():
+    collection = Collection(id='C333666999-EOSDIS')
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    exp_job = expected_paused_job(collection, job_id)
+    responses.add(
+        responses.GET,
+        expected_cancel_url(job_id),
+        status=200,
+        json=exp_job
+    )
+
+    Client(should_validate_auth=False).cancel(job_id)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request is not None
+    assert urllib.parse.unquote(responses.calls[0].request.url) == expected_cancel_url(job_id)
+
+@responses.activate
+def test_cancel_conflict_error():
+    job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
+    exp_json = {
+        'code': 'harmony.ConflictError',
+        'description': 'Error: Job status cannot be updated from successful to canceled.'
+    }
+
+    responses.add(
+        responses.GET,
+        expected_cancel_url(job_id),
+        status=409,
+        json=exp_json
+    )
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).cancel(job_id)
+    assert str(e.value) == "('Conflict', 'Error: Job status cannot be updated from successful to canceled.')"
 
 @pytest.mark.parametrize('show_progress', [
     (True),
