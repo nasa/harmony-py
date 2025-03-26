@@ -215,6 +215,10 @@ class Client:
         """Constructs the URL for the Job that is used to resume it."""
         return f'{self.config.root_url}/jobs/{job_id}/resume?linktype={link_type.value}'
 
+    def _cancel_url(self, job_id: str) -> str:
+        """Constructs the URL for the Job that is used to pause it."""
+        return f'{self.config.root_url}/jobs/{job_id}/cancel'
+
     def _cloud_access_url(self) -> str:
         return f'{self.config.root_url}/cloud-access'
 
@@ -624,6 +628,26 @@ class Client:
             raise Exception(response.reason, message)
         else:
             response.raise_for_status()
+
+    def cancel(self, job_id: str):
+        """Cancel a job.
+
+        Args:
+            job_id: UUID string for the job you wish to cancel.
+        Raises:
+            Exception: This can happen if an invalid job_id is provided or Harmony services
+              can't be reached or the job cannot be canceled (usually because it is already
+              in a terminal state).
+        """
+        session = self._session()
+        response = session.get(self._cancel_url(job_id))
+        if not response.ok:
+            if response.status_code == 409:
+                # 409 means we could not cancel - the json will have a reason
+                message = response.json().get('description')
+                raise Exception(response.reason, message)
+            else:
+                response.raise_for_status()
 
     def progress(self, job_id: str) -> Tuple[int, str, str]:
         """Retrieve a submitted job's completion status in percent.
