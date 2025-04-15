@@ -287,6 +287,9 @@ class Request(OgcBaseRequest):
 
         pixel_subset: Whether to perform pixel subset
 
+        service_id: The CMR UMM-S concept ID or service chain name to invoke. Only supported in
+          test environments for testing collections not yet associated with a service.
+
     Returns:
         A Harmony Transformation Request instance
     """
@@ -316,7 +319,8 @@ class Request(OgcBaseRequest):
                  ignore_errors: bool = None,
                  grid: str = None,
                  labels: List[str] = None,
-                 pixel_subset: bool = None):
+                 pixel_subset: bool = None,
+                 service_id: str = None):
         """Creates a new Request instance from all specified criteria.'
         """
         super().__init__(collection=collection)
@@ -343,6 +347,7 @@ class Request(OgcBaseRequest):
         self.grid = grid
         self.labels = labels
         self.pixel_subset = pixel_subset
+        self.service_id = service_id
 
         if self.is_edr_request():
             self.variable_name_to_query_param = {
@@ -366,6 +371,7 @@ class Request(OgcBaseRequest):
                 'variables': 'parameter-name',
                 'labels': 'label',
                 'pixel_subset': 'pixelSubset',
+                'service_id': 'serviceId',
             }
             self.spatial_validations = [
                 (lambda s: is_wkt_valid(s.wkt), f'WKT {spatial.wkt} is invalid'),
@@ -392,6 +398,7 @@ class Request(OgcBaseRequest):
                 'variables': 'variable',
                 'labels': 'label',
                 'pixel_subset': 'pixelSubset',
+                'service_id': 'serviceId'
             }
 
             self.spatial_validations = [
