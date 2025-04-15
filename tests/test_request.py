@@ -391,3 +391,9 @@ def test_request_with_pixel_subset_invalid():
     messages = request.error_messages()
     assert not request.is_valid()
     assert 'pixel_subset must be a boolean (True or False)' in messages
+
+
+def test_request_with_service_id():
+    request = Request(collection=Collection('foobar'), service_id='S123-PROV')
+    assert request.is_valid()
+    assert request.service_id == 'S123-PROV'
