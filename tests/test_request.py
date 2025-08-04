@@ -397,3 +397,9 @@ def test_request_with_service_id():
     request = Request(collection=Collection('foobar'), service_id='S123-PROV')
     assert request.is_valid()
     assert request.service_id == 'S123-PROV'
+
+
+def test_request_with_average():
+    request = Request(collection=Collection('foobar'), average='time')
+    assert request.is_valid()
+    assert request.average == 'time'
