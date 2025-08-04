@@ -269,6 +269,8 @@ class Request(OgcBaseRequest):
 
         concatenate: Whether to invoke a service that supports concatenation
 
+        average: the type of averaging to perform
+
         skip_preview: Whether Harmony should skip auto-pausing and generating a preview for
           large jobs
 
@@ -315,6 +317,7 @@ class Request(OgcBaseRequest):
                  variables: List[str] = ['all'],
                  width: int = None,
                  concatenate: bool = None,
+                 average: str = None,
                  skip_preview: bool = None,
                  ignore_errors: bool = None,
                  grid: str = None,
@@ -342,6 +345,7 @@ class Request(OgcBaseRequest):
         self.variables = variables
         self.width = width
         self.concatenate = concatenate
+        self.average = average
         self.skip_preview = skip_preview
         self.ignore_errors = ignore_errors
         self.grid = grid
@@ -391,6 +395,7 @@ class Request(OgcBaseRequest):
                 'format': 'format',
                 'max_results': 'maxResults',
                 'concatenate': 'concatenate',
+                'average': 'average',
                 'skip_preview': 'skipPreview',
                 'ignore_errors': 'ignoreErrors',
                 'grid': 'grid',
