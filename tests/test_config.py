@@ -1,4 +1,5 @@
 import pytest
+import os
 
 from harmony.config import Config, Environment
 
@@ -78,3 +79,31 @@ def test_edl_validation_url_matches_environment(env, url):
     config = Config(env)
 
     assert config.edl_validation_url == url
+
+def test_config_environment_not_affected_by_env_var():
+    os.environ['ENVIRONMENT'] = 'UAT'
+
+    # Make sure default is production
+    config = Config()
+
+    assert config.environment == Environment.PROD
+    assert config.harmony_hostname == 'harmony.earthdata.nasa.gov'
+
+    del os.environ['ENVIRONMENT']
+
+def test_config_custom_environment_not_affected_by_env_var():
+    os.environ['ENVIRONMENT'] = 'PROD'
+    config = Config(environment=Environment.UAT)
+
+    assert config.environment == Environment.UAT
+    assert config.harmony_hostname == 'harmony.uat.earthdata.nasa.gov'
+
+    del os.environ['ENVIRONMENT']
+
+def test_config_other_env_vars_still_work():
+    os.environ['CUSTOM_VAR'] = 'test_value'
+    config = Config()
+
+    assert config.CUSTOM_VAR == 'test_value'
+
+    del os.environ['CUSTOM_VAR']

@@ -134,6 +134,9 @@ dmypy.json
 examples/*.tif
 examples/*.png
 
+# Place to put notebooks that will not be published
+examples/demo_notebooks/
+
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
 

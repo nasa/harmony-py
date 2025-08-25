@@ -14,6 +14,7 @@ import responses
 from harmony.request import BBox, Collection, LinkType, Request, Dimension, CapabilitiesRequest, \
     AddLabelsRequest, DeleteLabelsRequest, JobsRequest
 from harmony.client import Client, ProcessingFailedException, DEFAULT_JOB_LABEL
+from harmony.config import Environment
 
 
 @pytest.fixture()
@@ -1827,3 +1828,21 @@ def test_get_jobs():
     assert responses.calls[0].request.method == 'GET'
     assert responses.calls[0].request.url == expected_url
     assert result == expected_result
+
+def test_client_environment_not_affected_by_env_var():
+    os.environ['ENVIRONMENT'] = 'UAT'
+    client = Client(should_validate_auth=False)
+
+    assert client.config.environment == Environment.PROD
+    assert client.config.harmony_hostname == 'harmony.earthdata.nasa.gov'
+
+    del os.environ['ENVIRONMENT']
+
+def test_client_custom_environment_not_affected_by_env_var():
+    os.environ['ENVIRONMENT'] = 'PROD'
+    client = Client(should_validate_auth=False, env=Environment.UAT)
+
+    assert client.config.environment == Environment.UAT
+    assert client.config.harmony_hostname == 'harmony.uat.earthdata.nasa.gov'
+
+    del os.environ['ENVIRONMENT']
