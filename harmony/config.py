@@ -93,7 +93,7 @@ class Config:
             The value of the referenced attribute
         """
         var = os.getenv(name.upper())
-        if var is None:
+        if var is None or name == 'environment':
             try:
                 var = object.__getattribute__(self, name)
             except AttributeError:
