@@ -28,6 +28,8 @@ import time
 import platform
 from uuid import UUID
 from requests import Response
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from requests.exceptions import JSONDecodeError
 import requests.models
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -164,6 +166,18 @@ class Client:
                 self.session = create_session(self.config, token=self.token)
             else:
                 self.session = create_session(self.config, auth=self.auth)
+            # Add retry logic
+            retry_strategy = Retry(
+                total=3,
+                backoff_factor=1,  # Wait 1, 2, 4 seconds between retries
+                status_forcelist=[429, 500, 502, 503, 504],
+                allowed_methods=["HEAD", "GET", "OPTIONS"],
+                raise_on_status=False,
+            )
+            adapter = HTTPAdapter(max_retries=retry_strategy)
+            self.session.mount("https://", adapter)
+            self.session.mount("http://", adapter)
+
         return self.session
 
     def _http_method(self, request: BaseRequest) -> str:

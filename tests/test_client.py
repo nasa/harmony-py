@@ -10,7 +10,9 @@ import pathlib
 import dateutil.parser
 import pytest
 import responses
+from responses import registries
 
+from urllib3.util.retry import Retry
 from harmony.request import BBox, Collection, LinkType, Request, Dimension, CapabilitiesRequest, \
     AddLabelsRequest, DeleteLabelsRequest, JobsRequest
 from harmony.client import Client, ProcessingFailedException, DEFAULT_JOB_LABEL
@@ -1482,12 +1484,6 @@ def test_handle_error_response_with_description_key():
         status=500,
         json=error
     )
-    responses.add(
-        responses.GET,
-        expected_status_url(job_id),
-        status=500,
-        json=error
-    )
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).submit(request)
     assert str(e.value) == f"('Internal Server Error', '{error['description']}')"
@@ -1499,6 +1495,7 @@ def test_handle_error_response_with_description_key():
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).progress(job_id)
     assert str(e.value) == f"('Internal Server Error', '{error['description']}')"
+    assert len(responses.calls) == 9
 
 @responses.activate
 def test_handle_error_response_no_description_key():
@@ -1521,12 +1518,6 @@ def test_handle_error_response_no_description_key():
         status=500,
         json=error
     )
-    responses.add(
-        responses.GET,
-        expected_status_url(job_id),
-        status=500,
-        json=error
-    )
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).submit(request)
     assert "500 Server Error: Internal Server Error for url" in str(e.value)
@@ -1538,6 +1529,10 @@ def test_handle_error_response_no_description_key():
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).progress(job_id)
     assert "500 Server Error: Internal Server Error for url" in str(e.value)
+    # check retries
+    assert len(responses.calls) == 9 # (1 + 4 + 4)
+
+
 
 @responses.activate
 def test_handle_error_response_no_json():
@@ -1559,12 +1554,6 @@ def test_handle_error_response_no_json():
         status=500,
         body='error'
     )
-    responses.add(
-        responses.GET,
-        expected_status_url(job_id),
-        status=500,
-        body='error'
-    )
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).submit(request)
     assert "500 Server Error: Internal Server Error for url" in str(e.value)
@@ -1576,6 +1565,9 @@ def test_handle_error_response_no_json():
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).progress(job_id)
     assert "500 Server Error: Internal Server Error for url" in str(e.value)
+    # check Retries
+    assert len(responses.calls) == 9 # (1 + 4 + 4)
+
 
 @responses.activate
 def test_handle_error_response_invalid_json():
@@ -1597,12 +1589,6 @@ def test_handle_error_response_invalid_json():
         status=500,
         json='error'
     )
-    responses.add(
-        responses.GET,
-        expected_status_url(job_id),
-        status=500,
-        json='error'
-    )
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).submit(request)
     assert "500 Server Error: Internal Server Error for url" in str(e.value)
@@ -1614,6 +1600,57 @@ def test_handle_error_response_invalid_json():
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).progress(job_id)
     assert "500 Server Error: Internal Server Error for url" in str(e.value)
+    # assert all retries happened
+    assert len(responses.calls) == 9 # (1 + 4 + 4)  POST isn't retried
+
+@responses.activate(registry=registries.OrderedRegistry)
+def test_handle_transient_error_responses():
+    job_id = '3141592653-acbd-1234'
+    collection = Collection(id='C1342468263-ANYTHING')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, 'abcd-1234'),
+    )
+    first_success = responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=200,
+        json=expected_job(collection.id, job_id)
+    )
+    first_retry = responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=502,
+        json='error'
+    )
+    second_retry = responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=502,
+        json='error'
+    )
+    last_success = responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=200,
+        json=expected_job(collection.id, job_id)
+    )
+
+    Client(should_validate_auth=False).submit(request)
+    Client(should_validate_auth=False).status(job_id)
+    Client(should_validate_auth=False).status(job_id)
+
+    assert first_success.call_count == 1
+    assert first_retry.call_count == 1
+    assert second_retry.call_count == 1
+    assert last_success.call_count == 1
+
 
 def test_request_as_curl_get():
     collection = Collection(id='C1940468263-POCLOUD')
