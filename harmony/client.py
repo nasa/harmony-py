@@ -170,9 +170,11 @@ class Client:
             retry_strategy = Retry(
                 total=3,
                 backoff_factor=1,  # Wait 1, 2, 4 seconds between retries
+                backoff_jitter=0.5,
                 status_forcelist=[429, 500, 502, 503, 504],
                 allowed_methods=["GET"],
                 raise_on_status=False,
+
             )
             adapter = HTTPAdapter(max_retries=retry_strategy)
             self.session.mount("https://", adapter)
