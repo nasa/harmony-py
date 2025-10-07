@@ -1529,10 +1529,8 @@ def test_handle_error_response_no_description_key():
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).progress(job_id)
     assert "500 Server Error: Internal Server Error for url" in str(e.value)
-    # check retries
-    assert len(responses.calls) == 9 # (1 + 4 + 4)
-
-
+    # Check retries
+    assert len(responses.calls) == 9 # (1 + 4 + 4) # Post isn't retried.
 
 @responses.activate
 def test_handle_error_response_no_json():
@@ -1565,7 +1563,7 @@ def test_handle_error_response_no_json():
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).progress(job_id)
     assert "500 Server Error: Internal Server Error for url" in str(e.value)
-    # check Retries
+    # Check retries
     assert len(responses.calls) == 9 # (1 + 4 + 4)
 
 
@@ -1600,8 +1598,8 @@ def test_handle_error_response_invalid_json():
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).progress(job_id)
     assert "500 Server Error: Internal Server Error for url" in str(e.value)
-    # assert all retries happened
-    assert len(responses.calls) == 9 # (1 + 4 + 4)  POST isn't retried
+    # Check retries
+    assert len(responses.calls) == 9 # (1 + 4 + 4)
 
 @responses.activate(registry=registries.OrderedRegistry)
 def test_handle_transient_error_responses():
