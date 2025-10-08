@@ -1601,6 +1601,36 @@ def test_handle_error_response_invalid_json():
     # Check retries
     assert len(responses.calls) == 9 # (1 + 4 + 4)
 
+@responses.activate
+def test_handle_non_transient_error_no_retry():
+    job_id = '89733-badc-1324'
+    collection = Collection(id='F229040468263-STRP')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, 'abcd-1234')
+    )
+    responses.add(
+        responses.GET,
+        expected_status_url(job_id),
+        status=431,
+        json='no-retry error'
+    )
+
+    Client(should_validate_auth=False).submit(request)
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).status(job_id)
+    assert "431 Client Error: Request Header Fields Too Large for url" in str(e.value)
+
+    # Check no retries
+    assert len(responses.calls) == 2
+
 @responses.activate(registry=registries.OrderedRegistry)
 def test_handle_transient_error_responses():
     job_id = '3141592653-acbd-1234'
