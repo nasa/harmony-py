@@ -33,7 +33,7 @@ Looking for examples of harmony-py in action? Check out these resources:
 
 * **[Example Jupyter Notebooks](examples/)** - In this repository, see the `examples/` directory for hands-on tutorials
 * **[TEMPO Atmospheric Data Tutorial](https://nasa.github.io/ASDC_Data_and_User_Services/TEMPO/how_to_examine_TEMPO_data_using_harmony-py.html)** - Learn how to access and analyze TEMPO data from NASA's ASDC using harmony-py
-* **[Subsetting NASA Earthdata Using Harmony](https://nasa-openscapes.github.io/tutorials/Harmony.html)** - Tutorial on requesting spatial and temporal subsets of ICESat-2 data using harmony-py
+* **[Subsetting NASA Earthdata Using Harmony](https://nasa-openscapes.github.io/earthdata-cloud-cookbook/tutorials/Harmony.html)** - Tutorial on requesting spatial and temporal subsets of ICESat-2 data using harmony-py
 
 
 # Running Examples & Developing on Harmony Py
