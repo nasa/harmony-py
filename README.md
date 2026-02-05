@@ -8,6 +8,10 @@ Harmony-Py provides a Python alternative to directly using [Harmony's OGC Covera
 
 We welcome feedback on Harmony-Py via [GitHub Issues](https://github.com/nasa/harmony-py/issues)
 
+## Documentation
+
+**[View the full API documentation on ReadTheDocs →](https://harmony-py.readthedocs.io/en/latest/)**
+
 # Using Harmony Py
 
 ## Prerequisites
@@ -22,6 +26,14 @@ The library is available from [PyPI](https://pypi.org/project/harmony-py/) and c
         $ pip install -U harmony-py
 
 This will install harmony-py and its dependencies into your current Python environment. It's recommended that you install harmony-py into a virtual environment along with any other dependencies you may have.
+
+## Examples & Tutorials
+
+Looking for examples of harmony-py in action? Check out these resources:
+
+* **[Example Jupyter Notebooks](https://github.com/nasa/harmony-py/tree/main/examples)** - In this repository, see the `examples/` directory for hands-on tutorials
+* **[TEMPO Atmospheric Data Tutorial](https://nasa.github.io/ASDC_Data_and_User_Services/TEMPO/how_to_examine_TEMPO_data_using_harmony-py.html)** - Learn how to access and analyze TEMPO data from NASA's ASDC using harmony-py
+* **[Subsetting NASA Earthdata Using Harmony](https://nasa-openscapes.github.io/earthdata-cloud-cookbook/tutorials/Harmony.html)** - Tutorial on requesting spatial and temporal subsets of ICESat-2 data using harmony-py
 
 
 # Running Examples & Developing on Harmony Py
