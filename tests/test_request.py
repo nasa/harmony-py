@@ -206,6 +206,24 @@ def test_request_spatial_error_messages(key, value, message):
             'stop': dt.datetime(1941, 12, 7)
         },
         'The temporal range\'s start must be earlier than its stop datetime.'
+    ), (
+        'temporal', {
+            'start': dt.datetime(2019, 11, 1),
+            'end': dt.datetime(2019, 12, 30)
+        },
+        ('Temporal range keys must be either "start" or "stop".')
+    ), (
+        'temporal', {
+            'end': dt.datetime(2019, 12, 30)
+        },
+        ('Temporal range keys must be either "start" or "stop".')
+    ), (
+        'temporal', {
+            'start': dt.datetime(2019, 11, 1),
+            'end': dt.datetime(2019, 12, 30),
+            'invalid_key': dt.datetime(2020, 1, 1)
+        },
+        ('Temporal range keys must be either "start" or "stop".')
     )
 ])
 def test_request_temporal_error_messages(key, value, message):

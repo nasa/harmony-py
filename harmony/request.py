@@ -423,6 +423,8 @@ class Request(OgcBaseRequest):
             (lambda tr: 'start' in tr or 'stop' in tr,
              ('When included in the request, the temporal range should include a '
               'start or stop attribute.')),
+            (lambda tr: all(key in ['start', 'stop'] for key in tr.keys()),
+             ('Temporal range keys must be either "start" or "stop".')),
             (lambda tr: tr['start'] < tr['stop'] if 'start' in tr and 'stop' in tr else True,
              'The temporal range\'s start must be earlier than its stop datetime.')
         ]
