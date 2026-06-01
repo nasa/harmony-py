@@ -545,10 +545,20 @@ class Client:
 
         if response.ok:
             if isinstance(request, OgcBaseRequest):
-                if response.json()['status'] == 'successful':
-                    return response.json()
+                try:
+                    response_json = response.json()
+                except requests.exceptions.JSONDecodeError:
+                    raise Exception(
+                        'Harmony returned an empty or non-JSON response. '
+                        'This usually means your Earthdata Login credentials are missing or '
+                        'incorrect. Ensure your ~/.netrc file contains a valid entry for '
+                        f'{self.config.root_url} and urs.earthdata.nasa.gov, or pass '
+                        "auth=('username', 'password') when creating the Client."
+                    ) from None
+                if response_json['status'] == 'successful':
+                    return response_json
                 else:
-                    return response.json()['jobID']
+                    return response_json['jobID']
             else:
                 try:
                     return response.json()
