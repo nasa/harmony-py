@@ -3,7 +3,7 @@ name: Tests
 on:
   push:
   pull_request:
-  workflow_dispatch: # for testing remove
+  workflow_dispatch:
   schedule:
     # Nightly run at 02:00 UTC — catches breakage from new upstream releases
     - cron: '0 2 * * *'
@@ -43,8 +43,6 @@ jobs:
     runs-on: ubuntu-latest
     if: >
       always() &&
-      (github.event_name == 'schedule' ||
-       github.event_name == 'workflow_dispatch') &&
       needs.build.result == 'failure'
 
     steps:
