@@ -7,7 +7,7 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    # Nightly run at 02:00 UTC — catches breakage from new upstream releases
+    # Nightly run at 02:00 UTC
     - cron: '0 2 * * *'
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
         path: htmlcov/*
       if: ${{ github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize') }}
 
-  notify:
+  notify_failure:
     needs: build
     runs-on: ubuntu-latest
     if: >
@@ -48,15 +48,34 @@ jobs:
       needs.build.result == 'failure'
 
     steps:
-      - name: Create issue
+      - name: Create or comment on issue
         uses: actions/github-script@v7
         with:
           script: |
-            await github.rest.issues.create({
+            const title = 'Nightly tests failed';
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Nightly tests failed`,
-              body: `The nightly scheduled test run failed.
+              state: 'open',
+              per_page: 100,
+            });
 
-              Run: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-            })
+            const existing = issues.find(i => i.title === title);
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Nightly run failed again.\n\nRun: ${runUrl}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: `The nightly scheduled test run failed.\n\nRun: ${runUrl}`,
+              });
+            }
