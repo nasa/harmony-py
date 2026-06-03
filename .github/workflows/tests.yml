@@ -3,6 +3,7 @@ name: Tests
 on:
   push:
   pull_request:
+  workflow_dispatch: # for testing remove
   schedule:
     # Nightly run at 02:00 UTC — catches breakage from new upstream releases
     - cron: '0 2 * * *'
