@@ -1,6 +1,11 @@
 name: Tests
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  schedule:
+    # Nightly run at 02:00 UTC — catches breakage from new upstream releases
+    - cron: '0 2 * * *'
 
 jobs:
   build:
