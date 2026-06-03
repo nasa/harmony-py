@@ -220,6 +220,9 @@ def is_wkt_valid(wkt_string: str) -> bool:
         # Handle WKT reading errors and invalid WKT strings
         print(f"Invalid WKT: {e}")
         return False
+    except (ShapelyError, NotImplementedError) as e:
+        print(f"Invalid WKT: {e}")
+        return False
 
 
 class Request(OgcBaseRequest):
