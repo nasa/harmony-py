@@ -42,7 +42,8 @@ jobs:
     runs-on: ubuntu-latest
     if: >
       always() &&
-      github.event_name == 'schedule' &&
+      (github.event_name == 'schedule' ||
+       github.event_name == 'workflow_dispatch') &&
       needs.build.result == 'failure'
 
     steps:

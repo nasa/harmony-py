@@ -421,3 +421,6 @@ def test_request_with_average():
     request = Request(collection=Collection('foobar'), average='time')
     assert request.is_valid()
     assert request.average == 'time'
+
+def test_failure_creates_issue():
+    assert False
