@@ -36,3 +36,25 @@ jobs:
         name: code-coverage-report ${{ github.event.pull_request.head.sha }} ${{ matrix.python-version }}
         path: htmlcov/*
       if: ${{ github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize') }}
+
+  notify:
+    needs: build
+    runs-on: ubuntu-latest
+    if: >
+      always() &&
+      github.event_name == 'schedule' &&
+      needs.build.result == 'failure'
+
+    steps:
+      - name: Create issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Nightly tests failed`,
+              body: `The nightly scheduled test run failed.
+
+              Run: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            })
