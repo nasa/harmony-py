@@ -557,7 +557,9 @@ class Client:
                             f"Raw response ({response.status_code}): {response.text[:200]}"
                         ) from e
                     else:
-                        raise Exception(f"Harmony returned a non-JSON response: {response.text[:200]}") from e
+                        raise Exception(
+                            f"Harmony returned a non-JSON response: {response.text[:200]}"
+                        ) from e
                 if body['status'] == 'successful':
                     return body
                 else:

@@ -1615,7 +1615,7 @@ def test_submit_raises_helpful_auth_error_on_empty_response():
         responses.POST,
         expected_submit_url(collection.id),
         status=200,
-        body=b'',
+        body=b'something with Earthdata Login in it.',
         content_type='text/html',
     )
     with pytest.raises(Exception) as exc_info:
