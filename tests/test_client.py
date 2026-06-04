@@ -1618,11 +1618,26 @@ def test_submit_raises_helpful_auth_error_on_empty_response():
         body=b'something with Earthdata Login in it.',
         content_type='text/html',
     )
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        body=b'something that is not a login.',
+        content_type='text/html',
+    )
     with pytest.raises(Exception) as exc_info:
         Client(should_validate_auth=False).submit(request)
     error_msg = str(exc_info.value)
+    assert 'Harmony returned a non-JSON' in error_msg
     assert 'netrc' in error_msg
     assert 'urs.earthdata.nasa.gov' in error_msg
+
+    with pytest.raises(Exception) as exc_info:
+        Client(should_validate_auth=False).submit(request)
+    error_msg = str(exc_info.value)
+    assert 'Harmony returned a non-JSON' in error_msg
+    assert 'netrc' not in error_msg
+    assert 'urs.earthdata.nasa.gov' not in error_msg
 
 
 @responses.activate
