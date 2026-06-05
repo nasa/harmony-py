@@ -16,7 +16,7 @@ We welcome feedback on Harmony-Py via [GitHub Issues](https://github.com/nasa/ha
 
 ## Prerequisites
 
-* Python 3.9 through 3.13 (other versions are end of life or untested)
+* Python 3.10 through 3.14 (other versions are end of life or untested)
 
 
 ## Installing
@@ -40,7 +40,7 @@ Looking for examples of harmony-py in action? Check out these resources:
 
 ## Prerequisites
 
-* Python 3.9 through 3.13, ideally installed via a virtual environment
+* Python 3.10 through 3.14, ideally installed via a virtual environment
 
 
 ## Installing Development & Example Dependencies
