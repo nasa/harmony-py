@@ -63,6 +63,7 @@ jobs:
       - name: Notify Slack
         uses: slackapi/slack-github-action@v3
         with:
+          # https://api.slack.com/apps (to create app to receive webook)
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
