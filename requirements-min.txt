@@ -1,0 +1,6 @@
+python-dateutil==2.9.0
+python-dotenv==1.1.0
+progressbar2==4.2.0
+requests==2.32.3
+curlify==2.2.1
+shapely==2.0.4

@@ -18,6 +18,11 @@ install:
 	pip install .
 	pip install .[dev,docs]
 
+install-minimum:
+	python -m pip install --upgrade pip
+	pip install -r requirements-min.txt
+	pip install .[dev,docs] --constraint requirements-min.txt
+
 install-examples: install
 	pip install .[examples]
 
