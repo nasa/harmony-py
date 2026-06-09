@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >
       always() &&
-      needs.build.result == 'failure'
+      needs.build.result == 'failure' &&
       github.event_name == 'schedule'
     steps:
       - name: Notify Slack
