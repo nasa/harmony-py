@@ -1383,7 +1383,7 @@ def test_iterator(link_type, mocker):
 
 # this function provides a different value for subsequent calls to _get_json to simulate
 # changing status page - in this case the status changes from 'running' to 'failed'
-def side_effect_for_get_json_failed_job(extra_links) -> List[str]:
+def side_effect_for_get_json_failed_job(extra_links) -> List[dict]:
     status_running = expected_job('C123', 'foo123')
     status_running['links'].append(extra_links[0])
     status_failed = copy.deepcopy(status_running)
