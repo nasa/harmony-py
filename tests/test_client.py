@@ -1396,6 +1396,8 @@ def side_effect_for_get_json_failed_job(extra_links) -> List[str]:
 def test_iterator_failed_job(link_type, mocker):
     # test with two successful work items followed by a failed job
     extra_links = extra_links_for_iteration(link_type.value)
+    download_file_mock = mocker.Mock(side_effect=side_effect_func_for_download_file)
+    mocker.patch('harmony.client.Client._download_file', download_file_mock)
     get_json_mock = mocker.Mock(
         side_effect=side_effect_for_get_json_failed_job(extra_links=extra_links))
     mocker.patch('harmony.client.Client._get_json', get_json_mock)
