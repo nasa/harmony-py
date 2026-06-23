@@ -216,11 +216,8 @@ def is_wkt_valid(wkt_string: str) -> bool:
         # Attempt to load the WKT string
         loads(wkt_string)
         return True
-    except (ShapelyError, ValueError) as e:
+    except (ShapelyError, ValueError, NotImplementedError) as e:
         # Handle WKT reading errors and invalid WKT strings
-        print(f"Invalid WKT: {e}")
-        return False
-    except (ShapelyError, NotImplementedError) as e:
         print(f"Invalid WKT: {e}")
         return False
 
