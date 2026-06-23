@@ -1,13 +1,26 @@
 name: Tests
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 1,3,5'
 
 jobs:
+
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        dependencies: ['minimum', 'latest']
+        exclude:
+          # shapely 2.0.4 has no pre-build wheel for 3.13
+          - python-version: '3.13'
+            dependencies: 'minimum'
 
     steps:
     - uses: actions/checkout@v4
@@ -17,7 +30,13 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
+    - name: Install minimum pinned dependencies
+      if: matrix.dependencies == 'minimum'
+      run: |
+        make install-minimum
+
+    - name: Install latest dependencies
+      if: matrix.dependencies == 'latest'
       run: |
         make install
 
@@ -31,3 +50,23 @@ jobs:
         name: code-coverage-report ${{ github.event.pull_request.head.sha }} ${{ matrix.python-version }}
         path: htmlcov/*
       if: ${{ github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize') }}
+
+  notify_nightly_failure:
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    if: >
+      always() &&
+      needs.build.result == 'failure' &&
+      github.event_name == 'schedule'
+    steps:
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v3
+        with:
+          # https://api.slack.com/apps (to create app to receive webook)
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "❌ Nightly tests failed: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+            }
