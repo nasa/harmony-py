@@ -49,6 +49,7 @@ from harmony.config import Config, Environment
 from harmony.request import Collection, BBox, WKT, LinkType, _shapefile_exts_to_mimes, \
     BaseRequest, OgcBaseRequest, CapabilitiesRequest, AddLabelsRequest, \
     DeleteLabelsRequest, JobsRequest
+from harmony.util import get_json_from_response
 from harmony import __version__ as harmony_version
 
 DEFAULT_JOB_LABEL = "harmony-py"
@@ -545,21 +546,7 @@ class Client:
 
         if response.ok:
             if isinstance(request, OgcBaseRequest):
-                try:
-                    body = response.json()
-                except requests.exceptions.JSONDecodeError as e:
-                    if "Earthdata Login" in response.text:
-                        raise Exception(
-                            "Harmony returned a non-JSON response. This may indicate an "
-                            "authentication failure. Check that your .netrc file contains valid "
-                            "credentials for the Earthdata Login host (e.g. "
-                            "urs.earthdata.nasa.gov or uat.urs.earthdata.nasa.gov).\n"
-                            f"Raw response ({response.status_code}): {response.text[:200]}"
-                        ) from e
-                    else:
-                        raise Exception(
-                            f"Harmony returned a non-JSON response: {response.text[:200]}"
-                        ) from e
+                body = get_json_from_response(response)
                 if body['status'] == 'successful':
                     return body
                 else:
