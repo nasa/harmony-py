@@ -1604,6 +1604,58 @@ def test_handle_error_response_invalid_json():
     assert len(responses.calls) == 9 # (1 + 4 + 4)
 
 @responses.activate
+def test_submit_raises_helpful_auth_error_on_empty_response():
+    """When the server returns 200 with HTML body that looks like EDL auth redirect,
+    the user should see a clear message about .netrc credentials rather than
+    a raw JSONDecodeError."""
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        body=b'something with Earthdata Login in it.',
+        content_type='text/html',
+    )
+    with pytest.raises(Exception) as exc_info:
+        Client(should_validate_auth=False).submit(request)
+    error_msg = str(exc_info.value)
+    assert 'Harmony returned a non-JSON' in error_msg
+    assert 'netrc' in error_msg
+    assert 'urs.earthdata.nasa.gov' in error_msg
+
+@responses.activate
+def test_submit_raises_helpful_non_auth_error_on_empty_response():
+    """When the server returns 200 with an HTML body that is not an earthdata
+    login request the user should see a clear message that does not include
+    information on how to set up earthdata login rather than a raw
+    JSONDecodeError.
+    """
+    collection = Collection(id='C1940468263-POCLOUD')
+    request = Request(
+        collection=collection,
+        spatial=BBox(-107, 40, -105, 42)
+    )
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        body=b'something that is not a login.',
+        content_type='text/html',
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        Client(should_validate_auth=False).submit(request)
+    error_msg = str(exc_info.value)
+    assert 'Harmony returned a non-JSON' in error_msg
+    assert 'netrc' not in error_msg
+    assert 'urs.earthdata.nasa.gov' not in error_msg
+
+
+@responses.activate
 def test_handle_non_transient_error_no_retry():
     job_id = '89733-badc-1324'
     collection = Collection(id='F229040468263-STRP')

@@ -49,6 +49,7 @@ from harmony.config import Config, Environment
 from harmony.request import Collection, BBox, WKT, LinkType, _shapefile_exts_to_mimes, \
     BaseRequest, OgcBaseRequest, CapabilitiesRequest, AddLabelsRequest, \
     DeleteLabelsRequest, JobsRequest
+from harmony.util import get_json_from_response
 from harmony import __version__ as harmony_version
 
 DEFAULT_JOB_LABEL = "harmony-py"
@@ -545,10 +546,11 @@ class Client:
 
         if response.ok:
             if isinstance(request, OgcBaseRequest):
-                if response.json()['status'] == 'successful':
-                    return response.json()
+                body = get_json_from_response(response)
+                if body['status'] == 'successful':
+                    return body
                 else:
-                    return response.json()['jobID']
+                    return body['jobID']
             else:
                 try:
                     return response.json()
