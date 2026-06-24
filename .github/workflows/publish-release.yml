@@ -15,25 +15,8 @@ jobs:
       with:
         python-version: '3.11'
     - shell: bash
-      env:
-        VERSION_TAG: ${{ github.event.release.tag_name }}
-        BRANCH: ${{ github.event.release.target_commitish }}
-      run: |
-        VERSION=$(echo "${VERSION_TAG}" | cut -c2-) make install build
-
-        # Setup git
-        # https://api.github.com/users/github-actions%5Bbot%5D
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-        # Commit and push updated release files
-        git checkout -b "${BRANCH}"
-        git add .
-        git commit -m "Update release version to ${VERSION_TAG}"
-        git push origin "${BRANCH}"
-
-        git tag --force "${VERSION_TAG}"
-        git push --force origin "${VERSION_TAG}"
+      # Version is derived from the release tag by setuptools_scm (needs fetch-depth: 0 above).
+      run: make install build
     - name: upload dists
       uses: actions/upload-artifact@v4
       with:

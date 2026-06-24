@@ -2,7 +2,7 @@
 # https://pypi.org/pypi?%3Aaction=list_classifiers
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -82,9 +82,8 @@ examples = [
     "rasterio ~= 1.3"
 ]
 
-[tool.setuptools.dynamic]
-# Will read __version__ from harmony.__init__.py
-version = {attr = "harmony.__version__"}
+[tool.setuptools_scm]
+# Version is derived from the git tag (e.g. v1.4.0 -> 1.4.0) at build time.
 
 [tool.setuptools.packages.find]
 exclude = ["contrib", "docs", "tests*"]
