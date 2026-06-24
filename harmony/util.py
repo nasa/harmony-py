@@ -43,8 +43,7 @@ def get_json_from_response(response: Response) -> Any:
         message if the response appears to be an Earthdata Login authentication page.
     """
     try:
-        body = response.json()
-        return body
+        return response.json()
     except requests.exceptions.JSONDecodeError as e:
         if "Earthdata Login" in response.text:
             raise Exception(
