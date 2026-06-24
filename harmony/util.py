@@ -49,7 +49,8 @@ def get_json_from_response(response: Response) -> Any:
         if "Earthdata Login" in response.text:
             raise Exception(
                 "Harmony returned a non-JSON response. This may indicate an "
-                "authentication failure. Check that your .netrc file contains valid "
+                "authentication failure. Try using a token for authentication when "
+                "creating your Client or check that your .netrc file contains valid "
                 "credentials for the Earthdata Login host (e.g. "
                 "urs.earthdata.nasa.gov or uat.urs.earthdata.nasa.gov).\n"
                 f"Raw response ({response.status_code}): {response.text[:200]}"
