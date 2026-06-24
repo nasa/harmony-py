@@ -1,6 +1,5 @@
 .PHONY: install install-examples clean examples lint test test-watch ci docs
 
-VERSION ?= $(shell git describe --tags | sed 's/-/\+/' | sed 's/-/\./g')
 REPO ?= https://upload.pypi.org/legacy/
 REPO_USER ?= __token__
 REPO_PASS ?= unset
@@ -47,10 +46,7 @@ docs/user/notebook.html: $(docs-notebook)
 docs: docs/user/notebook.html
 	cd docs && $(MAKE) html
 
-version:
-	sed -i.bak "s/__version__ .*/__version__ = \"$(VERSION)\"/" harmony/__init__.py && rm harmony/__init__.py.bak
-
-build: clean version
+build: clean
 	python -m pip install --upgrade --quiet setuptools wheel twine build
 	python -m build
 
