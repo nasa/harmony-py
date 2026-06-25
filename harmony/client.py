@@ -962,7 +962,13 @@ class Client:
             files from incomplete downloads, set overwrite to True.
 
         Returns:
-            A Future that resolves to the full path to the file.
+            A Future that resolves to the full path to the downloaded file. Call
+            ``.result()`` on the Future to block until the download completes and
+            retrieve the file path.
+
+        Example:
+            >>> future = harmony_client.download(url, directory='/tmp', overwrite=True)
+            >>> filename = future.result()  # blocks until download completes
         """
         if url.endswith('zarr'):
             raise self.zarr_download_exception
@@ -975,10 +981,18 @@ class Client:
                      overwrite: bool = False) -> Generator[Future, None, None]:
         """Using a job_id, fetches all the data files from a finished job.
 
-        After this method is able to contact Harmony and query a finished job, it will
-        immediately return with a list of python concurrent.Futures corresponding to each of the
-        files to be downloaded. Call the result() method to block until the downloading of that
-        file is complete. When finished, the Future will return the filename.
+        This method is a **generator** that yields ``concurrent.futures.Future`` objects,
+        one per file to be downloaded. The downloads are submitted to a thread-pool
+        executor lazily as the generator is consumed.
+
+        .. warning::
+            Calling ``download_all()`` without consuming the generator (e.g. via
+            ``list()`` or a ``for`` loop) will **not** download any files. The
+            generator must be iterated for downloads to be submitted.
+
+        Call the ``result()`` method on each Future to block until that file's
+        download is complete. When finished, the Future will return the filename
+        (with path).
 
         Files are downloaded by an executor backed by a thread pool. Number of threads in the
         thread pool can be specified with the environment variable NUM_REQUESTS_WORKERS.
@@ -998,9 +1012,14 @@ class Client:
             downloaded file. Defaults to False. If you're seeing malformed data or truncated
             files from incomplete downloads, set overwrite to True.
 
-        Returns:
-            A list of Futures, each of which will return the filename (with path) for each
-            result.
+        Yields:
+            Future: A ``concurrent.futures.Future`` for each file being downloaded.
+            Each Future resolves to the filename (with path) of the downloaded file.
+
+        Example:
+            >>> # Consume the generator to submit downloads, then wait for completion
+            >>> futures = list(client.download_all(job_id, directory='/tmp'))
+            >>> file_names = [f.result() for f in futures]
         """
         if isinstance(job_id_or_result_json, str):
             try:
