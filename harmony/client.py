@@ -1017,12 +1017,8 @@ class Client:
             Each Future resolves to the filename (with path) of the downloaded file.
 
         Example:
-            >>> # Download all files and wait for each to finish
-            >>> futures = harmony_client.download_all(job_id, directory='/tmp')
-            >>> file_names = [f.result() for f in futures]
-
-            >>> # Or collect the generator into a list first
-            >>> futures = list(harmony_client.download_all(job_id))
+            >>> # Consume the generator to submit downloads, then wait for completion
+            >>> futures = list(client.download_all(job_id, directory='/tmp'))
             >>> file_names = [f.result() for f in futures]
         """
         if isinstance(job_id_or_result_json, str):
