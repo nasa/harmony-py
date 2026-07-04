@@ -951,7 +951,13 @@ class Client:
         return data['status'], data['message']
 
     def download(self, url: str, directory: str = '', overwrite: bool = False) -> Future:
-        """Downloads data and saves it to a file asynchronously.
+        """Downloads a single file asynchronously.
+
+        Returns a :class:`~concurrent.futures.Future` that resolves to the full path of the
+        downloaded file. The download happens in a background thread; call ``result()`` on the
+        returned Future to block until the download is complete::
+
+            file_name = harmony_client.download(url, directory='/tmp', overwrite=True).result()
 
         Args:
             url: The location (URL) of the file to be downloaded
@@ -962,7 +968,7 @@ class Client:
             files from incomplete downloads, set overwrite to True.
 
         Returns:
-            A Future that resolves to the full path to the file.
+            A :class:`~concurrent.futures.Future` that resolves to the full path to the file.
         """
         if url.endswith('zarr'):
             raise self.zarr_download_exception
@@ -975,10 +981,20 @@ class Client:
                      overwrite: bool = False) -> Generator[Future, None, None]:
         """Using a job_id, fetches all the data files from a finished job.
 
-        After this method is able to contact Harmony and query a finished job, it will
-        immediately return with a list of python concurrent.Futures corresponding to each of the
-        files to be downloaded. Call the result() method to block until the downloading of that
-        file is complete. When finished, the Future will return the filename.
+        This method is a **generator** that yields :class:`~concurrent.futures.Future` objects,
+        one per file to be downloaded. Downloads are lazy: they only begin when the generator
+        is iterated (e.g. with a ``for`` loop or a list comprehension). If you call this method
+        but never iterate the result, **no files will be downloaded**.
+
+        To trigger downloads and wait for all files to finish, consume the generator and call
+        ``result()`` on each Future::
+
+            futures = harmony_client.download_all(job_id, directory='/tmp', overwrite=True)
+            filenames = [f.result() for f in futures]
+
+        Each ``Future`` resolves to the full path of the downloaded file. Call ``result()`` to
+        block until that file finishes downloading; other files continue downloading in
+        parallel in the background.
 
         Files are downloaded by an executor backed by a thread pool. Number of threads in the
         thread pool can be specified with the environment variable NUM_REQUESTS_WORKERS.
@@ -998,9 +1014,9 @@ class Client:
             downloaded file. Defaults to False. If you're seeing malformed data or truncated
             files from incomplete downloads, set overwrite to True.
 
-        Returns:
-            A list of Futures, each of which will return the filename (with path) for each
-            result.
+        Yields:
+            A :class:`~concurrent.futures.Future` for each file, which will return the filename
+            (with path) when ``result()`` is called.
         """
         if isinstance(job_id_or_result_json, str):
             try:
