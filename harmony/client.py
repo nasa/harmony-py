@@ -967,7 +967,7 @@ class Client:
             retrieve the file path.
 
         Example:
-            >>> future = harmony_client.download(url, directory='/tmp', overwrite=True)
+            >>> future = client.download(url, directory='/tmp', overwrite=True)
             >>> filename = future.result()  # blocks until download completes
         """
         if url.endswith('zarr'):
@@ -1005,7 +1005,8 @@ class Client:
         Will wait for an unfinished job to finish before downloading.
 
         Args:
-            job_id: UUID string for the job you wish to interrogate.
+            job_id_or_result_json: UUID string for the job, or a result-json dict,
+            for the job whose files you wish to download.
             directory: Optional. If specified, saves files there. Saves files to the current
             working directory by default.
             overwrite: If True, will overwrite a local file that shares a filename with the
@@ -1017,7 +1018,7 @@ class Client:
             Each Future resolves to the filename (with path) of the downloaded file.
 
         Example:
-            >>> # Consume the generator to submit downloads, then wait for completion
+            >>> # Consume the generator to submit all downloads, then wait for completion
             >>> futures = list(client.download_all(job_id, directory='/tmp'))
             >>> file_names = [f.result() for f in futures]
         """
