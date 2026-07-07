@@ -164,10 +164,7 @@ class BaseRequest:
     requests.
 
     Args:
-        collection: The CMR collection that should be queried
-
-    Returns:
-        A Harmony Request instance
+       http_method: The HTTP method to use for the request. Defaults to GET.
     """
 
     def __init__(self,
@@ -618,6 +615,54 @@ class JobsRequest(BaseRequest):
             'limit': 'limit',
             'labels': 'label',
         }
+
+class StepsRequest(BaseRequest):
+    """A harmony request to access a Jobs steps
+
+    See documentation for query parameters.
+    https://harmony.earthdata.nasa.gov/docs#inspecting-a-job's-steps-with-the-steps-api
+
+    Args:
+      job_id (int): The job to inspect.
+      step (list[int]): The job's step index to include.
+      status (list[str]): statuses to include.
+      work_item (list[int]): workItem values to include.
+      limit (int): number of workItems to include for each step.
+      resolve_files (bool): Whether to resolve the intermediate files or not. requires a workItem filter.
+      wi_limit (int): page size when resolving files.
+
+      *** TODO [MHS, 07/07/2026] Still need to handle dynamic pages. ***
+      step_pages (dict[int, int]): dict of [stepIndex, PageNumber] -> step<stepIndex>page=<PageNumber>
+
+
+
+     ?workitem=9681851&resolvefiles=true&workitem9681851inputpage=2&wilimit=50
+     ?workitem=9681851&resolvefiles=true&workitem9681851inputpage=2&wilimit=10
+     ?workitem=9681851&resolvefiles=true&workitem9681851inputpage=3&wilimit=10&workitem9681851outputpage=2
+     ?resolvefiles=false&workitem9681851inputpage=3&wilimit=10&workitem9681851outputpage=2&step2page=2&limit=5
+
+    """
+    def __init__(self, *, job_id, step=None, status=None, work_item=None, limit=None, resolve_files=False, wi_limit=None):
+        super().__init__()
+        self.job_id = job_id
+        self.step = step
+        self.status = status
+        self.work_item = work_item
+        self.limit = limit
+        self.resolve_files = resolve_files
+        self.wi_limit = wi_limit
+
+        self.variable_name_to_query_param = {
+            "step": "step",
+            "status": "status",
+            "work_item": "workItem",
+            "limit": "limit",
+            "resolve_files": "resolveFiles",
+            "wi_limit": "wiLimit",
+        }
+
+
+
 
 
 class LinkType(Enum):
