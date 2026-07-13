@@ -601,9 +601,9 @@ class JobsRequest(BaseRequest):
 
     def __init__(self,
                  *,
-                 page: int = None,
-                 limit: int = None,
-                 labels: List[str] = None,
+                 page: int | None = None,
+                 limit: int | None = None,
+                 labels: List[str] | None = None,
                  ):
         super().__init__()
         self.page = page
@@ -632,8 +632,11 @@ class StepsRequest(BaseRequest):
       wi_limit (int): page size when resolving files.
 
       *** TODO [MHS, 07/07/2026] Still need to handle dynamic pages. ***
-      step_pages (dict[int, int]): dict of [stepIndex, PageNumber] -> step<stepIndex>page=<PageNumber>
+      step_pages (dict[int, int]): dict of [stepIndex, PageNumber] -> step<step_index>page=<page_number>
+      step2page=2
 
+      work_item_inputs (dict[int, int]) -> workItem<wi_idx>inputpage=<page_number>
+      work_item_outputs (dict[int, int]) -> workItem<wi_idx>outputpage=<page_number>
 
 
      ?workitem=9681851&resolvefiles=true&workitem9681851inputpage=2&wilimit=50
@@ -641,8 +644,23 @@ class StepsRequest(BaseRequest):
      ?workitem=9681851&resolvefiles=true&workitem9681851inputpage=3&wilimit=10&workitem9681851outputpage=2
      ?resolvefiles=false&workitem9681851inputpage=3&wilimit=10&workitem9681851outputpage=2&step2page=2&limit=5
 
+
+
     """
-    def __init__(self, *, job_id, step=None, status=None, work_item=None, limit=None, resolve_files=False, wi_limit=None):
+    def __init__(
+        self,
+        *,
+        job_id: str,
+        step: int | None = None,
+        status: str | list[str] | None = None,
+        work_item: int | list[int] | None = None,
+        limit: int | None = None,
+        resolve_files: bool = False,
+        wi_limit: int | None = None,
+        step_pages: dict[int, int] = {},
+        work_item_input_pages: dict[int, int] = {},
+        work_item_output_pages: dict[int, int] = {},
+    ):
         super().__init__()
         self.job_id = job_id
         self.step = step
@@ -651,18 +669,40 @@ class StepsRequest(BaseRequest):
         self.limit = limit
         self.resolve_files = resolve_files
         self.wi_limit = wi_limit
+        self.step_pages = step_pages
+        self.work_item_input_pages = work_item_input_pages
+        self.work_item_output_pages = work_item_output_pages
+        print("here's a steps request")
 
         self.variable_name_to_query_param = {
-            "step": "step",
-            "status": "status",
-            "work_item": "workItem",
-            "limit": "limit",
-            "resolve_files": "resolveFiles",
-            "wi_limit": "wiLimit",
+            'step': 'step',
+            'status': 'status',
+            'work_item': 'workItem',
+            'limit': 'limit',
+            'resolve_files': 'resolveFiles',
+            'wi_limit': 'wiLimit',
         }
 
+    def parameter_values(self) -> list[tuple[str, Any]]:
+        """Turn calling arguments into correct queryParams for step endpoint.
 
+        The step endpoint has dynamically generated query params.
+        e.g. `step2page=3`, means the user wants the stepindex 2 page 3 of results.
+        We want to allow the user to specify these as
+        step_pages => dict[idx:str: pg_no:int]
+        step_pages= {'3': 1, '2': 2} -> '?step3page=1&step2page=2'
+        work_item_input_pages
+        work_item_output_pages
 
+        """
+        pvs = super().parameter_values()
+        for step_idx, pg_no in self.step_pages.items():
+            pvs.append(( f'step{step_idx}page', pg_no))
+        for wi_idx, pg_no in self.work_item_input_pages.items():
+            pvs.append(( f'workItem{wi_idx}inputPage', pg_no))
+        for wi_idx, pg_no in self.work_item_output_pages.items():
+            pvs.append(( f'workItem{wi_idx}outputPage', pg_no))
+        return pvs
 
 
 class LinkType(Enum):

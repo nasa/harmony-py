@@ -94,6 +94,7 @@ class ProcessingFailedException(Exception):
 
 # Mapping of request types to their corresponding URL endpoints
 # Uses lambda functions to dynamically construct URLs based on the request type
+# and request.
 request_url_map = {
     CapabilitiesRequest: lambda self, request: f'{self.config.root_url}/capabilities',
     AddLabelsRequest: lambda self, request: f'{self.config.root_url}/labels',
