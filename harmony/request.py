@@ -616,50 +616,46 @@ class JobsRequest(BaseRequest):
             'labels': 'label',
         }
 
+
 class StepsRequest(BaseRequest):
-    """A harmony request to access a Jobs steps
+    """A Harmony request to inspect a job's steps.
 
     See documentation for query parameters.
     https://harmony.earthdata.nasa.gov/docs#inspecting-a-job's-steps-with-the-steps-api
 
     Args:
-      job_id (int): The job to inspect.
-      step (list[int]): The job's step index to include.
-      status (list[str]): statuses to include.
-      work_item (list[int]): workItem values to include.
-      limit (int): number of workItems to include for each step.
-      resolve_files (bool): Whether to resolve the intermediate files or not. requires a workItem filter.
-      wi_limit (int): page size when resolving files.
+        job_id (str): The job to inspect.
+        step (int): The job's step index to include.
+        status (List[str]): Statuses to include.
+        work_item (List[int]): workItem values to include.
+        limit (int): The number of workItems to include for each step.
+        resolve_files (bool): Whether to resolve the intermediate files or not.
+            Requires a work_item filter.
+        wi_limit (int): Page size when resolving files.
+        step_pages (dict[int, int]): Page number to request for a step index,
+            e.g. {2: 3} -> step2page=3
+        work_item_input_pages (dict[int, int]): Page number to request for a workItem's
+            inputs, e.g. {9681851: 2} -> workItem9681851inputPage=2
+        work_item_output_pages (dict[int, int]): Page number to request for a workItem's
+            outputs, e.g. {9681851: 2} -> workItem9681851outputPage=2
 
-      *** TODO [MHS, 07/07/2026] Still need to handle dynamic pages. ***
-      step_pages (dict[int, int]): dict of [stepIndex, PageNumber] -> step<step_index>page=<page_number>
-      step2page=2
-
-      work_item_inputs (dict[int, int]) -> workItem<wi_idx>inputpage=<page_number>
-      work_item_outputs (dict[int, int]) -> workItem<wi_idx>outputpage=<page_number>
-
-
-     ?workitem=9681851&resolvefiles=true&workitem9681851inputpage=2&wilimit=50
-     ?workitem=9681851&resolvefiles=true&workitem9681851inputpage=2&wilimit=10
-     ?workitem=9681851&resolvefiles=true&workitem9681851inputpage=3&wilimit=10&workitem9681851outputpage=2
-     ?resolvefiles=false&workitem9681851inputpage=3&wilimit=10&workitem9681851outputpage=2&step2page=2&limit=5
-
-
-
+    Returns:
+        StepsRequest: An instance of the steps request configured with the provided parameters.
     """
+
     def __init__(
         self,
         *,
         job_id: str,
         step: int | None = None,
-        status: str | list[str] | None = None,
-        work_item: int | list[int] | None = None,
+        status: str | List[str] | None = None,
+        work_item: int | List[int] | None = None,
         limit: int | None = None,
-        resolve_files: bool = False,
+        resolve_files: bool | None = None,
         wi_limit: int | None = None,
-        step_pages: dict[int, int] = {},
-        work_item_input_pages: dict[int, int] = {},
-        work_item_output_pages: dict[int, int] = {},
+        step_pages: dict[int, int] | None = None,
+        work_item_input_pages: dict[int, int] | None = None,
+        work_item_output_pages: dict[int, int] | None = None,
     ):
         super().__init__()
         self.job_id = job_id
@@ -669,10 +665,9 @@ class StepsRequest(BaseRequest):
         self.limit = limit
         self.resolve_files = resolve_files
         self.wi_limit = wi_limit
-        self.step_pages = step_pages
-        self.work_item_input_pages = work_item_input_pages
-        self.work_item_output_pages = work_item_output_pages
-        print("here's a steps request")
+        self.step_pages = step_pages or {}
+        self.work_item_input_pages = work_item_input_pages or {}
+        self.work_item_output_pages = work_item_output_pages or {}
 
         self.variable_name_to_query_param = {
             'step': 'step',
@@ -683,7 +678,17 @@ class StepsRequest(BaseRequest):
             'wi_limit': 'wiLimit',
         }
 
-    def parameter_values(self) -> list[tuple[str, Any]]:
+    def error_messages(self) -> List[str]:
+        """A list of error messages, if any, for the request."""
+        error_msgs = []
+        if self.resolve_files and self.work_item is None:
+            error_msgs = [
+                'resolve_files requires a work_item filter for StepsRequest'
+            ]
+
+        return error_msgs
+
+    def parameter_values(self) -> List[Tuple[str, Any]]:
         """Turn calling arguments into correct queryParams for step endpoint.
 
         The step endpoint has dynamically generated query params.
@@ -697,11 +702,11 @@ class StepsRequest(BaseRequest):
         """
         pvs = super().parameter_values()
         for step_idx, pg_no in self.step_pages.items():
-            pvs.append(( f'step{step_idx}page', pg_no))
+            pvs.append((f'step{step_idx}page', pg_no))
         for wi_idx, pg_no in self.work_item_input_pages.items():
-            pvs.append(( f'workItem{wi_idx}inputPage', pg_no))
+            pvs.append((f'workItem{wi_idx}inputPage', pg_no))
         for wi_idx, pg_no in self.work_item_output_pages.items():
-            pvs.append(( f'workItem{wi_idx}outputPage', pg_no))
+            pvs.append((f'workItem{wi_idx}outputPage', pg_no))
         return pvs
 
 
