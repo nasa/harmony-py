@@ -635,9 +635,9 @@ class StepsRequest(BaseRequest):
         step_pages (dict[int, int]): Page number to request for a step index,
             e.g. {2: 3} -> step2page=3
         work_item_input_pages (dict[int, int]): Page number to request for a workItem's
-            inputs, e.g. {9681851: 2} -> workItem9681851inputPage=2
+            inputs, e.g. {95: 2} -> workItem95inputPage=2
         work_item_output_pages (dict[int, int]): Page number to request for a workItem's
-            outputs, e.g. {9681851: 2} -> workItem9681851outputPage=2
+            outputs, e.g. {97: 2} -> workItem97outputPage=2
 
     Returns:
         StepsRequest: An instance of the steps request configured with the provided parameters.
