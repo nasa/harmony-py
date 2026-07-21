@@ -164,10 +164,7 @@ class BaseRequest:
     requests.
 
     Args:
-        collection: The CMR collection that should be queried
-
-    Returns:
-        A Harmony Request instance
+       http_method: The HTTP method to use for the request. Defaults to GET.
     """
 
     def __init__(self,
@@ -604,9 +601,9 @@ class JobsRequest(BaseRequest):
 
     def __init__(self,
                  *,
-                 page: int = None,
-                 limit: int = None,
-                 labels: List[str] = None,
+                 page: int | None = None,
+                 limit: int | None = None,
+                 labels: List[str] | None = None,
                  ):
         super().__init__()
         self.page = page
@@ -618,6 +615,99 @@ class JobsRequest(BaseRequest):
             'limit': 'limit',
             'labels': 'label',
         }
+
+
+class StepsRequest(BaseRequest):
+    """A Harmony request to inspect a job's steps.
+
+    See documentation for query parameters.
+    https://harmony.earthdata.nasa.gov/docs#inspecting-a-job's-steps-with-the-steps-api
+
+    Args:
+        job_id (str): The job to inspect.
+        step (int): The job's step index to include.
+        status (List[str]): Statuses to include.
+        work_item (List[int]): workItem values to include.
+        limit (int): The number of workItems to include for each step.
+        resolve_files (bool): Whether to resolve the intermediate files or not.
+            Requires a work_item filter.
+        wi_limit (int): Page size when resolving files.
+        step_pages (dict[int, int]): Page number to request for a step index,
+            e.g. {2: 3} -> step2page=3
+        work_item_input_pages (dict[int, int]): Page number to request for a workItem's
+            inputs, e.g. {95: 2} -> workItem95inputPage=2
+        work_item_output_pages (dict[int, int]): Page number to request for a workItem's
+            outputs, e.g. {97: 2} -> workItem97outputPage=2
+
+    Returns:
+        StepsRequest: An instance of the steps request configured with the provided parameters.
+    """
+
+    def __init__(
+        self,
+        *,
+        job_id: str,
+        step: int | None = None,
+        status: str | List[str] | None = None,
+        work_item: int | List[int] | None = None,
+        limit: int | None = None,
+        resolve_files: bool | None = None,
+        wi_limit: int | None = None,
+        step_pages: dict[int, int] | None = None,
+        work_item_input_pages: dict[int, int] | None = None,
+        work_item_output_pages: dict[int, int] | None = None,
+    ):
+        super().__init__()
+        self.job_id = job_id
+        self.step = step
+        self.status = status
+        self.work_item = work_item
+        self.limit = limit
+        self.resolve_files = resolve_files
+        self.wi_limit = wi_limit
+        self.step_pages = step_pages or {}
+        self.work_item_input_pages = work_item_input_pages or {}
+        self.work_item_output_pages = work_item_output_pages or {}
+
+        self.variable_name_to_query_param = {
+            'step': 'step',
+            'status': 'status',
+            'work_item': 'workItem',
+            'limit': 'limit',
+            'resolve_files': 'resolveFiles',
+            'wi_limit': 'wiLimit',
+        }
+
+    def error_messages(self) -> List[str]:
+        """A list of error messages, if any, for the request."""
+        error_msgs = []
+        if self.resolve_files and self.work_item is None:
+            error_msgs = [
+                'resolve_files requires a work_item filter for StepsRequest'
+            ]
+
+        return error_msgs
+
+    def parameter_values(self) -> List[Tuple[str, Any]]:
+        """Turn calling arguments into correct queryParams for step endpoint.
+
+        The step endpoint has dynamically generated query params.
+        e.g. `step2page=3`, means the user wants the stepindex 2 page 3 of results.
+        We want to allow the user to specify these as
+        step_pages => dict[idx:str: pg_no:int]
+        step_pages= {'3': 1, '2': 2} -> '?step3page=1&step2page=2'
+        work_item_input_pages
+        work_item_output_pages
+
+        """
+        pvs = super().parameter_values()
+        for step_idx, pg_no in self.step_pages.items():
+            pvs.append((f'step{step_idx}page', pg_no))
+        for wi_idx, pg_no in self.work_item_input_pages.items():
+            pvs.append((f'workItem{wi_idx}inputPage', pg_no))
+        for wi_idx, pg_no in self.work_item_output_pages.items():
+            pvs.append((f'workItem{wi_idx}outputPage', pg_no))
+        return pvs
 
 
 class LinkType(Enum):

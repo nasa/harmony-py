@@ -32,10 +32,10 @@ def install_project_and_dependencies(project_root, libs=None):
         # If libs are specified, install them
         if libs:
             libs_str = ','.join(libs)
-            os.system(f'{sys.executable} -m pip install -q .[{libs_str}]')
+            os.system(f'{sys.executable} -m pip install -q -e .[{libs_str}]')
 
         # Install the project itself
-        os.system(f'{sys.executable} -m pip install -q .')
+        os.system(f'{sys.executable} -m pip install -q -e .')
     finally:
         # Switch back to the original directory after installation
         os.chdir(original_dir)

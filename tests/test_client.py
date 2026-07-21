@@ -14,7 +14,7 @@ from responses import registries
 
 from urllib3.util.retry import Retry
 from harmony.request import BBox, Collection, LinkType, Request, Dimension, CapabilitiesRequest, \
-    AddLabelsRequest, DeleteLabelsRequest, JobsRequest
+    AddLabelsRequest, DeleteLabelsRequest, JobsRequest, StepsRequest
 from harmony.client import Client, ProcessingFailedException, DEFAULT_JOB_LABEL
 from harmony.config import Environment
 
@@ -39,6 +39,9 @@ def expected_resume_url(job_id, link_type: LinkType = LinkType.https):
 
 def expected_cancel_url(job_id):
     return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}/cancel'
+
+def expected_steps_url(job_id):
+    return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}/steps'
 
 def parse_multipart_data(request):
     """Parses multipart/form-data request to extract fields as strings."""
@@ -1947,6 +1950,102 @@ def test_get_jobs():
     assert responses.calls[0].request.method == 'GET'
     assert responses.calls[0].request.url == expected_url
     assert result == expected_result
+
+
+@responses.activate
+def test_get_job_steps():
+    job_id = 'jobs-uuid'
+    request = StepsRequest(job_id=job_id)
+
+    # dummy result
+    expected_result = {"steps":[{"stepIndex":1,"status":"successful"}]}
+
+    responses.add(
+        responses.GET,
+        expected_steps_url(job_id),
+        status=200,
+        json=expected_result,
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request.method == 'GET'
+    assert responses.calls[0].request.url == expected_steps_url(job_id)
+    assert result == expected_result
+
+
+@responses.activate
+def test_get_job_steps_with_filters():
+    job_id = 'jobs-uuid'
+    request = StepsRequest(
+        job_id=job_id,
+        step=2,
+        status=['successful', 'running'],
+        work_item=[1, 2],
+        limit=5,
+        resolve_files=True,
+        wi_limit=10,
+    )
+
+    expected_url = (f'{expected_steps_url(job_id)}?step=2&status=successful&status=running'
+                    f'&workItem=1%2C2&limit=5&resolveFiles=true&wiLimit=10')
+    expected_result = {"steps":[{"stepIndex":2,"status":"running"}]}
+
+    responses.add(
+        responses.GET,
+        expected_url,
+        status=200,
+        json=expected_result,
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request.method == 'GET'
+    assert responses.calls[0].request.url == expected_url
+    assert result == expected_result
+
+
+@responses.activate
+def test_get_job_steps_with_dynamic_page_params():
+    job_id = 'jobs-uuid'
+    request = StepsRequest(
+        job_id=job_id,
+        step_pages={2: 3},
+        work_item_input_pages={985: 2},
+        work_item_output_pages={985: 4},
+    )
+
+    expected_url = (f'{expected_steps_url(job_id)}?step2page=3'
+                    f'&workItem985inputPage=2&workItem985outputPage=4')
+    expected_result = {"steps":[{"stepIndex":2,"status":"successful"}]}
+
+    responses.add(
+        responses.GET,
+        expected_url,
+        status=200,
+        json=expected_result,
+    )
+
+    result = Client(should_validate_auth=False).submit(request)
+
+    assert len(responses.calls) == 1
+    assert responses.calls[0].request.method == 'GET'
+    assert responses.calls[0].request.url == expected_url
+    assert result == expected_result
+
+
+@responses.activate
+def test_get_job_steps_resolve_files_without_work_item():
+    request = StepsRequest(job_id='jobs-uuid', resolve_files=True)
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).submit(request)
+
+    assert str(e.value) == ('Cannot submit the request due to the following errors: '
+                            '[resolve_files requires a work_item filter for StepsRequest]')
+    assert len(responses.calls) == 0
 
 def test_client_environment_not_affected_by_env_var():
     os.environ['ENVIRONMENT'] = 'UAT'

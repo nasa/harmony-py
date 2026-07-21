@@ -48,7 +48,7 @@ from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
 from harmony.request import Collection, BBox, WKT, LinkType, _shapefile_exts_to_mimes, \
     BaseRequest, OgcBaseRequest, CapabilitiesRequest, AddLabelsRequest, \
-    DeleteLabelsRequest, JobsRequest
+    DeleteLabelsRequest, JobsRequest, StepsRequest
 from harmony.util import get_json_from_response
 from harmony import __version__ as harmony_version
 
@@ -94,11 +94,13 @@ class ProcessingFailedException(Exception):
 
 # Mapping of request types to their corresponding URL endpoints
 # Uses lambda functions to dynamically construct URLs based on the request type
+# and request.
 request_url_map = {
-    CapabilitiesRequest: lambda self: f'{self.config.root_url}/capabilities',
-    AddLabelsRequest: lambda self: f'{self.config.root_url}/labels',
-    DeleteLabelsRequest: lambda self: f'{self.config.root_url}/labels',
-    JobsRequest: lambda self: f'{self.config.root_url}/jobs',
+    CapabilitiesRequest: lambda self, request: f'{self.config.root_url}/capabilities',
+    AddLabelsRequest: lambda self, request: f'{self.config.root_url}/labels',
+    DeleteLabelsRequest: lambda self, request: f'{self.config.root_url}/labels',
+    JobsRequest: lambda self, request: f'{self.config.root_url}/jobs',
+    StepsRequest: lambda self, request: f'{self.config.root_url}/jobs/{request.job_id}/steps',
 }
 
 
@@ -217,7 +219,7 @@ class Client:
                     f'/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset'
                 )
         else:
-            return request_url_map[type(request)](self)
+            return request_url_map[type(request)](self, request)
 
     def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to get its status."""
