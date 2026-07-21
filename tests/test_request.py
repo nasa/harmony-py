@@ -4,7 +4,7 @@ from hypothesis import given, settings, strategies as st
 import pytest
 
 from harmony.request import BBox, WKT, Collection, OgcBaseRequest, Request, Dimension, \
-    CapabilitiesRequest, AddLabelsRequest, DeleteLabelsRequest, JobsRequest
+    CapabilitiesRequest, AddLabelsRequest, DeleteLabelsRequest, JobsRequest, StepsRequest
 
 
 def test_request_has_collection_with_id():
@@ -387,6 +387,65 @@ def test_valid_get_jobs_request_with_multiple_labels_in_string():
 def test_get_jobs_request_with_invalid_argument():
     with pytest.raises(TypeError, match=".*got an unexpected keyword argument 'page_num'"):
         JobsRequest(page_num=1)
+
+
+def test_valid_steps_request():
+    request = StepsRequest(job_id='jobs-uuid')
+    assert request.is_valid()
+
+
+def test_valid_steps_request_with_all_params():
+    request = StepsRequest(job_id='jobs-uuid',
+                           step=2,
+                           status=['running', 'successful'],
+                           work_item=[1, 2],
+                           limit=5,
+                           resolve_files=True,
+                           wi_limit=10,
+                           step_pages={2: 3},
+                           work_item_input_pages={1: 2},
+                           work_item_output_pages={1: 4})
+    assert request.is_valid()
+
+
+def test_steps_request_missing_job_id():
+    with pytest.raises(TypeError, match=".*missing 1 required keyword-only argument: 'job_id'"):
+        StepsRequest()
+
+
+def test_steps_request_with_invalid_argument():
+    with pytest.raises(TypeError, match=".*got an unexpected keyword argument 'jobid'"):
+        StepsRequest(jobid='jobs-uuid')
+
+
+def test_steps_request_resolve_files_without_work_item_filter():
+    request = StepsRequest(job_id='jobs-uuid', resolve_files=True)
+    messages = request.error_messages()
+
+    assert not request.is_valid()
+    assert 'resolve_files requires a work_item filter for StepsRequest' in messages
+
+
+def test_valid_steps_request_resolve_files_with_work_item():
+    request = StepsRequest(job_id='jobs-uuid', resolve_files=True, work_item=985)
+    assert request.is_valid()
+
+
+def test_steps_request_parameter_values_omits_unset():
+    request = StepsRequest(job_id='jobs-uuid', work_item=33)
+    assert request.parameter_values() == [('workItem', 33)]
+
+
+def test_steps_request_parameter_values_with_dynamic_pages():
+    request = StepsRequest(job_id='jobs-uuid',
+                           step_pages={2: 3},
+                           work_item_input_pages={985: 2},
+                           work_item_output_pages={985: 4})
+    parameter_values = request.parameter_values()
+
+    assert ('step2page', 3) in parameter_values
+    assert ('workItem985inputPage', 2) in parameter_values
+    assert ('workItem985outputPage', 4) in parameter_values
 
 def test_request_with_pixel_subset_false():
     request = Request(collection=Collection('foobar'), pixel_subset=False)
