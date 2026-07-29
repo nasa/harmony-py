@@ -928,6 +928,9 @@ class Client:
             }
             with getattr(session, method)(
                     new_url, data=data_dict, stream=True, headers=headers) as r:
+                # Without this an error response body (a 401 page, a Harmony
+                # error document) is written to disk and looks like data.
+                r.raise_for_status()
                 with open(filename, 'wb') as f:
                     shutil.copyfileobj(r.raw, f, length=chunksize)
             if verbose and verbose.upper() == 'TRUE':
