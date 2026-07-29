@@ -9,6 +9,7 @@ import pathlib
 
 import dateutil.parser
 import pytest
+import requests
 import responses
 from responses import registries
 
@@ -1123,6 +1124,20 @@ def test_download_file(overwrite):
 
     if not overwrite:
         os.unlink(expected_filename)
+
+def test_download_file_raises_on_error_status():
+    # An error response must not be written to disk as if it were data.
+    expected_filename = 'pytest_error_tempfile.temp'
+    url = 'http://example.com/' + expected_filename
+
+    with responses.RequestsMock() as resp_mock:
+        resp_mock.add(responses.GET, url, body='Not authorized', status=403, stream=True)
+        client = Client(should_validate_auth=False)
+        with pytest.raises(requests.exceptions.HTTPError):
+            client._download_file(url, overwrite=True)
+
+    assert not os.path.isfile(expected_filename)
+
 
 def test_download_opendap_file():
     expected_data = bytes('abcde', encoding='utf-8')
