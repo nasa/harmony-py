@@ -1039,7 +1039,7 @@ class Client:
         include_outputs: bool = True,
         directory: str = '',
         overwrite: bool = False,
-    ) -> Generator[Future, None, None]:
+    ) -> Iterator[Future]:
         """Resolve and download the intermediate input and/or output files for
         one or more of a job's workItems.
 
@@ -1060,7 +1060,7 @@ class Client:
                 file. Defaults to False (a duplicate filename is not downloaded again.).
 
         Returns:
-            A generator of Futures, each of which resolves to the filename (with path) of a
+            A iterator of Futures, each of which resolves to the filename (with path) of a
             downloaded file.
 
         Raises:
