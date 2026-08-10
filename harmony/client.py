@@ -1054,8 +1054,8 @@ class Client:
             work_items: A non-empty list of work item ids to retrieve files from.
             include_inputs: Whether to download each work item's input files. Defaults to True.
             include_outputs: Whether to download each work item's output files. Defaults to True.
-            directory: Optional. If specified, location for downloaded files. Defaults to the current
-                working directory.
+            directory: Optional. If specified, location for downloaded files.
+                Defaults to the current working directory.
             overwrite: If True, overwrites a local file that shares a filename with the downloaded
                 file. Defaults to False (a duplicate filename is not downloaded again.).
 
