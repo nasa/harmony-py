@@ -56,6 +56,9 @@ DEFAULT_JOB_LABEL = "harmony-py"
 
 MAX_INTERMEDIATE_FILE_DOWNLOADS = 50
 
+# Sentinel value that Harmony's steps endpoint produces when a intermediate
+# result cannot be turned into a public/valid link. We have to avoid
+# attempting to download this value.
 PRIVATE_FILE_LOCATION = '<private file location>'
 
 progressbar_widgets = [
