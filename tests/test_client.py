@@ -23,7 +23,6 @@ from harmony.config import Environment
 def examples_dir():
     return pathlib.Path(__file__).parent.parent.joinpath('examples').absolute()
 
-
 def expected_submit_url(collection_id, variables='all'):
     return (f'https://harmony.earthdata.nasa.gov/{collection_id}'
             f'/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset')
@@ -2046,6 +2045,119 @@ def test_get_job_steps_resolve_files_without_work_item():
     assert str(e.value) == ('Cannot submit the request due to the following errors: '
                             '[resolve_files requires a work_item filter for StepsRequest]')
     assert len(responses.calls) == 0
+
+
+def _resolved_steps_response(job_id, input_files, output_files, work_item_id=985):
+    return {
+        'jobID': job_id,
+        'steps': [
+            {
+                'serviceID': 'service-name:latest',
+                'stepIndex': 1,
+                'workItems': [
+                    {
+                        'id': work_item_id,
+                        'status': 'successful',
+                        'inputFiles': input_files,
+                        'outputFiles': output_files,
+                    }
+                ],
+            }
+        ],
+    }
+
+
+@responses.activate
+def test_download_intermediate_files_downloads_inputs_and_outputs(tmp_path):
+    job_id = 'jobs-uuid'
+    input_url = 'http://example.com/input1.nc'
+    output_url = 'http://example.com/output1.nc'
+    resolved = _resolved_steps_response(job_id, [input_url], [output_url])
+
+    responses.add(responses.GET, expected_steps_url(job_id), status=200, json=resolved)
+    responses.add(responses.GET, input_url, body=b'input-data', stream=True)
+    responses.add(responses.GET, output_url, body=b'output-data', stream=True)
+
+    client = Client(should_validate_auth=False)
+    futures = list(
+        client.download_intermediate_files(
+            job_id, work_items=[985], directory=str(tmp_path)
+        )
+    )
+    paths = sorted(f.result() for f in futures)
+
+    assert paths == [os.path.join(str(tmp_path), 'input1.nc'),
+                     os.path.join(str(tmp_path), 'output1.nc')]
+    assert (tmp_path / 'input1.nc').read_bytes() == b'input-data'
+    assert (tmp_path / 'output1.nc').read_bytes() == b'output-data'
+    # The steps endpoint is resolved with the work item filter.
+    steps_url = responses.calls[0].request.url
+    assert 'resolveFiles=true' in steps_url
+    assert 'workItem=985' in steps_url
+
+
+@responses.activate
+def test_download_intermediate_files_inputs_only(tmp_path):
+    job_id = 'jobs-uuid'
+    input_url = 'http://example.com/input1.nc'
+    output_url = 'http://example.com/output1.nc'
+    resolved = _resolved_steps_response(job_id, [input_url], [output_url])
+
+    responses.add(responses.GET, expected_steps_url(job_id), status=200, json=resolved)
+    responses.add(responses.GET, input_url, body=b'input-data', stream=True)
+
+    client = Client(should_validate_auth=False)
+    futures = list(client.download_intermediate_files(
+        job_id, work_items=[985], include_outputs=False, directory=str(tmp_path)))
+    paths = [f.result() for f in futures]
+
+    assert paths == [os.path.join(str(tmp_path), 'input1.nc')]
+
+
+def test_download_intermediate_files_caps_at_50(mocker, capsys):
+    client = Client(should_validate_auth=False)
+    input_files = [f'http://example.com/f{i}.nc' for i in range(60)]
+    resolved = _resolved_steps_response('jobs-uuid', input_files, [])
+    mocker.patch.object(client, 'submit', return_value=resolved)
+    download_mock = mocker.patch.object(client, 'download', side_effect=lambda u, d, o: u)
+
+    results = list(client.download_intermediate_files('jobs-uuid', work_items=[985]))
+
+    assert len(results) == 50
+    assert download_mock.call_count == 50
+    assert 'Found 60 intermediate files' in capsys.readouterr().err
+
+
+def test_download_intermediate_files_skips_private_and_dedups(mocker):
+    client = Client(should_validate_auth=False)
+    files = [
+        'http://example.com/a.nc',
+        '<private file location>',
+        'http://example.com/a.nc',
+        'http://example.com/b.nc',
+    ]
+    resolved = _resolved_steps_response('jobs-uuid', files, [])
+    mocker.patch.object(client, 'submit', return_value=resolved)
+    mocker.patch.object(client, 'download', side_effect=lambda u, d, o: u)
+
+    results = list(client.download_intermediate_files('jobs-uuid', work_items=[985]))
+
+    assert results == ['http://example.com/a.nc', 'http://example.com/b.nc']
+
+
+def test_download_intermediate_files_requires_a_file_type():
+    client = Client(should_validate_auth=False)
+    with pytest.raises(ValueError):
+        list(client.download_intermediate_files(
+            'jobs-uuid', work_items=[985],
+            include_inputs=False, include_outputs=False))
+
+
+def test_download_intermediate_files_requires_work_items():
+    client = Client(should_validate_auth=False)
+    with pytest.raises(ValueError):
+        list(client.download_intermediate_files('jobs-uuid', work_items=[]))
+
 
 def test_client_environment_not_affected_by_env_var():
     os.environ['ENVIRONMENT'] = 'UAT'

@@ -54,6 +54,13 @@ from harmony import __version__ as harmony_version
 
 DEFAULT_JOB_LABEL = "harmony-py"
 
+MAX_INTERMEDIATE_FILE_DOWNLOADS = 50
+
+# Sentinel value that Harmony's steps endpoint produces when a intermediate
+# result cannot be turned into a public/valid link. We have to avoid
+# attempting to download this value.
+PRIVATE_FILE_LOCATION = '<private file location>'
+
 progressbar_widgets = [
     ' [ Processing: ', progressbar.Percentage(), ' ] ',
     progressbar.Bar(),
@@ -140,7 +147,7 @@ class Client:
         auth: Optional[Tuple[str, str]] = None,
         should_validate_auth: bool = True,
         env: Environment = Environment.PROD,
-        token: str = None,
+        token: str | None = None,
         # How often to poll Harmony for updated information during job processing
         check_interval: float = 3.0  # in seconds
     ):
@@ -1026,6 +1033,77 @@ class Client:
                     if url.endswith('zarr'):
                         raise self.zarr_download_exception
                     yield self.executor.submit(self._download_file, url, directory, overwrite)
+
+    def download_intermediate_files(
+        self,
+        job_id: str,
+        work_items: List[int],
+        include_inputs: bool = True,
+        include_outputs: bool = True,
+        directory: str = '',
+        overwrite: bool = False,
+    ) -> Iterator[Future]:
+        """Resolve and download the intermediate input and/or output files for
+        one or more of a job's workItems.
+
+        This helper resolves these files via the steps endpoint and
+        downloads them using the same mechanism as ``download_all``.
+
+        To prevent accidental download of many files, this helper
+        limits the number of files to ``MAX_INTERMEDIATE_FILE_DOWNLOADS`` (50).
+
+        Args:
+            job_id: UUID string for the job whose intermediate files you want.
+            work_items: A non-empty list of work item ids to retrieve files from.
+            include_inputs: Whether to download each work item's input files. Defaults to True.
+            include_outputs: Whether to download each work item's output files. Defaults to True.
+            directory: Optional. If specified, location for downloaded files.
+                Defaults to the current working directory.
+            overwrite: If True, overwrites a local file that shares a filename with the downloaded
+                file. Defaults to False (a duplicate filename is not downloaded again.).
+
+        Returns:
+            A iterator of Futures, each of which resolves to the filename (with path) of a
+            downloaded file.
+
+        Raises:
+            ValueError: If ``work_items`` is empty or if neither ``include_inputs`` nor
+                ``include_outputs`` is True.
+
+        """
+        if not work_items:
+            raise ValueError('work_items must contain at least one work item id.')
+        if not include_inputs and not include_outputs:
+            raise ValueError(
+                'At least one of include_inputs or include_outputs must be True.')
+
+        request = StepsRequest(job_id=job_id, work_item=work_items, resolve_files=True)
+        response = self.submit(request)
+
+        urls = []
+        seen = set()
+        for step in response.get('steps', []):
+            for work_item in step.get('workItems', []):
+                files = []
+                if include_inputs:
+                    files += work_item.get('inputFiles', [])
+                if include_outputs:
+                    files += work_item.get('outputFiles', [])
+                for url in files:
+                    if url == PRIVATE_FILE_LOCATION or url in seen:
+                        continue
+                    seen.add(url)
+                    urls.append(url)
+
+        if len(urls) > MAX_INTERMEDIATE_FILE_DOWNLOADS:
+            print(f'\nFound {len(urls)} intermediate files; downloading the first '
+                  f'{MAX_INTERMEDIATE_FILE_DOWNLOADS}. To download all of them, '
+                  'resolve the files with a StepsRequest and pass each URL to download().',
+                  file=sys.stderr)
+            urls = urls[:MAX_INTERMEDIATE_FILE_DOWNLOADS]
+
+        for url in urls:
+            yield self.download(url, directory, overwrite)
 
     def iterator(
         self,
