@@ -1047,8 +1047,7 @@ class Client:
         downloads them using the same mechanism as ``download_all``.
 
         To prevent accidental download of many files, this helper
-        downloads at most ``MAX_INTERMEDIATE_FILE_DOWNLOADS`` (50) files, in the
-        order the services produced them.
+        limits the number of files to ``MAX_INTERMEDIATE_FILE_DOWNLOADS`` (50).
 
         Args:
             job_id: UUID string for the job whose intermediate files you want.
