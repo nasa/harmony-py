@@ -81,6 +81,10 @@ Run the linter on the project source:
 
         $ make lint
 
+To automatically fix formatting issues found by the linter:
+
+        $ make format
+
 Run unit tests and test coverage. This will display terminal output and generate an HTML coverage report in the `htmlcov` directory.
 
         $ make test
