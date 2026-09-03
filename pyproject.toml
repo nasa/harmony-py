@@ -48,7 +48,7 @@ Repository = "https://github.com/nasa/harmony-py.git"
 [project.optional-dependencies]
 dev = [
     "coverage ~= 7.4",
-    "flake8 ~= 7.1.1",
+    "ruff ~= 0.16",
     "hypothesis ~= 6.103",
     "PyYAML ~= 6.0.1",
     "pytest ~= 8.2",
@@ -61,7 +61,7 @@ docs = [
     "curlify ~= 2.2.1",
     "Jinja2 ~= 3.1.2",
     "load-dotenv ~=0.1.0",
-    "nbconvert ~= 7.10.0",
+    "nbconvert ~= 7.16",
     "progressbar2 ~= 4.2.0",
     "sphinx ~= 7.1.2",
     "sphinxcontrib-napoleon ~= 0.7",
@@ -88,9 +88,12 @@ examples = [
 [tool.setuptools.packages.find]
 exclude = ["contrib", "docs", "tests*"]
 
-[tool.flake8]
-max-line-length = 99
-ignore = ["F401", "W503"]
+[tool.ruff]
+line-length = 99
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["F401"]
 
 [tool.ruff.format]
 quote-style = "single"

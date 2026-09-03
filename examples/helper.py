@@ -1,5 +1,6 @@
 import sys
 import os
+
 sys.path.append('..')
 
 import datetime as dt
@@ -13,6 +14,7 @@ from IPython.display import display, JSON
 import rasterio
 from rasterio.plot import show
 import requests
+
 
 def install_project_and_dependencies(project_root, libs=None):
     """
@@ -42,5 +44,5 @@ def install_project_and_dependencies(project_root, libs=None):
 
 
 def show_result(filename):
-    print (f'\n  {filename}')
+    print(f'\n  {filename}')
     show(rasterio.open(filename))

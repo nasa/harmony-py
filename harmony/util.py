@@ -45,16 +45,14 @@ def get_json_from_response(response: Response) -> Any:
     try:
         return response.json()
     except requests.exceptions.JSONDecodeError as e:
-        if "Earthdata Login" in response.text:
+        if 'Earthdata Login' in response.text:
             raise Exception(
-                "Harmony returned a non-JSON response. This may indicate an "
-                "authentication failure. Try using a token for authentication when "
-                "creating your Client or check that your .netrc file contains valid "
-                "credentials for the Earthdata Login host (e.g. "
-                "urs.earthdata.nasa.gov or uat.urs.earthdata.nasa.gov).\n"
-                f"Raw response ({response.status_code}): {response.text[:200]}"
+                'Harmony returned a non-JSON response. This may indicate an '
+                'authentication failure. Try using a token for authentication when '
+                'creating your Client or check that your .netrc file contains valid '
+                'credentials for the Earthdata Login host (e.g. '
+                'urs.earthdata.nasa.gov or uat.urs.earthdata.nasa.gov).\n'
+                f'Raw response ({response.status_code}): {response.text[:200]}'
             ) from e
         else:
-            raise Exception(
-                f"Harmony returned a non-JSON response: {response.text[:200]}"
-            ) from e
+            raise Exception(f'Harmony returned a non-JSON response: {response.text[:200]}') from e
