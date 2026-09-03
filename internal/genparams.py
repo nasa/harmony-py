@@ -5,9 +5,7 @@ import yaml
 
 
 def canonical_name(yaml_param):
-    name_map = {
-        'outputcrs': 'crs'
-    }
+    name_map = {'outputcrs': 'crs'}
 
     print(yaml_param)
     name = yaml_param['name']
@@ -15,18 +13,13 @@ def canonical_name(yaml_param):
 
 
 def canonical_type(yaml_param):
-    type_map = {
-        'string': 'str',
-        'boolean': 'bool',
-        'integer': 'int',
-        'number': 'float'
-    }
+    type_map = {'string': 'str', 'boolean': 'bool', 'integer': 'int', 'number': 'float'}
 
     py_type = None
     yaml_type = yaml_param['schema']['type']
     if yaml_type == 'array':
         item_type = type_map[yaml_param['schema']['items']['type']]
-        py_type = f"list[{item_type}]"
+        py_type = f'list[{item_type}]'
     else:
         py_type = type_map[yaml_type]
 
@@ -47,13 +40,14 @@ def main(schema_filename: str):
 
         params = api['paths']['/collections/{collectionId}/coverage/rangeset']['get']['parameters']
         refs = [p.get('$ref').split('/')[-1] for p in params]
-        param_types = [api['components']['parameters'][r] for
-                       r in refs if r not in do_not_generate]
+        param_types = [
+            api['components']['parameters'][r] for r in refs if r not in do_not_generate
+        ]
 
         params = [f'{canonical_name(pt)}: {canonical_type(pt)}' for pt in param_types]
         param_docstrings = [param_docstring(pt) for pt in param_types]
 
-        print("def __init__(self, *, " + ", ".join(params) + "):")
+        print('def __init__(self, *, ' + ', '.join(params) + '):')
         print('    """')
         print('    Parameters:')
         print('    -----------')
@@ -66,8 +60,8 @@ def main(schema_filename: str):
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print("Usage:")
-        print("  python internal/genparams.py harmony_ogc_schema_filename")
+        print('Usage:')
+        print('  python internal/genparams.py harmony_ogc_schema_filename')
         sys.exit(1)
 
     main(sys.argv[1])

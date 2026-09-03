@@ -12,6 +12,7 @@ to perform authentication with Earthdata Login. The ``create_session`` function
 uses this class and clients of the Harmony Py package do not need to use this
 explicitly.
 """
+
 import re
 from typing import Optional, Tuple, cast
 from urllib.parse import urlparse
@@ -39,11 +40,13 @@ def _is_edl_hostname(hostname: str) -> bool:
 
 class MalformedCredentials(Exception):
     """The provided Earthdata Login credentials were not correctly specified."""
+
     pass
 
 
 class BadAuthentication(Exception):
     """The provided Earthdata Login credentials were invalid."""
+
     pass
 
 
@@ -85,9 +88,11 @@ class SessionWithHeaderRedirection(Session):
         redirect_hostname = cast(str, urlparse(prepared_request.url).hostname)
         original_hostname = cast(str, urlparse(response.request.url).hostname)
 
-        if ('Authorization' in headers
-                and (original_hostname != redirect_hostname)
-                and not _is_edl_hostname(redirect_hostname)):
+        if (
+            'Authorization' in headers
+            and (original_hostname != redirect_hostname)
+            and not _is_edl_hostname(redirect_hostname)
+        ):
             del headers['Authorization']
 
         if self.auth is None:
@@ -128,8 +133,9 @@ def create_session(config: Config, auth: Tuple[str, str] = None, token: str = No
     elif isinstance(auth, tuple) and len(auth) == 2 and all([isinstance(x, str) for x in auth]):
         session = SessionWithHeaderRedirection(auth=auth)
     elif auth is not None:
-        raise MalformedCredentials('Authentication: `auth` argument requires tuple of '
-                                   '(username, password).')
+        raise MalformedCredentials(
+            'Authentication: `auth` argument requires tuple of (username, password).'
+        )
     elif edl_username and edl_password:
         session = SessionWithHeaderRedirection(auth=(edl_username, edl_password))
     else:
@@ -147,8 +153,11 @@ def validate_auth(config: Config, session: Session):
         if response.status_code == 200:
             return
         elif response.status_code == 401:
-            raise BadAuthentication('Authentication: incorrect or missing credentials during '
-                                    'credential validation.')
+            raise BadAuthentication(
+                'Authentication: incorrect or missing credentials during credential validation.'
+            )
         else:
-            raise BadAuthentication(f'Authentication: An unknown error occurred during credential '
-                                    f'validation: HTTP {response.status_code}')
+            raise BadAuthentication(
+                f'Authentication: An unknown error occurred during credential '
+                f'validation: HTTP {response.status_code}'
+            )

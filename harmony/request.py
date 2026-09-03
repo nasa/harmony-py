@@ -3,8 +3,19 @@ from enum import Enum
 import os
 from shapely.lib import ShapelyError
 from shapely.wkt import loads
-from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple, Optional, \
-    Tuple, Generator, Union
+from typing import (
+    Any,
+    ContextManager,
+    IO,
+    Iterator,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Generator,
+    Union,
+)
 
 
 class Collection:
@@ -54,6 +65,7 @@ class BBox(NamedTuple):
     Returns:
         A BBox instance with the provided bounds.
     """
+
     w: float
     s: float
     e: float
@@ -124,6 +136,7 @@ class Dimension:
     Returns:
         A Dimension instance with the provided dimension subset values.
     """
+
     name: str
     min: float
     max: float
@@ -153,10 +166,11 @@ class HttpMethod(Enum):
     This enum defines the standard HTTP methods that can be used when making requests
     to the Harmony API.
     """
-    GET = "GET"
-    PUT = "PUT"
-    POST = "POST"
-    DELETE = "DELETE"
+
+    GET = 'GET'
+    PUT = 'PUT'
+    POST = 'POST'
+    DELETE = 'DELETE'
 
 
 class BaseRequest:
@@ -167,9 +181,7 @@ class BaseRequest:
        http_method: The HTTP method to use for the request. Defaults to GET.
     """
 
-    def __init__(self,
-                 *,
-                 http_method: HttpMethod = HttpMethod.GET):
+    def __init__(self, *, http_method: HttpMethod = HttpMethod.GET):
         self.http_method = http_method
 
     def error_messages(self) -> List[str]:
@@ -184,8 +196,10 @@ class BaseRequest:
 
     def parameter_values(self) -> List[Tuple[str, Any]]:
         """Returns tuples of each query parameter that has been set and its value."""
-        pvs = [(param, getattr(self, variable))
-               for variable, param in self.variable_name_to_query_param.items()]
+        pvs = [
+            (param, getattr(self, variable))
+            for variable, param in self.variable_name_to_query_param.items()
+        ]
         return [(p, v) for p, v in pvs if v is not None]
 
 
@@ -200,9 +214,7 @@ class OgcBaseRequest(BaseRequest):
         A Harmony Request instance
     """
 
-    def __init__(self,
-                 *,
-                 collection: Collection):
+    def __init__(self, *, collection: Collection):
         super().__init__(http_method=HttpMethod.POST)
         self.collection = collection
         self.variable_name_to_query_param = {}
@@ -215,7 +227,7 @@ def is_wkt_valid(wkt_string: str) -> bool:
         return True
     except (ShapelyError, ValueError, NotImplementedError) as e:
         # Handle WKT reading errors and invalid WKT strings
-        print(f"Invalid WKT: {e}")
+        print(f'Invalid WKT: {e}')
         return False
 
 
@@ -293,36 +305,37 @@ class Request(OgcBaseRequest):
         A Harmony Transformation Request instance
     """
 
-    def __init__(self,
-                 collection: Collection,
-                 *,
-                 spatial: Union[BBox, WKT] = None,
-                 temporal: Mapping[str, datetime] = None,
-                 dimensions: List[Dimension] = None,
-                 extend: List[str] = None,
-                 crs: str = None,
-                 destination_url: str = None,
-                 format: str = None,
-                 granule_id: List[str] = None,
-                 granule_name: List[str] = None,
-                 height: int = None,
-                 interpolation: str = None,
-                 max_results: int = None,
-                 scale_extent: List[float] = None,
-                 scale_size: List[float] = None,
-                 shape: Optional[Tuple[IO, str]] = None,
-                 variables: List[str] = ['all'],
-                 width: int = None,
-                 concatenate: bool = None,
-                 average: str = None,
-                 skip_preview: bool = None,
-                 ignore_errors: bool = None,
-                 grid: str = None,
-                 labels: List[str] = None,
-                 pixel_subset: bool = None,
-                 service_id: str = None):
-        """Creates a new Request instance from all specified criteria.'
-        """
+    def __init__(
+        self,
+        collection: Collection,
+        *,
+        spatial: Union[BBox, WKT] = None,
+        temporal: Mapping[str, datetime] = None,
+        dimensions: List[Dimension] = None,
+        extend: List[str] = None,
+        crs: str = None,
+        destination_url: str = None,
+        format: str = None,
+        granule_id: List[str] = None,
+        granule_name: List[str] = None,
+        height: int = None,
+        interpolation: str = None,
+        max_results: int = None,
+        scale_extent: List[float] = None,
+        scale_size: List[float] = None,
+        shape: Optional[Tuple[IO, str]] = None,
+        variables: List[str] = ['all'],
+        width: int = None,
+        concatenate: bool = None,
+        average: str = None,
+        skip_preview: bool = None,
+        ignore_errors: bool = None,
+        grid: str = None,
+        labels: List[str] = None,
+        pixel_subset: bool = None,
+        service_id: str = None,
+    ):
+        """Creates a new Request instance from all specified criteria.'"""
         super().__init__(collection=collection)
         self.spatial = spatial
         self.temporal = temporal
@@ -400,12 +413,14 @@ class Request(OgcBaseRequest):
                 'variables': 'variable',
                 'labels': 'label',
                 'pixel_subset': 'pixelSubset',
-                'service_id': 'serviceId'
+                'service_id': 'serviceId',
             }
 
             self.spatial_validations = [
-                (lambda bb: bb.s <= bb.n, ('Southern latitude must be less than '
-                                           'or equal to Northern latitude')),
+                (
+                    lambda bb: bb.s <= bb.n,
+                    ('Southern latitude must be less than or equal to Northern latitude'),
+                ),
                 (lambda bb: bb.s >= -90.0, 'Southern latitude must be greater than -90.0'),
                 (lambda bb: bb.n >= -90.0, 'Northern latitude must be greater than -90.0'),
                 (lambda bb: bb.s <= 90.0, 'Southern latitude must be less than 90.0'),
@@ -417,35 +432,57 @@ class Request(OgcBaseRequest):
             ]
 
         self.temporal_validations = [
-            (lambda tr: 'start' in tr or 'stop' in tr,
-             ('When included in the request, the temporal range should include a '
-              'start or stop attribute.')),
-            (lambda tr: all(key in ['start', 'stop'] for key in tr.keys()),
-             ('Temporal range keys must be either "start" or "stop".')),
-            (lambda tr: tr['start'] < tr['stop'] if 'start' in tr and 'stop' in tr else True,
-             'The temporal range\'s start must be earlier than its stop datetime.')
+            (
+                lambda tr: 'start' in tr or 'stop' in tr,
+                (
+                    'When included in the request, the temporal range should include a '
+                    'start or stop attribute.'
+                ),
+            ),
+            (
+                lambda tr: all(key in ['start', 'stop'] for key in tr.keys()),
+                ('Temporal range keys must be either "start" or "stop".'),
+            ),
+            (
+                lambda tr: tr['start'] < tr['stop'] if 'start' in tr and 'stop' in tr else True,
+                "The temporal range's start must be earlier than its stop datetime.",
+            ),
         ]
         self.shape_validations = [
             (lambda s: os.path.isfile(s), 'The provided shape path is not a file'),
-            (lambda s: s.split('.').pop().lower() in _shapefile_exts_to_mimes,
-             'The provided shape file is not a recognized type.  Valid file extensions: '
-             + f'[{_valid_shapefile_exts}]'),
+            (
+                lambda s: s.split('.').pop().lower() in _shapefile_exts_to_mimes,
+                'The provided shape file is not a recognized type.  Valid file extensions: '
+                + f'[{_valid_shapefile_exts}]',
+            ),
         ]
         self.dimension_validations = [
-            (lambda dim: dim.min is None or dim.max is None or dim.min <= dim.max,
-             ('Dimension minimum value must be less than or equal to the maximum value'))
+            (
+                lambda dim: dim.min is None or dim.max is None or dim.min <= dim.max,
+                ('Dimension minimum value must be less than or equal to the maximum value'),
+            )
         ]
         self.parameter_validations = [  # for simple, one-off validations
-            (True if self.destination_url is None else self.destination_url.startswith('s3://'),
-             'Destination URL must be an S3 location'),
-            (self.concatenate is None or isinstance(self.concatenate, bool),
-             'concatenate must be a boolean (True or False)'),
-            (self.ignore_errors is None or isinstance(self.ignore_errors, bool),
-             'ignore_errors must be a boolean (True or False)'),
-            (self.skip_preview is None or isinstance(self.skip_preview, bool),
-             'skip_preview must be a boolean (True or False)'),
-            (self.pixel_subset is None or isinstance(self.pixel_subset, bool),
-             'pixel_subset must be a boolean (True or False)')
+            (
+                True if self.destination_url is None else self.destination_url.startswith('s3://'),
+                'Destination URL must be an S3 location',
+            ),
+            (
+                self.concatenate is None or isinstance(self.concatenate, bool),
+                'concatenate must be a boolean (True or False)',
+            ),
+            (
+                self.ignore_errors is None or isinstance(self.ignore_errors, bool),
+                'ignore_errors must be a boolean (True or False)',
+            ),
+            (
+                self.skip_preview is None or isinstance(self.skip_preview, bool),
+                'skip_preview must be a boolean (True or False)',
+            ),
+            (
+                self.pixel_subset is None or isinstance(self.pixel_subset, bool),
+                'pixel_subset must be a boolean (True or False)',
+            ),
         ]
 
     def _shape_error_messages(self, shape) -> List[str]:
@@ -458,8 +495,10 @@ class Request(OgcBaseRequest):
             return [f'The provided shape path "{shape}" is not a file']
         ext = shape.split('.').pop().lower()
         if ext not in _shapefile_exts_to_mimes:
-            return [f'The provided shape path "{shape}" has extension "{ext}" which is not '
-                    + f'recognized.  Valid file extensions: [{_valid_shapefile_exts}]']
+            return [
+                f'The provided shape path "{shape}" has extension "{ext}" which is not '
+                + f'recognized.  Valid file extensions: [{_valid_shapefile_exts}]'
+            ]
         return []
 
     def is_edr_request(self) -> bool:
@@ -505,9 +544,7 @@ class CapabilitiesRequest(BaseRequest):
         the provided parameters.
     """
 
-    def __init__(self,
-                 **request_params
-                 ):
+    def __init__(self, **request_params):
 
         super().__init__()
         self.collection_id = request_params.get('collection_id')
@@ -546,11 +583,7 @@ class AddLabelsRequest(BaseRequest):
         AddLabelsRequest: An instance of the request configured with the provided parameters.
     """
 
-    def __init__(self,
-                 *,
-                 labels: List[str],
-                 job_ids: List[str]
-                 ):
+    def __init__(self, *, labels: List[str], job_ids: List[str]):
         super().__init__(http_method=HttpMethod.PUT)
         self.labels = labels
         self.job_ids = job_ids
@@ -572,11 +605,7 @@ class DeleteLabelsRequest(BaseRequest):
         DeleteLabelsRequest: An instance of the request configured with the provided parameters.
     """
 
-    def __init__(self,
-                 *,
-                 labels: List[str],
-                 job_ids: List[str]
-                 ):
+    def __init__(self, *, labels: List[str], job_ids: List[str]):
         super().__init__(http_method=HttpMethod.DELETE)
         self.labels = labels
         self.job_ids = job_ids
@@ -599,12 +628,13 @@ class JobsRequest(BaseRequest):
         JobsRequest: An instance of the jobs request configured with the provided parameters.
     """
 
-    def __init__(self,
-                 *,
-                 page: int | None = None,
-                 limit: int | None = None,
-                 labels: List[str] | None = None,
-                 ):
+    def __init__(
+        self,
+        *,
+        page: int | None = None,
+        limit: int | None = None,
+        labels: List[str] | None = None,
+    ):
         super().__init__()
         self.page = page
         self.limit = limit
@@ -682,9 +712,7 @@ class StepsRequest(BaseRequest):
         """A list of error messages, if any, for the request."""
         error_msgs = []
         if self.resolve_files and self.work_item is None:
-            error_msgs = [
-                'resolve_files requires a work_item filter for StepsRequest'
-            ]
+            error_msgs = ['resolve_files requires a work_item filter for StepsRequest']
 
         return error_msgs
 
@@ -712,6 +740,7 @@ class StepsRequest(BaseRequest):
 
 class LinkType(Enum):
     """The type of URL to provide when returning links to data."""
+
     s3 = 's3'
     http = 'http'
     https = 'https'

@@ -36,8 +36,19 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import date, datetime
 from shapely.wkt import loads
-from typing import Any, ContextManager, IO, Iterator, List, Mapping, NamedTuple, Optional, \
-    Tuple, Generator, Union
+from typing import (
+    Any,
+    ContextManager,
+    IO,
+    Iterator,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Tuple,
+    Generator,
+    Union,
+)
 from urllib import parse
 
 import curlify
@@ -46,13 +57,24 @@ import progressbar
 
 from harmony.auth import create_session, validate_auth
 from harmony.config import Config, Environment
-from harmony.request import Collection, BBox, WKT, LinkType, _shapefile_exts_to_mimes, \
-    BaseRequest, OgcBaseRequest, CapabilitiesRequest, AddLabelsRequest, \
-    DeleteLabelsRequest, JobsRequest, StepsRequest
+from harmony.request import (
+    Collection,
+    BBox,
+    WKT,
+    LinkType,
+    _shapefile_exts_to_mimes,
+    BaseRequest,
+    OgcBaseRequest,
+    CapabilitiesRequest,
+    AddLabelsRequest,
+    DeleteLabelsRequest,
+    JobsRequest,
+    StepsRequest,
+)
 from harmony.util import get_json_from_response
 from harmony import __version__ as harmony_version
 
-DEFAULT_JOB_LABEL = "harmony-py"
+DEFAULT_JOB_LABEL = 'harmony-py'
 
 MAX_INTERMEDIATE_FILE_DOWNLOADS = 50
 
@@ -62,9 +84,13 @@ MAX_INTERMEDIATE_FILE_DOWNLOADS = 50
 PRIVATE_FILE_LOCATION = '<private file location>'
 
 progressbar_widgets = [
-    ' [ Processing: ', progressbar.Percentage(), ' ] ',
+    ' [ Processing: ',
+    progressbar.Percentage(),
+    ' ] ',
     progressbar.Bar(),
-    ' [', progressbar.RotatingMarker(), ']',
+    ' [',
+    progressbar.RotatingMarker(),
+    ']',
 ]
 
 boolean_params = ['forceAsync', 'concatenate', 'skipPreview', 'ignoreErrors', 'pixelSubset']
@@ -136,9 +162,11 @@ class Client:
     disabled by passing ``should_validate_auth=False``.
     """
 
-    zarr_download_exception_msg = 'The zarr library must be used for zarr files. '\
-        'See https://github.com/nasa/harmony/blob/main/docs/Harmony%20Feature%20Examples.ipynb '\
+    zarr_download_exception_msg = (
+        'The zarr library must be used for zarr files. '
+        'See https://github.com/nasa/harmony/blob/main/docs/Harmony%20Feature%20Examples.ipynb '
         'for zarr library usage example.'
+    )
     zarr_download_exception = Exception(zarr_download_exception_msg)
 
     def __init__(
@@ -149,7 +177,7 @@ class Client:
         env: Environment = Environment.PROD,
         token: str | None = None,
         # How often to poll Harmony for updated information during job processing
-        check_interval: float = 3.0  # in seconds
+        check_interval: float = 3.0,  # in seconds
     ):
         """Creates a Harmony Client that can be used to interact with Harmony.
 
@@ -181,13 +209,12 @@ class Client:
                 total=3,
                 backoff_factor=1,  # Wait 1, 2, 4 seconds between retries
                 status_forcelist=[429, 500, 502, 503, 504],
-                allowed_methods=["GET"],
+                allowed_methods=['GET'],
                 raise_on_status=False,
-
             )
             adapter = HTTPAdapter(max_retries=retry_strategy)
-            self.session.mount("https://", adapter)
-            self.session.mount("http://", adapter)
+            self.session.mount('https://', adapter)
+            self.session.mount('http://', adapter)
 
         return self.session
 
@@ -207,7 +234,7 @@ class Client:
         elif geometry.geom_type == 'LineString' or geometry.geom_type == 'MultiLineString':
             return 'trajectory'
         else:
-            raise Exception(f"Unsupported geometry type: {geometry.geom_type}")
+            raise Exception(f'Unsupported geometry type: {geometry.geom_type}')
 
     def _submit_url(self, request: BaseRequest) -> str:
         """Constructs the URL for the request that is used to submit a new Harmony Job."""
@@ -266,13 +293,15 @@ class Client:
                     params['subset'] = subset
             else:
                 params['forceAsync'] = 'true'
-                subset = self._spatial_subset_params(request) + \
-                    self._temporal_subset_params(request) + \
-                    self._dimension_subset_params(request)
+                subset = (
+                    self._spatial_subset_params(request)
+                    + self._temporal_subset_params(request)
+                    + self._dimension_subset_params(request)
+                )
 
                 if len(subset) > 0:
                     params['subset'] = subset
-            if (os.getenv('EXCLUDE_DEFAULT_LABEL') != 'true'):
+            if os.getenv('EXCLUDE_DEFAULT_LABEL') != 'true':
                 labels = request.labels or []
                 labels.append(DEFAULT_JOB_LABEL)
                 params['label'] = labels
@@ -314,8 +343,10 @@ class Client:
                 p_release = platform.release()
                 user_agent_content.add(f'{p_system}/{p_release}')
             except Exception as e:
-                print("Following exception was caught "
-                      "when building user-agent headers for harmony-py:")
+                print(
+                    'Following exception was caught '
+                    'when building user-agent headers for harmony-py:'
+                )
                 print(e)
 
             # Get implementation info
@@ -324,8 +355,10 @@ class Client:
                 implementation_version = platform.python_version()
                 user_agent_content.add(f'{implementation}/{implementation_version}')
             except Exception as e:
-                print("Following exception was caught "
-                      "when building user-agent headers for harmony-py:")
+                print(
+                    'Following exception was caught '
+                    'when building user-agent headers for harmony-py:'
+                )
                 print(e)
 
             # Build headers
@@ -414,7 +447,8 @@ class Client:
         return result
 
     def _get_prepared_request(
-            self, request: BaseRequest, for_browser=False) -> requests.models.PreparedRequest:
+        self, request: BaseRequest, for_browser=False
+    ) -> requests.models.PreparedRequest:
         """Returns a :requests.models.PreparedRequest: object for the given harmony Request
 
         Args:
@@ -443,27 +477,24 @@ class Client:
                 # is no shapefile to send
 
                 if request.is_edr_request():
-                    r = requests.models.Request('POST',
-                                                self._submit_url(request),
-                                                json=params,
-                                                headers=headers)
+                    r = requests.models.Request(
+                        'POST', self._submit_url(request), json=params, headers=headers
+                    )
                 else:
                     param_items = self._params_dict_to_files(params)
                     file_items = [(k, v) for k, v in files.items()]
                     all_files = param_items + file_items
 
-                    r = requests.models.Request('POST',
-                                                self._submit_url(request),
-                                                files=all_files,
-                                                headers=headers)
+                    r = requests.models.Request(
+                        'POST', self._submit_url(request), files=all_files, headers=headers
+                    )
             else:
                 if files:
-                    raise Exception("Cannot include shapefile as URL query parameter")
+                    raise Exception('Cannot include shapefile as URL query parameter')
 
-                r = requests.models.Request(method,
-                                            self._submit_url(request),
-                                            params=params,
-                                            headers=headers)
+                r = requests.models.Request(
+                    method, self._submit_url(request), params=params, headers=headers
+                )
 
             prepped_request = session.prepare_request(r)
             if for_browser:
@@ -547,7 +578,7 @@ class Client:
         """
         if not request.is_valid():
             msgs = ', '.join(request.error_messages())
-            raise Exception(f"Cannot submit the request due to the following errors: [{msgs}]")
+            raise Exception(f'Cannot submit the request due to the following errors: [{msgs}]')
 
         session = self._session()
 
@@ -585,8 +616,15 @@ class Client:
         response = session.get(self._status_url(job_id))
         if response.ok:
             fields = [
-                'status', 'message', 'progress', 'createdAt', 'updatedAt', 'dataExpiration',
-                'request', 'errors', 'numInputGranules'
+                'status',
+                'message',
+                'progress',
+                'createdAt',
+                'updatedAt',
+                'dataExpiration',
+                'request',
+                'errors',
+                'numInputGranules',
             ]
             status_subset = {k: v for k, v in response.json().items() if k in fields}
             created_at_dt = dateutil.parser.parse(status_subset['createdAt'])
@@ -594,8 +632,9 @@ class Client:
 
             status_json = {
                 'status': status_subset['status'],
-                'message': status_subset['message']
-                .replace(' The job may be resumed using the provided link.', ''),
+                'message': status_subset['message'].replace(
+                    ' The job may be resumed using the provided link.', ''
+                ),
                 'progress': status_subset['progress'],
                 'created_at': created_at_dt,
                 'updated_at': updated_at_dt,
@@ -606,8 +645,9 @@ class Client:
             }
             if 'dataExpiration' in status_subset:
                 data_expiration_dt = dateutil.parser.parse(status_subset['dataExpiration'])
-                data_expiration_local = data_expiration_dt.replace(
-                    microsecond=0).astimezone().isoformat()
+                data_expiration_local = (
+                    data_expiration_dt.replace(microsecond=0).astimezone().isoformat()
+                )
                 status_json['data_expiration'] = data_expiration_dt
                 status_json['data_expiration_local'] = data_expiration_local
             if 'errors' in status_subset:
@@ -728,7 +768,7 @@ class Client:
                     if status == 'paused':
                         print('\nJob has been paused. Call `resume()` to resume.', file=sys.stderr)
                         break
-                    if (not running_w_errors_logged and status == 'running_with_errors'):
+                    if not running_w_errors_logged and status == 'running_with_errors':
                         print('\nJob is running with errors.', file=sys.stderr)
                         running_w_errors_logged = True
 
@@ -756,15 +796,14 @@ class Client:
                 if status == 'paused':
                     print('Job has been paused. Call `resume()` to resume.', file=sys.stderr)
                     break
-                if (not running_w_errors_logged and status == 'running_with_errors'):
+                if not running_w_errors_logged and status == 'running_with_errors':
                     print('\nJob is running with errors.', file=sys.stderr)
                     running_w_errors_logged = True
                 time.sleep(self.check_interval)
 
-    def result_json(self,
-                    job_id: str,
-                    show_progress: bool = False,
-                    link_type: LinkType = LinkType.https) -> str:
+    def result_json(
+        self, job_id: str, show_progress: bool = False, link_type: LinkType = LinkType.https
+    ) -> str:
         """Retrieve a job's final json output.
 
         Harmony jobs' output is built as the job is processed and this method fetches the complete
@@ -796,10 +835,9 @@ class Client:
         """
         return self._session().get(url).json()
 
-    def _result_pages(self,
-                      job_id: str,
-                      show_progress: bool = False,
-                      link_type: LinkType = LinkType.https) -> Generator[object, None, None]:
+    def _result_pages(
+        self, job_id: str, show_progress: bool = False, link_type: LinkType = LinkType.https
+    ) -> Generator[object, None, None]:
         """Yields each page of results for the provided job ID
 
         Args:
@@ -818,10 +856,9 @@ class Client:
             links = response.get('links', [])
             next_url = next((x['href'] for x in links if x['rel'] == 'next'), None)
 
-    def result_urls(self,
-                    job_id: str,
-                    show_progress: bool = False,
-                    link_type: LinkType = LinkType.https) -> Generator[str, None, None]:
+    def result_urls(
+        self, job_id: str, show_progress: bool = False, link_type: LinkType = LinkType.https
+    ) -> Generator[str, None, None]:
         """Retrieve the data URLs for a job.
 
         The URLs include links to all of the jobs data output. Blocks until the Harmony job is
@@ -876,7 +913,7 @@ class Client:
             The filename that will be used to name the downloaded file.
         """
         name_result = None
-        url_no_query = parse.urlunparse(parse.urlparse(url)._replace(query=""))
+        url_no_query = parse.urlunparse(parse.urlparse(url)._replace(query=''))
         url_parts = url_no_query.split('/')
         original_filename = url_parts[-1]
 
@@ -928,13 +965,12 @@ class Client:
             is_opendap = parse_result.netloc.startswith('opendap')
             method = 'post' if is_opendap else 'get'
             if is_opendap:  # remove the query params from the URL and convert to dict
-                new_url = parse.urlunparse(parse_result._replace(query=""))
+                new_url = parse.urlunparse(parse_result._replace(query=''))
                 data_dict = dict(parse.parse_qsl(parse.urlsplit(url).query))
-            headers = {
-                "Accept-Encoding": "identity"
-            }
+            headers = {'Accept-Encoding': 'identity'}
             with getattr(session, method)(
-                    new_url, data=data_dict, stream=True, headers=headers) as r:
+                new_url, data=data_dict, stream=True, headers=headers
+            ) as r:
                 # Without this an error response body (a 401 page, a Harmony
                 # error document) is written to disk and looks like data.
                 r.raise_for_status()
@@ -981,10 +1017,9 @@ class Client:
         future = self.executor.submit(self._download_file, url, directory, overwrite)
         return future
 
-    def download_all(self,
-                     job_id_or_result_json: Union[str, dict],
-                     directory: str = '',
-                     overwrite: bool = False) -> Generator[Future, None, None]:
+    def download_all(
+        self, job_id_or_result_json: Union[str, dict], directory: str = '', overwrite: bool = False
+    ) -> Generator[Future, None, None]:
         """Using a job_id, fetches all the data files from a finished job.
 
         After this method is able to contact Harmony and query a finished job, it will
@@ -1077,8 +1112,7 @@ class Client:
         if not work_items:
             raise ValueError('work_items must contain at least one work item id.')
         if not include_inputs and not include_outputs:
-            raise ValueError(
-                'At least one of include_inputs or include_outputs must be True.')
+            raise ValueError('At least one of include_inputs or include_outputs must be True.')
 
         request = StepsRequest(job_id=job_id, work_item=work_items, resolve_files=True)
         response = self.submit(request)
@@ -1099,21 +1133,18 @@ class Client:
                     urls.append(url)
 
         if len(urls) > MAX_INTERMEDIATE_FILE_DOWNLOADS:
-            print(f'\nFound {len(urls)} intermediate files; downloading the first '
-                  f'{MAX_INTERMEDIATE_FILE_DOWNLOADS}. To download all of them, '
-                  'resolve the files with a StepsRequest and pass each URL to download().',
-                  file=sys.stderr)
+            print(
+                f'\nFound {len(urls)} intermediate files; downloading the first '
+                f'{MAX_INTERMEDIATE_FILE_DOWNLOADS}. To download all of them, '
+                'resolve the files with a StepsRequest and pass each URL to download().',
+                file=sys.stderr,
+            )
             urls = urls[:MAX_INTERMEDIATE_FILE_DOWNLOADS]
 
         for url in urls:
             yield self.download(url, directory, overwrite)
 
-    def iterator(
-        self,
-        job_id: str,
-        directory: str = '',
-        overwrite: bool = False
-    ) -> Iterator:
+    def iterator(self, job_id: str, directory: str = '', overwrite: bool = False) -> Iterator:
         """Create an iterator that will poll for data in the background and download it as
         it is available and requested via `next()`.
 
@@ -1201,7 +1232,7 @@ class Client:
                         yield {
                             'path': future,
                             'bbox': BBox(bbox[0], bbox[1], bbox[2], bbox[3]),
-                            'temporal': temporal
+                            'temporal': temporal,
                         }
                 elif link['rel'] == 'next':
                     next_url = link['href']
@@ -1228,10 +1259,9 @@ class Client:
                 link_index = 0
                 current_page_granule_count = 0
 
-    def stac_catalog_url(self,
-                         job_id: str,
-                         show_progress: bool = False,
-                         link_type: LinkType = LinkType.https) -> str:
+    def stac_catalog_url(
+        self, job_id: str, show_progress: bool = False, link_type: LinkType = LinkType.https
+    ) -> str:
         """Extract the STAC catalog URL from job results.
 
         Blocks until the Harmony job is done processing.
@@ -1252,7 +1282,7 @@ class Client:
 
         for link in data.get('links', []):
             if link['rel'] == 'stac-catalog-json':
-                return f"{link['href']}?linktype={link_type.value}"
+                return f'{link["href"]}?linktype={link_type.value}'
 
         return None
 

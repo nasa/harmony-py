@@ -9,6 +9,7 @@ testing (UAT) environment, for example::
 This configuration object can then be passed as an argument when creating
 the ``harmony.Client``.
 """
+
 import os
 from enum import Enum
 from typing import cast
@@ -40,12 +41,12 @@ class Config:
 
     config = {
         'NUM_REQUESTS_WORKERS': '3',  # increase for servers
-        'DOWNLOAD_CHUNK_SIZE': str(4 * 1024 * 1024)  # recommend 16MB for servers
+        'DOWNLOAD_CHUNK_SIZE': str(4 * 1024 * 1024),  # recommend 16MB for servers
     }
 
-    def __init__(self,
-                 environment: Environment = Environment.PROD,
-                 localhost_port: int = 3000) -> None:
+    def __init__(
+        self, environment: Environment = Environment.PROD, localhost_port: int = 3000
+    ) -> None:
         """Creates a new Config instance for the specified Environment."""
         load_dotenv()
         for k, v in Config.config.items():

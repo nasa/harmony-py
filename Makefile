@@ -1,4 +1,4 @@
-.PHONY: install install-examples clean examples lint test test-watch ci docs
+.PHONY: install install-examples clean examples lint format test test-watch ci docs
 
 REPO ?= https://upload.pypi.org/legacy/
 REPO_USER ?= __token__
@@ -29,7 +29,11 @@ examples: install-examples
 	jupyter-lab
 
 lint:
-	flake8 harmony --show-source --statistics
+	ruff check harmony
+	ruff format --check harmony
+
+format:
+	ruff format harmony
 
 test:
 	pytest --cov=harmony --cov-report=term --cov-report=html --cov-branch tests
