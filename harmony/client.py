@@ -203,18 +203,25 @@ class Client:
         token: str | None = None,
         # How often to poll Harmony for updated information during job processing
         check_interval: float = 3.0,  # in seconds
+        download_timeout: float | tuple[float | None, float | None] | None = None,
     ):
         """Creates a Harmony Client that can be used to interact with Harmony.
 
         Args:
             auth : A tuple of the format ('edl_username', 'edl_password')
             should_validate_auth: Whether EDL credentials will be validated.
+            download_timeout: Optional socket timeout for file downloads, in seconds.
+                A number applies to both connection and read timeouts; a tuple supplies
+                separate (connect, read) values. None preserves unlimited waits. Read
+                timeouts limit inactivity, not total download duration, and retries may
+                extend the total elapsed time. Job polling and authentication are unaffected.
         """
         self.config = Config(env)
         self.session = None
         self.auth = auth
         self.token = token
         self.check_interval = check_interval
+        self.download_timeout = download_timeout
 
         num_workers = int(self.config.NUM_REQUESTS_WORKERS)
         self.executor = ThreadPoolExecutor(max_workers=num_workers)
@@ -1134,7 +1141,11 @@ class Client:
         ) as directory:
             temporary_filename = os.path.join(directory, 'download')
             with getattr(session, method)(
-                new_url, data=data_dict, stream=True, headers=headers
+                new_url,
+                data=data_dict,
+                stream=True,
+                headers=headers,
+                timeout=self.download_timeout,
             ) as r:
                 # An error response must not be written as if it were data.
                 r.raise_for_status()

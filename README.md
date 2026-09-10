@@ -111,3 +111,25 @@ Actions](https://github.com/nasa/harmony-py/actions) to run the Linter
 ## Building and Releasing
 
 New versions of Harmony-Py will be published to PyPi via a GitHub [action](.github/workflows/publish-release.yml) whenever a draft release is marked as published https://github.com/nasa/harmony-py/releases.
+
+### Download timeouts
+
+File downloads can be given a socket timeout when creating the client:
+
+```python
+client = Client(download_timeout=(10, 60))
+future = client.download(url, directory="downloads", overwrite=True)
+filename = future.result()
+```
+
+The first value limits connection attempts; the second limits how long a socket
+read waits for data. These limits also apply to `download_all` and
+`download_intermediate_files`, including OPeNDAP downloads. A single number sets
+both limits. The default, `None`, retains the existing unlimited wait behavior.
+
+These are inactivity limits, not a deadline for completing a whole file or job.
+Existing request retries may extend the total elapsed time. A download timeout
+is raised through `Future.result()` and releases the download worker. In contrast,
+`Future.result(timeout=...)` only limits the caller's wait and does not interrupt
+the running download. Failed transfers may leave a partial local file; use
+`overwrite=True` when retrying, or remove the incomplete file first.
