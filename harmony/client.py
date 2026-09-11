@@ -218,7 +218,7 @@ class Client:
         num_workers = int(self.config.NUM_REQUESTS_WORKERS)
         self.executor = ThreadPoolExecutor(max_workers=num_workers)
 
-        # Tracks which download hosts have already completed EDL authentication to 
+        # Tracks which download hosts have already completed EDL authentication to
         # prevent multiple requests from simultaneously attempting and hitting errors.
         # See _host_lock().
         self._authenticated_hosts = set()
