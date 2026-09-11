@@ -24,6 +24,7 @@ import os
 import shutil
 import sys
 from tabnanny import check
+import threading
 import time
 import platform
 from uuid import UUID
@@ -39,6 +40,7 @@ from shapely.wkt import loads
 from typing import (
     Any,
     ContextManager,
+    Dict,
     IO,
     Iterator,
     List,
@@ -49,6 +51,7 @@ from typing import (
     Generator,
     Union,
 )
+from collections import defaultdict
 from urllib import parse
 
 import curlify
@@ -77,6 +80,13 @@ from harmony import __version__ as harmony_version
 DEFAULT_JOB_LABEL = 'harmony-py'
 
 MAX_INTERMEDIATE_FILE_DOWNLOADS = 50
+
+# Maximum number of job IDs the /jobs/status batch endpoint accepts per request.
+MAX_BATCH_STATUS_JOB_IDS = 2000
+
+# Job statuses from which a job will not transition to another status without user
+# intervention (e.g. resuming a paused job). Used to know when polling can stop for a job.
+TERMINAL_JOB_STATUSES = {'successful', 'failed', 'canceled', 'complete_with_errors', 'paused'}
 
 # Sentinel value that Harmony's steps endpoint produces when a intermediate
 # result cannot be turned into a public/valid link. We have to avoid
@@ -110,6 +120,20 @@ def temporal_to_edr_datetime(temporal: dict) -> str:
         stop_str = '..'
 
     return f'{start_str}/{stop_str}'
+
+
+class BatchStatus(NamedTuple):
+    """Status breakdown for a batch of jobs, as returned by ``wait_for_batch()``.
+
+    ``counts`` and ``job_ids`` are both keyed by job status (e.g. ``'successful'``,
+    ``'failed'``). Every status in ``TERMINAL_JOB_STATUSES`` is present even if no job in
+    the batch ended up in that status, and both are defaultdicts, so looking up any other
+    status (including one Harmony introduces in the future) returns ``0`` / ``[]`` rather
+    than raising a ``KeyError``.
+    """
+
+    counts: Dict[str, int]
+    job_ids: Dict[str, List[str]]
 
 
 class ProcessingFailedException(Exception):
@@ -194,6 +218,13 @@ class Client:
         num_workers = int(self.config.NUM_REQUESTS_WORKERS)
         self.executor = ThreadPoolExecutor(max_workers=num_workers)
 
+        # Tracks which download hosts have already completed EDL authentication to
+        # prevent multiple requests from simultaneously attempting and hitting errors.
+        # See _host_lock().
+        self._authenticated_hosts = set()
+        self._host_locks_guard = threading.Lock()
+        self._host_locks: Dict[str, threading.Lock] = {}
+
         if should_validate_auth:
             validate_auth(self.config, self._session())
 
@@ -204,12 +235,13 @@ class Client:
                 self.session = create_session(self.config, token=self.token)
             else:
                 self.session = create_session(self.config, auth=self.auth)
-            # Add retry logic
             retry_strategy = Retry(
-                total=3,
-                backoff_factor=1,  # Wait 1, 2, 4 seconds between retries
-                status_forcelist=[429, 500, 502, 503, 504],
-                allowed_methods=['GET'],
+                total=5,
+                backoff_factor=1,  # Exponential: 1, 2, 4, 8, 16s, before jitter/capping below
+                backoff_jitter=1,  # Adds a random 0-1s to each wait to avoid thundering herd
+                backoff_max=5,  # No single retry waits longer than 5 seconds
+                status_forcelist=[429, *range(500, 600)],
+                allowed_methods=['GET', 'POST'],
                 raise_on_status=False,
             )
             adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -258,6 +290,10 @@ class Client:
     def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to get its status."""
         return f'{self.config.root_url}/jobs/{job_id}?linktype={link_type.value}'
+
+    def _job_status_batch_url(self) -> str:
+        """Constructs the URL for the lightweight batch job status endpoint."""
+        return f'{self.config.root_url}/jobs/status'
 
     def _pause_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
         """Constructs the URL for the Job that is used to pause it."""
@@ -599,6 +635,29 @@ class Client:
         else:
             self._handle_error_response(response)
 
+    def submit_batch(self, requests: List[BaseRequest]) -> List[any]:
+        """Submits a batch of requests to Harmony concurrently.
+
+        This is a convenience wrapper around calling ``submit()`` once per request, useful
+        when you have many requests to send and don't want to wait for each one to be
+        accepted before submitting the next.
+
+        Args:
+            requests: The Requests to submit to Harmony (each will be validated before
+                sending, same as ``submit()``).
+
+        Returns:
+            A list of results, in the same order as ``requests``, one per request as
+            returned by ``submit()`` (typically a Harmony Job ID).
+
+        Raises:
+            Exception: If any individual submission fails, the corresponding exception is
+                raised once that submission's result is reached. Other submissions in the
+                batch are not canceled.
+        """
+        futures = [self.executor.submit(self.submit, request) for request in requests]
+        return [future.result() for future in futures]
+
     def status(self, job_id: str) -> dict:
         """Retrieve a submitted job's metadata from Harmony.
 
@@ -737,6 +796,72 @@ class Client:
         else:
             self._handle_error_response(response)
 
+    def _poll_job_statuses(self, job_ids: List[str]) -> dict:
+        """Fetches status and progress for a batch of jobs using the lightweight batch
+        status endpoint, making as few HTTP calls as possible.
+
+        Args:
+            job_ids: The Harmony Job IDs to look up. Chunked into requests of at most
+                ``MAX_BATCH_STATUS_JOB_IDS`` job IDs each.
+
+        Returns:
+            A dict mapping each job ID to a dict with ``status`` and ``progress`` keys.
+
+        Raises:
+            Exception: If any of the job IDs could not be found, or a request fails.
+        """
+        session = self._session()
+        statuses = {}
+        for i in range(0, len(job_ids), MAX_BATCH_STATUS_JOB_IDS):
+            chunk = job_ids[i : i + MAX_BATCH_STATUS_JOB_IDS]
+            response = session.post(self._job_status_batch_url(), json={'jobIDs': chunk})
+            if response.ok:
+                body = response.json()
+                not_found = body.get('notFoundJobIDs') or []
+                if not_found:
+                    raise Exception(f'Could not find job(s): {", ".join(not_found)}')
+                for job_status in body['jobStatuses']:
+                    statuses[job_status['jobID']] = job_status
+            else:
+                self._handle_error_response(response)
+        return statuses
+
+    def _poll_progress(self, job_id: str) -> Tuple[int, str]:
+        """Fetches a single job's progress and status via the lightweight batch status
+        endpoint.
+
+        Args:
+            job_id: UUID string for the job to poll.
+
+        Returns:
+            A tuple of the job's processing progress as a percentage and its processing
+            state.
+        """
+        job_status = self._poll_job_statuses([job_id])[job_id]
+        return int(job_status['progress']), job_status['status']
+
+    def _poll_status_and_message(self, job_id: str) -> Tuple[int, str, Optional[str]]:
+        """Polls a job's progress and status via the lightweight batch status endpoint.
+
+        Once the job reaches a terminal status, makes one additional call to
+        ``progress()`` (the full ``/jobs/{id}`` endpoint) to fetch the authoritative status
+        message, exactly as callers would have gotten before this endpoint existed.
+
+        Args:
+            job_id: UUID string for the job to poll.
+
+        Returns:
+            A tuple of the job's processing progress as a percentage, its processing state,
+            and its status message (``None`` if the job has not yet reached a terminal
+            status).
+        """
+        progress, status = self._poll_progress(job_id)
+        if status in TERMINAL_JOB_STATUSES:
+            progress, status, message = self.progress(job_id)
+        else:
+            message = None
+        return progress, status, message
+
     def wait_for_processing(self, job_id: str, show_progress: bool = False) -> None:
         """Retrieve a submitted job's completion status in percent.
 
@@ -759,7 +884,7 @@ class Client:
             with progressbar.ProgressBar(max_value=100, widgets=progressbar_widgets) as bar:
                 progress = 0
                 while progress < 100:
-                    progress, status, message = self.progress(job_id)
+                    progress, status, message = self._poll_status_and_message(job_id)
                     if status == 'failed':
                         raise ProcessingFailedException(job_id, message)
                     if status == 'canceled':
@@ -788,7 +913,7 @@ class Client:
         else:
             progress = 0
             while progress < 100:
-                progress, status, message = self.progress(job_id)
+                progress, status, message = self._poll_status_and_message(job_id)
                 if status == 'failed':
                     raise ProcessingFailedException(job_id, message)
                 if status == 'canceled':
@@ -800,6 +925,58 @@ class Client:
                     print('\nJob is running with errors.', file=sys.stderr)
                     running_w_errors_logged = True
                 time.sleep(self.check_interval)
+
+    def wait_for_batch(self, job_ids: List[str], show_progress: bool = False) -> BatchStatus:
+        """Waits for a batch of jobs to each reach a terminal state, polling all of them in
+        as few HTTP calls as possible rather than polling one job at a time.
+
+        Args:
+            job_ids: The Harmony Job IDs to wait for.
+            show_progress: Whether a progress bar should show via stdout, tracking how many
+                of the jobs have reached a terminal state.
+
+        Returns:
+            A BatchStatus with ``counts`` (number of jobs per final status) and ``job_ids``
+            (the list of job IDs per final status).
+        """
+        pending_job_ids = list(job_ids)
+        final_status_by_job_id = {}
+
+        def poll_round():
+            nonlocal pending_job_ids
+            statuses = self._poll_job_statuses(pending_job_ids)
+            still_pending = []
+            for job_id, job_status in statuses.items():
+                if job_status['status'] in TERMINAL_JOB_STATUSES:
+                    final_status_by_job_id[job_id] = job_status['status']
+                else:
+                    still_pending.append(job_id)
+            pending_job_ids = still_pending
+
+        if show_progress:
+            with progressbar.ProgressBar(
+                max_value=len(job_ids), widgets=progressbar_widgets
+            ) as bar:
+                while pending_job_ids:
+                    poll_round()
+                    bar.update(len(job_ids) - len(pending_job_ids))
+                    if pending_job_ids:
+                        time.sleep(self.check_interval)
+        else:
+            while pending_job_ids:
+                poll_round()
+                if pending_job_ids:
+                    time.sleep(self.check_interval)
+
+        job_ids_by_status = defaultdict(list)
+        for status in TERMINAL_JOB_STATUSES:
+            job_ids_by_status[status]  # seed known statuses so they're always present
+        for job_id in job_ids:
+            job_ids_by_status[final_status_by_job_id[job_id]].append(job_id)
+
+        counts = defaultdict(int, {status: len(ids) for status, ids in job_ids_by_status.items()})
+
+        return BatchStatus(counts=counts, job_ids=job_ids_by_status)
 
     def result_json(
         self, job_id: str, show_progress: bool = False, link_type: LinkType = LinkType.https
@@ -925,6 +1102,39 @@ class Client:
             name_result = f'{item_id}_{original_filename}'
         return name_result.replace(':', '_')
 
+    def _host_lock(self, host: str) -> threading.Lock:
+        """Returns a lock specific to the given host, creating it on first use."""
+        with self._host_locks_guard:
+            if host not in self._host_locks:
+                self._host_locks[host] = threading.Lock()
+            return self._host_locks[host]
+
+    def _fetch_and_save_file(
+        self, session, url: str, filename: str, chunksize: int, verbose: bool
+    ) -> None:
+        """Issues the actual HTTP request for ``_download_file`` and writes the response
+        body to ``filename``. Split out so the very first request to a given host can be
+        serialized (see ``_download_file``) without also serializing every subsequent
+        request to that host.
+        """
+        data_dict = None
+        parse_result = parse.urlparse(url)
+        is_opendap = parse_result.netloc.startswith('opendap')
+        method = 'post' if is_opendap else 'get'
+        new_url = url
+        if is_opendap:  # remove the query params from the URL and convert to dict
+            new_url = parse.urlunparse(parse_result._replace(query=''))
+            data_dict = dict(parse.parse_qsl(parse.urlsplit(url).query))
+        headers = {'Accept-Encoding': 'identity'}
+        with getattr(session, method)(new_url, data=data_dict, stream=True, headers=headers) as r:
+            # Without this an error response body (a 401 page, a Harmony
+            # error document) is written to disk and looks like data.
+            r.raise_for_status()
+            with open(filename, 'wb') as f:
+                shutil.copyfileobj(r.raw, f, length=chunksize)
+        if verbose:
+            print(filename)
+
     def _download_file(self, url: str, directory: str = '', overwrite: bool = False) -> str:
         """Downloads data, saves it to a file, and returns the filename.
 
@@ -949,36 +1159,37 @@ class Client:
         chunksize = int(self.config.DOWNLOAD_CHUNK_SIZE)
         session = self._session()
         filename = self.get_download_filename_from_url(url)
-        new_url = url
 
         if directory:
             filename = os.path.join(directory, filename)
 
-        verbose = os.getenv('VERBOSE', 'TRUE')
+        verbose_env = os.getenv('VERBOSE', 'TRUE')
+        verbose = bool(verbose_env and verbose_env.upper() == 'TRUE')
         if not overwrite and os.path.isfile(filename):
-            if verbose and verbose.upper() == 'TRUE':
+            if verbose:
                 print(filename)
             return filename
+
+        host = parse.urlparse(url).hostname
+        if host in self._authenticated_hosts:
+            self._fetch_and_save_file(session, url, filename, chunksize, verbose)
         else:
-            data_dict = None
-            parse_result = parse.urlparse(url)
-            is_opendap = parse_result.netloc.startswith('opendap')
-            method = 'post' if is_opendap else 'get'
-            if is_opendap:  # remove the query params from the URL and convert to dict
-                new_url = parse.urlunparse(parse_result._replace(query=''))
-                data_dict = dict(parse.parse_qsl(parse.urlsplit(url).query))
-            headers = {'Accept-Encoding': 'identity'}
-            with getattr(session, method)(
-                new_url, data=data_dict, stream=True, headers=headers
-            ) as r:
-                # Without this an error response body (a 401 page, a Harmony
-                # error document) is written to disk and looks like data.
-                r.raise_for_status()
-                with open(filename, 'wb') as f:
-                    shutil.copyfileobj(r.raw, f, length=chunksize)
-            if verbose and verbose.upper() == 'TRUE':
-                print(filename)
-            return filename
+            # The first request to a not-yet-seen host has to complete EDL authentication
+            # with multiple redirects and saving cookies before it can download data. That
+            # isn't safe to run concurrently: a second request racing through it on the same
+            # session can invalidate the first request's in-flight authorization code/state,
+            # surfacing as a 400 from Harmony's /oauth2/redirect callback. So the first
+            # request per host is serialized here; once it succeeds, the host is marked
+            # authenticated and every later request (including ones that were waiting
+            # on this lock) proceeds concurrently as normal.
+            with self._host_lock(host):
+                if host not in self._authenticated_hosts:
+                    self._fetch_and_save_file(session, url, filename, chunksize, verbose)
+                    self._authenticated_hosts.add(host)
+                    return filename
+            # Host became authenticated while we were waiting for the lock above.
+            self._fetch_and_save_file(session, url, filename, chunksize, verbose)
+        return filename
 
     def job_status_message(self, job_id: str) -> str:
         """Extract the job status and message from job results.
@@ -1071,6 +1282,58 @@ class Client:
                     if url.endswith('zarr'):
                         raise self.zarr_download_exception
                     yield self.executor.submit(self._download_file, url, directory, overwrite)
+
+    def _download_job_files(
+        self, job_id: str, directory: str = '', overwrite: bool = False
+    ) -> List[Future]:
+        """Blocks until the given job finishes processing, then submits downloads for all of
+        its output files.
+
+        Args:
+            job_id: UUID string for the job whose output files should be downloaded.
+            directory: Optional. If specified, saves files there. Saves files to the current
+            working directory by default.
+            overwrite: If True, will overwrite a local file that shares a filename with the
+            downloaded file. Defaults to False.
+
+        Returns:
+            A list of Futures, each of which will return the filename (with path) for one of
+            the job's output files.
+        """
+        return list(self.download_all(job_id, directory, overwrite))
+
+    def download_batch(
+        self, job_ids: List[str], directory: str = '', overwrite: bool = False
+    ) -> Mapping[str, List[Future]]:
+        """Downloads the output files for a batch of jobs.
+
+        Each job's outputs are resolved and downloaded the same way as ``download_all()``,
+        but jobs in the batch are waited on and downloaded concurrently rather than one at a
+        time. As with ``download_all()``, this call blocks until each job finishes
+        processing, but the actual file downloads happen asynchronously via the returned
+        Futures.
+
+        It's safe to pass job IDs regardless of status (e.g. the full batch passed to
+        ``wait_for_batch()``, not just its successful ones) — a job with no output files,
+        whatever its status, simply maps to an empty list rather than raising.
+
+        Args:
+            job_ids: The Harmony Job IDs to download outputs for.
+            directory: Optional. If specified, saves files there. Saves files to the current
+            working directory by default.
+            overwrite: If True, will overwrite a local file that shares a filename with the
+            downloaded file. Defaults to False.
+
+        Returns:
+            A dict mapping each job ID to a list of Futures, each of which will return the
+            filename (with path) for one of that job's output files. A job with no output
+            files (e.g. one that failed) maps to an empty list.
+        """
+        futures_by_job_id = {
+            job_id: self.executor.submit(self._download_job_files, job_id, directory, overwrite)
+            for job_id in job_ids
+        }
+        return {job_id: future.result() for job_id, future in futures_by_job_id.items()}
 
     def download_intermediate_files(
         self,

@@ -19,5 +19,5 @@ from harmony.request import (
     JobsRequest,
     StepsRequest,
 )
-from harmony.client import Client
+from harmony.client import BatchStatus, Client
 from harmony.util import s3_components
