@@ -1,8 +1,12 @@
+from concurrent.futures import ThreadPoolExecutor
 import copy
 import datetime as dt
 import io
+import json
 import os
 import re
+import threading
+import time
 from typing import List
 import urllib.parse
 import pathlib
@@ -44,6 +48,10 @@ def expected_submit_url(collection_id, variables='all'):
 
 def expected_status_url(job_id, link_type: LinkType = LinkType.https):
     return f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={link_type.value}'
+
+
+def expected_job_status_batch_url():
+    return 'https://harmony.earthdata.nasa.gov/jobs/status'
 
 
 def expected_pause_url(job_id, link_type: LinkType = LinkType.https):
@@ -798,6 +806,71 @@ def test_progress():
 
 
 @responses.activate
+def test_poll_job_statuses():
+    job_ids = ['job-1', 'job-2']
+    exp_body = {
+        'jobStatuses': [
+            {'jobID': 'job-1', 'status': 'running', 'progress': 42},
+            {'jobID': 'job-2', 'status': 'successful', 'progress': 100},
+        ],
+        'notFoundJobIDs': [],
+    }
+    responses.add(
+        responses.POST, expected_job_status_batch_url(), status=200, json=exp_body
+    )
+
+    statuses = Client(should_validate_auth=False)._poll_job_statuses(job_ids)
+
+    assert len(responses.calls) == 1
+    assert json.loads(responses.calls[0].request.body) == {'jobIDs': job_ids}
+    assert statuses == {
+        'job-1': {'jobID': 'job-1', 'status': 'running', 'progress': 42},
+        'job-2': {'jobID': 'job-2', 'status': 'successful', 'progress': 100},
+    }
+
+
+@responses.activate
+def test_poll_job_statuses_chunks_large_batches():
+    job_ids = [f'job-{i}' for i in range(4001)]
+
+    def make_response(request):
+        chunk = json.loads(request.body)['jobIDs']
+        body = {
+            'jobStatuses': [
+                {'jobID': job_id, 'status': 'successful', 'progress': 100} for job_id in chunk
+            ],
+            'notFoundJobIDs': [],
+        }
+        return (200, {}, json.dumps(body))
+
+    responses.add_callback(
+        responses.POST, expected_job_status_batch_url(), callback=make_response
+    )
+
+    statuses = Client(should_validate_auth=False)._poll_job_statuses(job_ids)
+
+    assert len(responses.calls) == 3
+    call_sizes = [len(json.loads(call.request.body)['jobIDs']) for call in responses.calls]
+    assert call_sizes == [2000, 2000, 1]
+    assert len(statuses) == len(job_ids)
+
+
+@responses.activate
+def test_poll_job_statuses_raises_on_not_found():
+    job_ids = ['job-1', 'missing-job']
+    exp_body = {
+        'jobStatuses': [{'jobID': 'job-1', 'status': 'successful', 'progress': 100}],
+        'notFoundJobIDs': ['missing-job'],
+    }
+    responses.add(
+        responses.POST, expected_job_status_batch_url(), status=200, json=exp_body
+    )
+
+    with pytest.raises(Exception, match='missing-job'):
+        Client(should_validate_auth=False)._poll_job_statuses(job_ids)
+
+
+@responses.activate
 def test_pause():
     collection = Collection(id='C333666999-EOSDIS')
     job_id = '21469294-d6f7-42cc-89f2-c81990a5d7f4'
@@ -901,11 +974,15 @@ def test_cancel_conflict_error():
     ],
 )
 def test_wait_for_processing_with_show_progress(mocker, show_progress):
+    # Each tick of the polling loop calls the lightweight _poll_progress() (no message);
+    # only once a terminal status is reached does the loop make one more call to the full
+    # progress() to get the authoritative message.
     expected_progress = [
-        (80, 'running', 'The job is being processed'),
-        (90, 'running', 'The job is being processed'),
-        (100, 'successful', 'The job was successful'),
+        (80, 'running'),
+        (90, 'running'),
+        (100, 'successful'),
     ]
+    expected_final = (100, 'successful', 'The job was successful')
     job_id = '12345'
 
     progressbar_mock = mocker.Mock()
@@ -916,15 +993,20 @@ def test_wait_for_processing_with_show_progress(mocker, show_progress):
     sleep_mock = mocker.Mock()
     mocker.patch('harmony.client.time.sleep', sleep_mock)
 
-    progress_mock = mocker.Mock(side_effect=expected_progress)
+    poll_progress_mock = mocker.Mock(side_effect=expected_progress)
+    mocker.patch('harmony.client.Client._poll_progress', poll_progress_mock)
+
+    progress_mock = mocker.Mock(return_value=expected_final)
     mocker.patch('harmony.client.Client.progress', progress_mock)
 
     client = Client(should_validate_auth=False)
     client.wait_for_processing(job_id, show_progress=show_progress)
 
-    progress_mock.assert_called_with(job_id)
+    poll_progress_mock.assert_called_with(job_id)
+    assert poll_progress_mock.call_count == len(expected_progress)
+    progress_mock.assert_called_once_with(job_id)
     if show_progress:
-        for n, _, _ in expected_progress:
+        for n, _ in expected_progress:
             progressbar_mock.update.assert_any_call(int(n))
     else:
         assert sleep_mock.call_count == len(expected_progress)
@@ -938,7 +1020,6 @@ def test_wait_for_processing_with_show_progress(mocker, show_progress):
     ],
 )
 def test_wait_for_processing_with_failed_status(mocker, show_progress):
-    expected_progress = [(0, 'failed', 'Pod exploded')]
     job_id = '12345'
 
     progressbar_mock = mocker.Mock()
@@ -946,7 +1027,10 @@ def test_wait_for_processing_with_failed_status(mocker, show_progress):
     progressbar_mock.__exit__ = lambda a, b, d, c: None
     mocker.patch('harmony.client.progressbar.ProgressBar', return_value=progressbar_mock)
 
-    progress_mock = mocker.Mock(side_effect=expected_progress)
+    poll_progress_mock = mocker.Mock(side_effect=[(0, 'failed')])
+    mocker.patch('harmony.client.Client._poll_progress', poll_progress_mock)
+
+    progress_mock = mocker.Mock(side_effect=[(0, 'failed', 'Pod exploded')])
     mocker.patch('harmony.client.Client.progress', progress_mock)
 
     client = Client(should_validate_auth=False)
@@ -965,8 +1049,8 @@ def test_wait_for_processing_with_failed_status(mocker, show_progress):
 )
 def test_wait_for_processing_with_paused_status(mocker, show_progress):
     expected_progress = [
-        (10, 'running', 'The job is being processed'),
-        (10, 'paused', 'Job paused'),
+        (10, 'running'),
+        (10, 'paused'),
     ]
     job_id = '12345'
 
@@ -978,15 +1062,19 @@ def test_wait_for_processing_with_paused_status(mocker, show_progress):
     progressbar_mock.__exit__ = lambda a, b, d, c: None
     mocker.patch('harmony.client.progressbar.ProgressBar', return_value=progressbar_mock)
 
-    progress_mock = mocker.Mock(side_effect=expected_progress)
+    poll_progress_mock = mocker.Mock(side_effect=expected_progress)
+    mocker.patch('harmony.client.Client._poll_progress', poll_progress_mock)
+
+    progress_mock = mocker.Mock(side_effect=[(10, 'paused', 'Job paused')])
     mocker.patch('harmony.client.Client.progress', progress_mock)
 
     client = Client(should_validate_auth=False)
     client.wait_for_processing(job_id, show_progress=show_progress)
 
-    progress_mock.assert_called_with(job_id)
+    poll_progress_mock.assert_called_with(job_id)
+    progress_mock.assert_called_once_with(job_id)
     if show_progress:
-        for n, _, _ in expected_progress:
+        for n, _ in expected_progress:
             progressbar_mock.update.assert_any_call(int(n))
     else:
         # sleep should be called just once since the second status update returned 'paused'
@@ -1207,6 +1295,66 @@ def test_download_opendap_file():
         assert data == expected_data
 
     os.unlink(actual_output)
+
+
+def test_download_file_marks_host_authenticated_after_success():
+    filename = 'pytest_marks_host_authenticated.temp'
+    url = 'http://example.com/' + filename
+
+    with responses.RequestsMock() as resp_mock:
+        resp_mock.add(responses.GET, url, body=b'abcde', stream=True)
+        client = Client(should_validate_auth=False)
+        client._download_file(url, overwrite=True)
+
+    assert 'example.com' in client._authenticated_hosts
+    os.unlink(filename)
+
+
+def test_download_file_skips_host_lock_once_authenticated(mocker):
+    filename = 'pytest_already_authenticated.temp'
+    url = 'http://example.com/' + filename
+    client = Client(should_validate_auth=False)
+    client._authenticated_hosts.add('example.com')
+    host_lock_spy = mocker.spy(client, '_host_lock')
+
+    with responses.RequestsMock() as resp_mock:
+        resp_mock.add(responses.GET, url, body=b'abcde', stream=True)
+        client._download_file(url, overwrite=True)
+
+    host_lock_spy.assert_not_called()
+    os.unlink(filename)
+
+
+def test_download_file_serializes_first_request_per_host(mocker):
+    client = Client(should_validate_auth=False)
+    host = 'example.com'
+    url_a = f'http://{host}/a.temp'
+    url_b = f'http://{host}/b.temp'
+
+    a_started = threading.Event()
+    release_a = threading.Event()
+    b_ran_concurrently = threading.Event()
+
+    def fake_fetch(session, url, filename, chunksize, verbose):
+        if url == url_a:
+            a_started.set()
+            release_a.wait(timeout=2)
+        elif not release_a.is_set():
+            b_ran_concurrently.set()
+
+    mocker.patch.object(client, '_fetch_and_save_file', side_effect=fake_fetch)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_a = executor.submit(client._download_file, url_a, '', True)
+        assert a_started.wait(timeout=2)
+        future_b = executor.submit(client._download_file, url_b, '', True)
+        time.sleep(0.05)  # give b a chance to (incorrectly) run before a finishes
+        release_a.set()
+        future_a.result(timeout=2)
+        future_b.result(timeout=2)
+
+    assert not b_ran_concurrently.is_set()
+    assert host in client._authenticated_hosts
 
 
 def test_download_all(mocker):
@@ -1529,7 +1677,7 @@ def test_handle_error_response_with_description_key():
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).progress(job_id)
     assert str(e.value) == f"('Internal Server Error', '{error['description']}')"
-    assert len(responses.calls) == 9
+    assert len(responses.calls) == 18  # (6 + 6 + 6): submit, status, and progress all retry
 
 
 @responses.activate
@@ -1552,7 +1700,7 @@ def test_handle_error_response_no_description_key():
         Client(should_validate_auth=False).progress(job_id)
     assert '500 Server Error: Internal Server Error for url' in str(e.value)
     # Check retries
-    assert len(responses.calls) == 9  # (1 + 4 + 4) # Post isn't retried.
+    assert len(responses.calls) == 18  # (6 + 6 + 6): submit, status, and progress all retry
 
 
 @responses.activate
@@ -1574,7 +1722,7 @@ def test_handle_error_response_no_json():
         Client(should_validate_auth=False).progress(job_id)
     assert '500 Server Error: Internal Server Error for url' in str(e.value)
     # Check retries
-    assert len(responses.calls) == 9  # (1 + 4 + 4)
+    assert len(responses.calls) == 18  # (6 + 6 + 6): submit, status, and progress all retry
 
 
 @responses.activate
@@ -1596,7 +1744,7 @@ def test_handle_error_response_invalid_json():
         Client(should_validate_auth=False).progress(job_id)
     assert '500 Server Error: Internal Server Error for url' in str(e.value)
     # Check retries
-    assert len(responses.calls) == 9  # (1 + 4 + 4)
+    assert len(responses.calls) == 18  # (6 + 6 + 6): submit, status, and progress all retry
 
 
 @responses.activate
@@ -1707,6 +1855,124 @@ def test_handle_transient_error_responses():
     assert first_retry.call_count == 1
     assert second_retry.call_count == 1
     assert last_success.call_count == 1
+
+
+def test_session_retry_configuration():
+    """The shared retry policy should allow up to 5 retries, cap any single
+    wait at 5 seconds, apply jitter, and cover both GET and POST (submit,
+    submit_batch, and job-status polling all rely on this)."""
+    client = Client(should_validate_auth=False)
+    adapter = client._session().get_adapter('https://harmony.earthdata.nasa.gov')
+    retry = adapter.max_retries
+
+    assert retry.total == 5
+    assert retry.backoff_max == 5
+    assert retry.backoff_jitter > 0
+    assert retry.raise_on_status is False
+    assert 'GET' in retry.allowed_methods
+    assert 'POST' in retry.allowed_methods
+    assert all(status in retry.status_forcelist for status in (500, 502, 503, 504, 599))
+
+
+def test_retry_backoff_never_exceeds_five_seconds():
+    """Even with exponential growth and jitter, no single retry should wait
+    longer than 5 seconds, no matter how many retries have already happened."""
+    retry = Client(should_validate_auth=False)._session().get_adapter(
+        'https://harmony.earthdata.nasa.gov'
+    ).max_retries
+
+    # total=5 means at most 5 increments are possible before retries are exhausted
+    for _ in range(5):
+        retry = retry.increment(
+            method='POST',
+            url='https://harmony.earthdata.nasa.gov/jobs/status',
+            error=requests.exceptions.ConnectionError('boom'),
+        )
+        assert 0 <= retry.get_backoff_time() <= 5
+
+
+def test_retry_configuration_permits_connection_error_retry_for_post():
+    """Connection errors must be retryable for POST requests (submit,
+    submit_batch, and batch job-status polling all issue POSTs), not just the
+    GET-based endpoints that were retried before this change."""
+    retry = Client(should_validate_auth=False)._session().get_adapter(
+        'https://harmony.earthdata.nasa.gov'
+    ).max_retries
+
+    retried = retry.increment(
+        method='POST',
+        url='https://harmony.earthdata.nasa.gov/jobs/status',
+        error=requests.exceptions.ConnectionError('Connection refused'),
+    )
+
+    assert retried.total == retry.total - 1
+
+
+@responses.activate(registry=registries.OrderedRegistry)
+def test_submit_retries_on_5xx_then_succeeds():
+    collection = Collection(id='C1342468263-ANYTHING')
+    request = Request(collection=collection, spatial=BBox(-107, 40, -105, 42))
+    job_id = 'abcd-1234'
+
+    for _ in range(3):
+        responses.add(
+            responses.POST, expected_submit_url(collection.id), status=503, json='error'
+        )
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, job_id),
+    )
+
+    actual_job_id = Client(should_validate_auth=False).submit(request)
+
+    assert actual_job_id == job_id
+    assert len(responses.calls) == 4
+
+
+@responses.activate(registry=registries.OrderedRegistry)
+def test_submit_exhausts_retries_and_raises():
+    collection = Collection(id='C1342468263-ANYTHING')
+    request = Request(collection=collection, spatial=BBox(-107, 40, -105, 42))
+
+    # total=5 retries means 6 total attempts before giving up
+    for _ in range(6):
+        responses.add(
+            responses.POST, expected_submit_url(collection.id), status=502, json='error'
+        )
+
+    with pytest.raises(Exception) as e:
+        Client(should_validate_auth=False).submit(request)
+
+    assert '502 Server Error' in str(e.value)
+    assert len(responses.calls) == 6
+
+
+@responses.activate(registry=registries.OrderedRegistry)
+def test_poll_job_statuses_retries_on_5xx_then_succeeds():
+    job_ids = ['job-1', 'job-2']
+    exp_body = {
+        'jobStatuses': [
+            {'jobID': 'job-1', 'status': 'running', 'progress': 42},
+            {'jobID': 'job-2', 'status': 'successful', 'progress': 100},
+        ],
+        'notFoundJobIDs': [],
+    }
+
+    for _ in range(2):
+        responses.add(
+            responses.POST, expected_job_status_batch_url(), status=504, json='error'
+        )
+    responses.add(
+        responses.POST, expected_job_status_batch_url(), status=200, json=exp_body
+    )
+
+    statuses = Client(should_validate_auth=False)._poll_job_statuses(job_ids)
+
+    assert statuses['job-1']['status'] == 'running'
+    assert statuses['job-2']['status'] == 'successful'
+    assert len(responses.calls) == 3
 
 
 def test_request_as_curl_get():
@@ -2148,6 +2414,174 @@ def test_download_intermediate_files_requires_work_items():
     client = Client(should_validate_auth=False)
     with pytest.raises(ValueError):
         list(client.download_intermediate_files('jobs-uuid', work_items=[]))
+
+
+def test_submit_batch(mocker):
+    client = Client(should_validate_auth=False)
+    requests = [mocker.Mock(name=f'request-{i}') for i in range(3)]
+    job_ids_by_request = {id(r): f'job-{i}' for i, r in enumerate(requests)}
+    submit_mock = mocker.patch.object(
+        client, 'submit', side_effect=lambda r: job_ids_by_request[id(r)]
+    )
+
+    result = client.submit_batch(requests)
+
+    assert result == ['job-0', 'job-1', 'job-2']
+    assert submit_mock.call_count == 3
+    for r in requests:
+        submit_mock.assert_any_call(r)
+
+
+def test_submit_batch_raises_on_failed_submission(mocker):
+    client = Client(should_validate_auth=False)
+
+    def fake_submit(request):
+        if request == 'bad-request':
+            raise Exception('submission failed')
+        return 'job-ok'
+
+    mocker.patch.object(client, 'submit', side_effect=fake_submit)
+
+    with pytest.raises(Exception, match='submission failed'):
+        client.submit_batch(['bad-request', 'good-request'])
+
+
+def test_wait_for_batch(mocker):
+    client = Client(should_validate_auth=False)
+    job_statuses = {
+        'job-1': {'status': 'successful', 'progress': 100},
+        'job-2': {'status': 'failed', 'progress': 100},
+        'job-3': {'status': 'canceled', 'progress': 100},
+        'job-4': {'status': 'successful', 'progress': 100},
+    }
+    poll_mock = mocker.patch.object(
+        client,
+        '_poll_job_statuses',
+        side_effect=lambda job_ids: {j: job_statuses[j] for j in job_ids},
+    )
+
+    result = client.wait_for_batch(list(job_statuses.keys()))
+
+    assert result.job_ids['successful'] == ['job-1', 'job-4']
+    assert result.job_ids['failed'] == ['job-2']
+    assert result.job_ids['canceled'] == ['job-3']
+    assert result.job_ids['paused'] == []
+    assert result.job_ids['complete_with_errors'] == []
+    assert result.counts == {
+        'successful': 2,
+        'failed': 1,
+        'canceled': 1,
+        'paused': 0,
+        'complete_with_errors': 0,
+    }
+    # Statuses that never showed up in this batch still default rather than raising.
+    assert result.job_ids['some_future_status'] == []
+    assert result.counts['some_future_status'] == 0
+    # All jobs finish in a single round, so this is a single batch call, not one per job.
+    poll_mock.assert_called_once_with(list(job_statuses.keys()))
+
+
+def test_wait_for_batch_polls_until_terminal(mocker):
+    client = Client(should_validate_auth=False)
+    status_sequence = iter(
+        [
+            {'job-1': {'status': 'running', 'progress': 50}},
+            {'job-1': {'status': 'successful', 'progress': 100}},
+        ]
+    )
+    sleep_mock = mocker.patch('harmony.client.time.sleep')
+    poll_mock = mocker.patch.object(
+        client, '_poll_job_statuses', side_effect=lambda job_ids: next(status_sequence)
+    )
+
+    result = client.wait_for_batch(['job-1'])
+
+    assert result.job_ids['successful'] == ['job-1']
+    assert result.counts['successful'] == 1
+    assert poll_mock.call_count == 2
+    sleep_mock.assert_called_once_with(client.check_interval)
+
+
+def test_wait_for_batch_with_show_progress(mocker):
+    client = Client(should_validate_auth=False)
+    job_statuses = {
+        'job-1': {'status': 'successful', 'progress': 100},
+        'job-2': {'status': 'successful', 'progress': 100},
+    }
+    poll_mock = mocker.patch.object(
+        client,
+        '_poll_job_statuses',
+        side_effect=lambda job_ids: {j: job_statuses[j] for j in job_ids},
+    )
+
+    progressbar_mock = mocker.Mock()
+    progressbar_mock.__enter__ = lambda _: progressbar_mock
+    progressbar_mock.__exit__ = lambda a, b, d, c: None
+    mocker.patch('harmony.client.progressbar.ProgressBar', return_value=progressbar_mock)
+
+    result = client.wait_for_batch(list(job_statuses.keys()), show_progress=True)
+
+    poll_mock.assert_called_once_with(['job-1', 'job-2'])
+    assert sorted(result.job_ids['successful']) == ['job-1', 'job-2']
+    assert result.job_ids['failed'] == []
+    progressbar_mock.update.assert_any_call(2)
+
+
+def test_download_batch(mocker):
+    client = Client(should_validate_auth=False)
+    fake_results = {
+        'job-1': ['/tmp/file1', '/tmp/file2'],
+        'job-2': ['/tmp/file3'],
+    }
+    mocker.patch.object(
+        client,
+        'download_all',
+        side_effect=lambda job_id, directory='', overwrite=False: iter(fake_results[job_id]),
+    )
+
+    results = client.download_batch(list(fake_results.keys()))
+
+    assert results == fake_results
+
+
+def test_download_batch_passes_directory_and_overwrite(mocker):
+    client = Client(should_validate_auth=False)
+    download_all_mock = mocker.patch.object(client, 'download_all', return_value=iter([]))
+
+    client.download_batch(['job-1'], directory='/tmp', overwrite=True)
+
+    download_all_mock.assert_called_once_with('job-1', '/tmp', True)
+
+
+def test_download_batch_empty_results_for_failed_job(mocker):
+    client = Client(should_validate_auth=False)
+    mocker.patch.object(client, 'download_all', return_value=iter([]))
+
+    results = client.download_batch(['failed-job'])
+
+    assert results == {'failed-job': []}
+
+
+def test_download_batch_mixed_statuses_and_no_outputs(mocker):
+    # Callers shouldn't have to filter job_ids by status first -- jobs with no output
+    # files, regardless of why (failed, canceled, or simply succeeded with nothing to
+    # return), should just come back as an empty list alongside jobs that do have files.
+    client = Client(should_validate_auth=False)
+    fake_results = {
+        'successful-with-files': ['/tmp/file1', '/tmp/file2'],
+        'successful-no-files': [],
+        'failed-job': [],
+        'canceled-job': [],
+    }
+    mocker.patch.object(
+        client,
+        'download_all',
+        side_effect=lambda job_id, directory='', overwrite=False: iter(fake_results[job_id]),
+    )
+
+    results = client.download_batch(list(fake_results.keys()))
+
+    assert results == fake_results
 
 
 def test_client_environment_not_affected_by_env_var():
