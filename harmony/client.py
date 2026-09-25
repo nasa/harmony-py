@@ -998,8 +998,7 @@ class Client:
             self.wait_for_processing(job_id, show_progress)
         except ProcessingFailedException:
             pass
-        response = self._session().get(self._status_url(job_id, link_type))
-        return response.json()
+        return self._get_json(self._status_url(job_id, link_type))
 
     def _get_json(self, url: str) -> str:
         """Gets and parses the JSON at the given URL
@@ -1010,7 +1009,9 @@ class Client:
         Returns:
             The parsed JSON contents of the given URL
         """
-        return self._session().get(url).json()
+        response = self._session().get(url)
+        response.raise_for_status()
+        return response.json()
 
     def _result_pages(
         self, job_id: str, show_progress: bool = False, link_type: LinkType = LinkType.https
