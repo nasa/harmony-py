@@ -1263,6 +1263,141 @@ def test_download_file_raises_on_error_status():
     assert not os.path.isfile(expected_filename)
 
 
+@pytest.mark.parametrize('authenticated', [False, True])
+@pytest.mark.parametrize('opendap', [False, True])
+def test_download_file_interrupted_transfer_can_be_retried(
+    mocker, tmp_path, authenticated, opendap
+):
+    client = Client(should_validate_auth=False)
+    host = 'opendap.example.com' if opendap else 'example.com'
+    url = f'https://{host}/data.nc'
+    destination = tmp_path / 'data.nc'
+    if authenticated:
+        client._authenticated_hosts.add(host)
+    session = mocker.Mock()
+    response = mocker.MagicMock()
+    response.__enter__.return_value = response
+    getattr(session, 'post' if opendap else 'get').return_value = response
+    mocker.patch.object(client, '_session', return_value=session)
+    response.raw.read.side_effect = [
+        b'partial',
+        requests.exceptions.ConnectionError('interrupted'),
+    ]
+
+    with pytest.raises(requests.exceptions.ConnectionError, match='interrupted'):
+        client.download(url, directory=str(tmp_path)).result(timeout=5)
+
+    assert not destination.exists()
+    assert list(tmp_path.iterdir()) == []
+    assert (host in client._authenticated_hosts) == authenticated
+
+    response.raw.read.side_effect = [b'complete data', b'']
+    result = client.download(url, directory=str(tmp_path)).result(timeout=5)
+
+    assert result == str(destination)
+    assert destination.read_bytes() == b'complete data'
+    assert list(tmp_path.iterdir()) == [destination]
+    assert host in client._authenticated_hosts
+    assert getattr(session, 'post' if opendap else 'get').call_count == 2
+
+
+@pytest.mark.parametrize('opendap', [False, True])
+def test_download_file_interrupted_overwrite_preserves_existing_file(mocker, tmp_path, opendap):
+    client = Client(should_validate_auth=False)
+    host = 'opendap.example.com' if opendap else 'example.com'
+    url = f'https://{host}/data.nc'
+    destination = tmp_path / 'data.nc'
+    destination.write_bytes(b'existing complete data')
+    session = mocker.Mock()
+    response = mocker.MagicMock()
+    response.__enter__.return_value = response
+    getattr(session, 'post' if opendap else 'get').return_value = response
+    mocker.patch.object(client, '_session', return_value=session)
+    response.raw.read.side_effect = [b'partial', OSError('stream failed')]
+
+    with pytest.raises(OSError, match='stream failed'):
+        client._download_file(url, directory=str(tmp_path), overwrite=True)
+
+    assert destination.read_bytes() == b'existing complete data'
+    assert list(tmp_path.iterdir()) == [destination]
+    assert host not in client._authenticated_hosts
+
+    response.raw.read.side_effect = [b'replacement data', b'']
+    client._download_file(url, directory=str(tmp_path), overwrite=True)
+
+    assert destination.read_bytes() == b'replacement data'
+    assert list(tmp_path.iterdir()) == [destination]
+
+
+@pytest.mark.parametrize('existing', [False, True])
+def test_download_file_only_replaces_destination_after_complete_transfer(
+    mocker, tmp_path, existing
+):
+    client = Client(should_validate_auth=False)
+    destination = tmp_path / 'data.nc'
+    if existing:
+        destination.write_bytes(b'original')
+    session = mocker.Mock()
+    response = mocker.MagicMock()
+    response.__enter__.return_value = response
+    session.get.return_value = response
+    mocker.patch.object(client, '_session', return_value=session)
+    chunks = iter([b'first', b'second', b''])
+
+    def read_chunk(_size):
+        if existing:
+            assert destination.read_bytes() == b'original'
+        else:
+            assert not destination.exists()
+        return next(chunks)
+
+    response.raw.read.side_effect = read_chunk
+    client._download_file('https://example.com/data.nc', directory=str(tmp_path), overwrite=True)
+
+    assert destination.read_bytes() == b'firstsecond'
+    assert list(tmp_path.iterdir()) == [destination]
+
+
+@pytest.mark.parametrize('existing', [False, True])
+def test_download_file_replacement_failure_cleans_temporary_file(mocker, tmp_path, existing):
+    client = Client(should_validate_auth=False)
+    destination = tmp_path / 'data.nc'
+    if existing:
+        destination.write_bytes(b'original')
+    mocker.patch('harmony.client.os.replace', side_effect=PermissionError('cannot replace'))
+    url = 'https://example.com/data.nc'
+
+    with responses.RequestsMock() as resp_mock:
+        resp_mock.add(responses.GET, url, body=b'complete data', stream=True)
+        with pytest.raises(PermissionError, match='cannot replace'):
+            client._download_file(url, directory=str(tmp_path), overwrite=True)
+
+    if existing:
+        assert destination.read_bytes() == b'original'
+        assert list(tmp_path.iterdir()) == [destination]
+    else:
+        assert not destination.exists()
+        assert list(tmp_path.iterdir()) == []
+    assert 'example.com' not in client._authenticated_hosts
+
+
+@pytest.mark.skipif(os.name == 'nt', reason='POSIX file permissions')
+def test_download_file_preserves_destination_permissions(tmp_path):
+    client = Client(should_validate_auth=False)
+    destination = tmp_path / 'data.nc'
+    destination.write_bytes(b'original')
+    destination.chmod(0o640)
+    url = 'https://example.com/data.nc'
+
+    with responses.RequestsMock() as resp_mock:
+        resp_mock.add(responses.GET, url, body=b'complete data', stream=True)
+        client._download_file(url, directory=str(tmp_path), overwrite=True)
+
+    assert destination.read_bytes() == b'complete data'
+    assert destination.stat().st_mode & 0o777 == 0o640
+    assert list(tmp_path.iterdir()) == [destination]
+
+
 def test_download_opendap_file():
     expected_data = bytes('abcde', encoding='utf-8')
     filename = 'SC:ATL03.006:264549068'
