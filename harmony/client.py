@@ -25,6 +25,7 @@ import shutil
 import sys
 from tabnanny import check
 import threading
+import tempfile
 import time
 import platform
 from uuid import UUID
@@ -1113,9 +1114,9 @@ class Client:
         self, session, url: str, filename: str, chunksize: int, verbose: bool
     ) -> None:
         """Issues the actual HTTP request for ``_download_file`` and writes the response
-        body to ``filename``. Split out so the very first request to a given host can be
-        serialized (see ``_download_file``) without also serializing every subsequent
-        request to that host.
+        body to a temporary file before replacing ``filename`` on success. Split out
+        so the very first request to a given host can be serialized (see
+        ``_download_file``) without serializing every subsequent request to that host.
         """
         data_dict = None
         parse_result = parse.urlparse(url)
@@ -1126,12 +1127,25 @@ class Client:
             new_url = parse.urlunparse(parse_result._replace(query=''))
             data_dict = dict(parse.parse_qsl(parse.urlsplit(url).query))
         headers = {'Accept-Encoding': 'identity'}
-        with getattr(session, method)(new_url, data=data_dict, stream=True, headers=headers) as r:
-            # Without this an error response body (a 401 page, a Harmony
-            # error document) is written to disk and looks like data.
-            r.raise_for_status()
-            with open(filename, 'wb') as f:
-                shutil.copyfileobj(r.raw, f, length=chunksize)
+        # Keep staging on the destination filesystem so publication is atomic.
+        with tempfile.TemporaryDirectory(
+            dir=os.path.dirname(os.path.abspath(filename)), prefix='.harmony-'
+        ) as directory:
+            temporary_filename = os.path.join(directory, 'download')
+            with getattr(session, method)(
+                new_url, data=data_dict, stream=True, headers=headers
+            ) as r:
+                # An error response must not be written as if it were data.
+                r.raise_for_status()
+                # Use normal file creation permissions while keeping partial
+                # transfers private inside the temporary directory.
+                with open(temporary_filename, 'wb') as f:
+                    shutil.copyfileobj(r.raw, f, length=chunksize)
+            try:
+                shutil.copymode(filename, temporary_filename)
+            except FileNotFoundError:
+                pass
+            os.replace(temporary_filename, filename)
         if verbose:
             print(filename)
 
