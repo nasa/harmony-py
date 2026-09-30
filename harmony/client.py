@@ -20,6 +20,7 @@ Overview of the classes:
 """
 
 from http.client import ResponseNotReady
+import math
 import os
 import shutil
 import sys
@@ -203,7 +204,10 @@ class Client:
         token: str | None = None,
         # How often to poll Harmony for updated information during job processing
         check_interval: float = 3.0,  # in seconds
-        download_timeout: float | tuple[float | None, float | None] | None = None,
+        download_timeout: float
+        | tuple[float | None, float | None]
+        | list[float | None]
+        | None = None,
     ):
         """Creates a Harmony Client that can be used to interact with Harmony.
 
@@ -211,11 +215,37 @@ class Client:
             auth : A tuple of the format ('edl_username', 'edl_password')
             should_validate_auth: Whether EDL credentials will be validated.
             download_timeout: Optional socket timeout for file downloads, in seconds.
-                A number applies to both connection and read timeouts; a tuple supplies
-                separate (connect, read) values. None preserves unlimited waits. Read
-                timeouts limit inactivity, not total download duration, and retries may
-                extend the total elapsed time. Job polling and authentication are unaffected.
+                A positive finite number applies to both connection and read timeouts; a
+                two-item tuple/list supplies separate (connect, read) values, each a positive
+                finite number or None. None preserves unlimited waits. Read timeouts limit
+                inactivity, not total download duration, and retries may extend the total
+                elapsed time. Job polling and authentication are unaffected.
         """
+        timeout_error = (
+            'download_timeout must be None, a positive finite number, or a two-item '
+            'tuple/list containing positive finite numbers or None.'
+        )
+
+        def validate_timeout_value(value):
+            if value is None:
+                return
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value <= 0
+            ):
+                raise ValueError(timeout_error)
+
+        if isinstance(download_timeout, (tuple, list)):
+            if len(download_timeout) != 2:
+                raise ValueError(timeout_error)
+            for value in download_timeout:
+                validate_timeout_value(value)
+            download_timeout = tuple(download_timeout)
+        else:
+            validate_timeout_value(download_timeout)
+
         self.config = Config(env)
         self.session = None
         self.auth = auth
