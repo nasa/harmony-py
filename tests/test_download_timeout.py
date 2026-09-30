@@ -13,6 +13,47 @@ from urllib3.exceptions import ReadTimeoutError
 from harmony.client import Client
 
 
+@pytest.mark.parametrize(
+    'timeout',
+    [
+        0,
+        -1,
+        float('nan'),
+        float('inf'),
+        True,
+        '5',
+        (),
+        (1,),
+        (1, 2, 3),
+        (0, 1),
+        (1, -1),
+        (1, float('nan')),
+        [1],
+        [1, 2, 3],
+        [1, 0],
+    ],
+)
+def test_invalid_download_timeout_is_rejected(timeout):
+    with pytest.raises(ValueError, match='download_timeout must be'):
+        Client(should_validate_auth=False, download_timeout=timeout)
+
+
+@pytest.mark.parametrize(
+    ('timeout', 'expected'),
+    [
+        ([2, 30], (2, 30)),
+        ([2, None], (2, None)),
+        ((None, 30), (None, 30)),
+    ],
+)
+def test_download_timeout_sequences_are_normalized(timeout, expected):
+    client = Client(should_validate_auth=False, download_timeout=timeout)
+    try:
+        assert client.download_timeout == expected
+    finally:
+        client.executor.shutdown(wait=True)
+
+
 @pytest.mark.parametrize('timeout', [None, 10, (2, 30), (2, None)])
 @pytest.mark.parametrize('opendap', [False, True])
 def test_download_timeout_reaches_request(tmp_path, timeout, opendap):
