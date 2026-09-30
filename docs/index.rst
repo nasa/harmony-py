@@ -25,7 +25,7 @@ Harmony-Py is a work-in-progress, is not feature complete, and should only be us
 
     >>> job_id = harmony_client.submit(request)
 
-    >>> harmony_client.download_all(job_id)
+    >>> filenames = [f.result() for f in harmony_client.download_all(job_id)]
 
 -------------------
 
