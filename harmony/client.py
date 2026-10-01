@@ -325,9 +325,29 @@ class Client:
         else:
             return request_url_map[type(request)](self, request)
 
-    def _status_url(self, job_id: str, link_type: LinkType = LinkType.https) -> str:
-        """Constructs the URL for the Job that is used to get its status."""
-        return f'{self.config.root_url}/jobs/{job_id}?linktype={link_type.value}'
+    def _status_url(
+        self,
+        job_id: str,
+        link_type: LinkType = LinkType.https,
+        page: int = None,
+        limit: int = None,
+    ) -> str:
+        """Constructs the URL for the Job that is used to get its status.
+
+        Args:
+            job_id: UUID string for the job to be fetched
+            link_type: The type of link to output, s3:// or https://
+            page: The 1-indexed page of the job's output links to fetch, matching Harmony's
+                own ``page`` query parameter.
+            limit: The number of output links per page, matching Harmony's own ``limit``
+                query parameter.
+        """
+        url = f'{self.config.root_url}/jobs/{job_id}?linktype={link_type.value}'
+        if page is not None:
+            url += f'&page={page}'
+        if limit is not None:
+            url += f'&limit={limit}'
+        return url
 
     def _job_status_batch_url(self) -> str:
         """Constructs the URL for the lightweight batch job status endpoint."""
@@ -1052,7 +1072,13 @@ class Client:
         return response.json()
 
     def _result_pages(
-        self, job_id: str, show_progress: bool = False, link_type: LinkType = LinkType.https
+        self,
+        job_id: str,
+        show_progress: bool = False,
+        link_type: LinkType = LinkType.https,
+        allow_incomplete: bool = False,
+        page: int = None,
+        limit: int = None,
     ) -> Generator[object, None, None]:
         """Yields each page of results for the provided job ID
 
@@ -1060,36 +1086,77 @@ class Client:
             job_id: UUID string for the job to be fetched
             show_progress: Whether a progress bar should show via stdout.
             link_type: The type of link to output, s3:// or https://
+            allow_incomplete: If True, does not wait for the job to reach a terminal state,
+                and instead returns whatever result pages are currently available.
+            page: The 1-indexed page of output links to fetch, matching Harmony's own
+                ``page`` query parameter. If provided, only this single page is yielded
+                rather than following every ``next`` link.
+            limit: The number of output links per page, matching Harmony's own ``limit``
+                query parameter.
 
         Returns:
             A generator for each page of results, loaded on demand
         """
-        self.wait_for_processing(job_id, show_progress)
-        next_url = self._status_url(job_id, link_type)
+        if not allow_incomplete:
+            self.wait_for_processing(job_id, show_progress)
+        next_url = self._status_url(job_id, link_type, page=page, limit=limit)
         while next_url:
             response = self._get_json(next_url)
             yield response
+            if page is not None or limit is not None:
+                return
             links = response.get('links', [])
             next_url = next((x['href'] for x in links if x['rel'] == 'next'), None)
 
     def result_urls(
-        self, job_id: str, show_progress: bool = False, link_type: LinkType = LinkType.https
+        self,
+        job_id: str,
+        show_progress: bool = False,
+        link_type: LinkType = LinkType.https,
+        page: int = None,
+        limit: int = None,
+        allow_incomplete: bool = False,
     ) -> Generator[str, None, None]:
         """Retrieve the data URLs for a job.
 
         The URLs include links to all of the jobs data output. Blocks until the Harmony job is
-        done processing.
+        done processing, unless ``allow_incomplete`` is True.
 
         Args:
             job_id: UUID string for the job you wish to interrogate.
             show_progress: Whether a progress bar should show via stdout.
             link_type: The type of link to output, s3:// or https://
+            page: The 1-indexed page of output links to fetch, matching Harmony's own
+                ``page`` query parameter. Must be an integer greater than 0. Defaults to
+                returning every page (i.e. all URLs), unless ``limit`` is provided, in which
+                case it defaults to page 1. If ``page``/``limit`` go beyond the available
+                results, an empty list is returned rather than an error.
+            limit: The number of output links per page, matching Harmony's own ``limit``
+                query parameter. Must be an integer between 1 and 2000, inclusive.
+            allow_incomplete: If True, returns the URLs available so far without waiting for the
+                job to reach a terminal state. Defaults to False, which only returns URLs once
+                the job has reached a terminal state.
 
         Returns:
-            The job's complete list of data URLs.
+            The job's (optionally paged) list of data URLs.
+
+        Raises:
+            ValueError: If ``page`` is not an integer greater than 0, or ``limit`` is not an
+                integer between 1 and 2000 inclusive.
         """
-        for page in self._result_pages(job_id, show_progress, link_type):
-            for link in page.get('links', []):
+        if page is not None and (not isinstance(page, int) or isinstance(page, bool) or page < 1):
+            raise ValueError('page must be an integer greater than 0.')
+        if limit is not None and (
+            not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 2000
+        ):
+            raise ValueError('limit must be an integer between 1 and 2000, inclusive.')
+        if page is None and limit is not None:
+            page = 1
+
+        for result_page in self._result_pages(
+            job_id, show_progress, link_type, allow_incomplete, page=page, limit=limit
+        ):
+            for link in result_page.get('links', []):
                 if link['rel'] == 'data':
                     yield link['href']
 

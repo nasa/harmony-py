@@ -86,7 +86,7 @@ examples = [
 # Version is derived from the git tag (e.g. v1.4.0 -> 1.4.0) at build time.
 
 [tool.setuptools.packages.find]
-exclude = ["contrib", "docs", "tests*"]
+include = ["harmony", "harmony.*"]
 
 [tool.ruff]
 line-length = 99
