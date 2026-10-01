@@ -1200,6 +1200,128 @@ def test_result_url_paging(mocker, show_progress, link_type):
 
 
 @pytest.mark.parametrize(
+    'page,limit,expected_page',
+    [
+        (2, None, 2),
+        (None, 5, 1),  # limit with no page defaults to page 1
+        (2, 5, 2),
+    ],
+)
+def test_result_urls_with_page_and_limit_builds_query_params(
+    mocker, page, limit, expected_page
+):
+    collection = Collection(id='C1940468263-POCLOUD')
+    job_id = '1234'
+    expected_json = expected_job(collection.id, job_id, LinkType.https)
+
+    get_json_mock = mocker.Mock(return_value=expected_json)
+    mocker.patch('harmony.client.Client._get_json', get_json_mock)
+    mocker.patch('harmony.client.Client.wait_for_processing', mocker.Mock(return_value=None))
+
+    client = Client(should_validate_auth=False)
+    actual_urls = list(client.result_urls(job_id, page=page, limit=limit))
+
+    expected_url = (
+        f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype={LinkType.https.value}'
+        f'&page={expected_page}'
+    )
+    if limit is not None:
+        expected_url += f'&limit={limit}'
+    get_json_mock.assert_called_once_with(expected_url)
+    assert actual_urls == [fake_data_url()]
+
+
+@pytest.mark.parametrize(
+    'page,limit',
+    [
+        (0, None),
+        (-1, None),
+        (1.5, None),
+        ('1', None),
+        (True, None),
+        (None, 0),
+        (None, 2001),
+        (None, -5),
+        (None, 1.5),
+        (None, '10'),
+        (None, True),
+    ],
+)
+def test_result_urls_rejects_invalid_page_and_limit(mocker, page, limit):
+    mocker.patch('harmony.client.Client.wait_for_processing', mocker.Mock(return_value=None))
+    client = Client(should_validate_auth=False)
+
+    with pytest.raises(ValueError):
+        list(client.result_urls('1234', page=page, limit=limit))
+
+
+def test_result_urls_with_page_does_not_follow_next_link(mocker):
+    collection = Collection(id='C1940468263-POCLOUD')
+    job_id = '1234'
+    next_link = {
+        'href': f'https://harmony.earthdata.nasa.gov/jobs/{job_id}?linktype=https&page=2',
+        'rel': 'next',
+    }
+    expected_json = expected_job(collection.id, job_id, LinkType.https, [next_link])
+
+    get_json_mock = mocker.Mock(return_value=expected_json)
+    mocker.patch('harmony.client.Client._get_json', get_json_mock)
+    mocker.patch('harmony.client.Client.wait_for_processing', mocker.Mock(return_value=None))
+
+    client = Client(should_validate_auth=False)
+    actual_urls = list(client.result_urls(job_id, page=1))
+
+    assert actual_urls == [fake_data_url()]
+    get_json_mock.assert_called_once()
+
+
+def test_result_urls_with_page_beyond_last_result_returns_empty_list(mocker):
+    collection = Collection(id='C1940468263-POCLOUD')
+    job_id = '1234'
+    expected_json = expected_job(collection.id, job_id, LinkType.https)
+    expected_json['links'] = [link for link in expected_json['links'] if link['rel'] != 'data']
+
+    mocker.patch('harmony.client.Client._get_json', mocker.Mock(return_value=expected_json))
+    mocker.patch('harmony.client.Client.wait_for_processing', mocker.Mock(return_value=None))
+
+    client = Client(should_validate_auth=False)
+    actual_urls = list(client.result_urls(job_id, page=99))
+
+    assert actual_urls == []
+
+
+def test_result_urls_allow_incomplete_skips_waiting(mocker):
+    collection = Collection(id='C1940468263-POCLOUD')
+    job_id = '1234'
+    expected_json = expected_job(collection.id, job_id, LinkType.https)
+
+    mocker.patch('harmony.client.Client._get_json', mocker.Mock(return_value=expected_json))
+    wait_mock = mocker.Mock(return_value=None)
+    mocker.patch('harmony.client.Client.wait_for_processing', wait_mock)
+
+    client = Client(should_validate_auth=False)
+    actual_urls = list(client.result_urls(job_id, allow_incomplete=True))
+
+    assert actual_urls == [fake_data_url()]
+    wait_mock.assert_not_called()
+
+
+def test_result_urls_default_waits_for_terminal_state(mocker):
+    collection = Collection(id='C1940468263-POCLOUD')
+    job_id = '1234'
+    expected_json = expected_job(collection.id, job_id, LinkType.https)
+
+    mocker.patch('harmony.client.Client._get_json', mocker.Mock(return_value=expected_json))
+    wait_mock = mocker.Mock(return_value=None)
+    mocker.patch('harmony.client.Client.wait_for_processing', wait_mock)
+
+    client = Client(should_validate_auth=False)
+    list(client.result_urls(job_id))
+
+    wait_mock.assert_called_once_with(job_id, False)
+
+
+@pytest.mark.parametrize(
     'overwrite',
     [
         (True),
