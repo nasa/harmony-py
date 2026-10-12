@@ -30,7 +30,12 @@ from harmony.request import (
     JobsRequest,
     StepsRequest,
 )
-from harmony.client import Client, ProcessingFailedException, DEFAULT_JOB_LABEL
+from harmony.client import (
+    Client,
+    ProcessingFailedException,
+    DEFAULT_JOB_LABEL,
+    temporal_to_edr_datetime,
+)
 from harmony.config import Environment
 
 
@@ -2859,3 +2864,20 @@ def test_client_custom_environment_not_affected_by_env_var():
     assert client.config.harmony_hostname == 'harmony.uat.earthdata.nasa.gov'
 
     del os.environ['ENVIRONMENT']
+
+
+def test_temporal_to_edr_datetime_converts_aware_datetimes_to_utc():
+    paris = dt.timezone(dt.timedelta(hours=2))
+    temporal = {
+        'start': dt.datetime(2021, 6, 1, 0, 0, tzinfo=paris),
+        'stop': dt.datetime(2021, 6, 2, 0, 0, tzinfo=paris),
+    }
+    assert temporal_to_edr_datetime(temporal) == '2021-05-31T22:00:00Z/2021-06-01T22:00:00Z'
+
+
+def test_temporal_to_edr_datetime_keeps_naive_and_utc_datetimes():
+    temporal = {
+        'start': dt.datetime(2021, 6, 1, 12, 30),
+        'stop': dt.datetime(2021, 6, 2, 12, 30, tzinfo=dt.timezone.utc),
+    }
+    assert temporal_to_edr_datetime(temporal) == '2021-06-01T12:30:00Z/2021-06-02T12:30:00Z'
