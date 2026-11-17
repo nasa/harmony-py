@@ -671,7 +671,8 @@ def test_request_has_query_param(param, expected):
     [
         (['one'], 'one'),
         (['red_var', 'green_var', 'blue_var'], 'red_var,green_var,blue_var'),
-        (['/var/with/a/path'], '%2Fvar%2Fwith%2Fa%2Fpath'),
+        (['/var/with/a/path'], '/var/with/a/path'),
+        (['/group/var_a', '/group/var_b'], '/group/var_a,/group/var_b'),
     ],
 )
 def test_request_has_variables(variables, expected):
@@ -685,6 +686,31 @@ def test_request_has_variables(variables, expected):
     )
 
     Client(should_validate_auth=False).submit(request)
+
+    form_data_params = parse_multipart_data(responses.calls[0].request)
+    assert form_data_params['variable'] == expected
+
+
+@responses.activate
+def test_request_with_many_variables_sends_single_variable_part():
+    """Harmony limits the number of multipart form parts, so many variables must be sent
+    as a single comma separated form part rather than one part per variable."""
+    collection = Collection('foobar')
+    variables = [f'/group/var_{i}' for i in range(1000)]
+    request = Request(collection=collection, variables=variables)
+    responses.add(
+        responses.POST,
+        expected_submit_url(collection.id),
+        status=200,
+        json=expected_job(collection.id, 'abcd-1234'),
+    )
+
+    Client(should_validate_auth=False).submit(request)
+
+    http_request = responses.calls[0].request
+    assert http_request.body.count(b'name="variable"') == 1
+    form_data_params = parse_multipart_data(http_request)
+    assert form_data_params['variable'] == ','.join(variables)
 
 
 @responses.activate
