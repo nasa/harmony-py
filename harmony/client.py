@@ -529,9 +529,10 @@ class Client:
         """
         result = []
         for key, values in params.items():
-            if key == 'granuleId' and isinstance(values, list):
-                # Include all granuleId values in a single file boundary as a comma separated
-                # list to avoid creating too many file boundaries
+            if key in ('granuleId', 'variable') and isinstance(values, list):
+                # Include all granuleId and variable values in a single file boundary as a
+                # comma separated list to avoid creating too many file boundaries. Harmony
+                # limits the number of multipart form parts per request.
                 concatenated_values = ','.join(map(str, values))
                 result.append((key, (None, concatenated_values, None)))
             else:
