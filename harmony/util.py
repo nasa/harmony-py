@@ -1,5 +1,6 @@
+import csv
 from os.path import basename
-from typing import Any
+from typing import Any, List
 from urllib.parse import urlparse
 
 import requests
@@ -56,3 +57,30 @@ def get_json_from_response(response: Response) -> Any:
             ) from e
         else:
             raise Exception(f'Harmony returned a non-JSON response: {response.text[:200]}') from e
+
+
+def combine_csv_files(input_filenames: List[str], output_filename: str) -> None:
+    """Combines CSV files into a single CSV file with one header row.
+
+    The input files don't need to have identical columns. The output's columns are the
+    union of the input files' columns, in the order they're first seen, and a row from a
+    file without a given column has an empty value for it. Rows are written in the order
+    of ``input_filenames``.
+
+    Args:
+        input_filenames: The CSV files to combine. Each must start with a header row.
+        output_filename: The file to write the combined CSV to. Overwritten if it exists.
+    """
+    fieldnames = {}
+    for filename in input_filenames:
+        with open(filename, newline='', encoding='utf-8') as input_file:
+            fieldnames.update(dict.fromkeys(next(csv.reader(input_file), [])))
+
+    with open(output_filename, 'w', newline='', encoding='utf-8') as output_file:
+        if not fieldnames:
+            return
+        writer = csv.DictWriter(output_file, fieldnames=list(fieldnames))
+        writer.writeheader()
+        for filename in input_filenames:
+            with open(filename, newline='', encoding='utf-8') as input_file:
+                writer.writerows(csv.DictReader(input_file))
