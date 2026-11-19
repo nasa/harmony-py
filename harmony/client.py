@@ -407,7 +407,7 @@ class Client:
                 params[p] = val
             elif isinstance(val, bool):
                 params[p] = str(val).lower()
-            elif isinstance(val, list) and not isinstance(val[0], str):
+            elif isinstance(val, list) and val and not isinstance(val[0], str):
                 params[p] = ','.join([str(v) for v in val])
             else:
                 params[p] = val
