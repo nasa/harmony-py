@@ -1,5 +1,8 @@
 import pytest
 import responses
+from requests.auth import _basic_auth_str
+
+from harmony import CapabilitiesRequest, Client
 
 from harmony.auth import (
     _is_edl_hostname,
@@ -77,6 +80,41 @@ def test_authentication(status_code, should_error, config, mocker):
         actual_session = create_session(config)
         validate_auth(config, actual_session)
         assert actual_session is not None
+
+
+@responses.activate
+@pytest.mark.parametrize('token', [None, 'example-token'])
+def test_explicit_token_takes_precedence_over_netrc(tmp_path, monkeypatch, token):
+    netrc_path = tmp_path / 'netrc'
+    netrc_path.write_text(
+        'machine harmony.earthdata.nasa.gov login example-user password example-password\n'
+        'machine urs.earthdata.nasa.gov login example-user password example-password\n'
+        'machine example.com login other-user password other-password\n'
+    )
+    monkeypatch.setenv('NETRC', str(netrc_path))
+    monkeypatch.delenv('EDL_USERNAME', raising=False)
+    monkeypatch.delenv('EDL_PASSWORD', raising=False)
+    url = 'https://harmony.earthdata.nasa.gov/capabilities'
+    edl_url = 'https://urs.earthdata.nasa.gov/authorize'
+    responses.add(responses.GET, url, status=302, headers={'Location': edl_url})
+    responses.add(responses.GET, edl_url, status=302, headers={'Location': 'https://example.com/'})
+    responses.add(responses.GET, 'https://example.com/', status=200, json={'ok': True})
+    client = Client(token=token, should_validate_auth=False)
+    try:
+        assert client.submit(CapabilitiesRequest(collection_id='example')) == {'ok': True}
+        expected = f'Bearer {token}' if token else _basic_auth_str('example-user', 'example-password')
+        assert responses.calls[0].request.headers['Authorization'] == expected
+        assert responses.calls[1].request.headers['Authorization'] == expected
+        if token:
+            assert 'Authorization' not in responses.calls[2].request.headers
+        else:
+            assert responses.calls[2].request.headers['Authorization'] == _basic_auth_str(
+                'other-user', 'other-password'
+            )
+        assert client._session().trust_env is True
+    finally:
+        client._session().close()
+        client.executor.shutdown(wait=True)
 
 
 def test_SessionWithHeaderRedirection_with_no_edl(mocker):
