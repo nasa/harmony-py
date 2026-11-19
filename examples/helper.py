@@ -1,5 +1,6 @@
 import sys
 import os
+import subprocess
 
 sys.path.append('..')
 
@@ -34,13 +35,29 @@ def install_project_and_dependencies(project_root, libs=None):
         # If libs are specified, install them
         if libs:
             libs_str = ','.join(libs)
-            os.system(f'{sys.executable} -m pip install -q -e .[{libs_str}]')
+            _pip_install(f'.[{libs_str}]')
 
         # Install the project itself
-        os.system(f'{sys.executable} -m pip install -q -e .')
+        _pip_install('.')
     finally:
         # Switch back to the original directory after installation
         os.chdir(original_dir)
+
+
+def _pip_install(target):
+    """
+    Run an editable pip install of the target, hiding the build backend's
+    warnings unless the install fails.
+    """
+    result = subprocess.run(
+        [sys.executable, '-m', 'pip', 'install', '-q', '-e', target],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(result.stdout)
+        print(result.stderr, file=sys.stderr)
+        raise RuntimeError(f'pip install -e {target} failed')
 
 
 def show_result(filename):
