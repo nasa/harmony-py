@@ -2,7 +2,7 @@
 # https://pypi.org/pypi?%3Aaction=list_classifiers
 
 [build-system]
-requires = ["setuptools>=64", "setuptools_scm>=8"]
+requires = ["setuptools>=77", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -12,7 +12,8 @@ authors = [
     {name = "NASA EOSDIS Harmony Team", email = "christopher.d.durbin@nasa.gov"}
 ]
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.10, <4"
 keywords = ["nasa", "harmony", "remote-sensing", "science", "geoscience"]
 classifiers = [
