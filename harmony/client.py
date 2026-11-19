@@ -396,7 +396,7 @@ class Client:
                 if len(subset) > 0:
                     params['subset'] = subset
             if os.getenv('EXCLUDE_DEFAULT_LABEL') != 'true':
-                labels = request.labels or []
+                labels = (request.labels or []).copy()
                 labels.append(DEFAULT_JOB_LABEL)
                 params['label'] = labels
                 skipped_params.append('label')

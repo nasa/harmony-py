@@ -29,6 +29,7 @@ from harmony.request import (
     DeleteLabelsRequest,
     JobsRequest,
     StepsRequest,
+    WKT,
 )
 from harmony.client import Client, ProcessingFailedException, DEFAULT_JOB_LABEL
 from harmony.config import Environment
@@ -590,6 +591,35 @@ def test_user_labels_and_default_label(examples_dir):
     form_data_params = parse_multipart_data(responses.calls[0].request)
     label = form_data_params['label']
     assert label == ['one', 'two', DEFAULT_JOB_LABEL]
+
+
+@responses.activate
+@pytest.mark.parametrize('spatial', [None, WKT('POINT(-40 10)')])
+def test_preview_and_submit_do_not_mutate_user_labels(monkeypatch, spatial):
+    monkeypatch.delenv('EXCLUDE_DEFAULT_LABEL', raising=False)
+    labels = ['science-run']
+    request = Request(collection=Collection('foobar'), spatial=spatial, labels=labels)
+    client = Client(should_validate_auth=False)
+    responses.add(
+        responses.POST,
+        client._submit_url(request),
+        status=200,
+        json=expected_job(request.collection.id, 'abcd-1234'),
+    )
+
+    first_url = client.request_as_url(request)
+    assert client.request_as_url(request) == first_url
+    client.request_as_curl(request)
+    assert client.submit(request) == 'abcd-1234'
+
+    assert labels == ['science-run']
+    assert request.labels is labels
+    http_request = responses.calls[0].request
+    if request.is_edr_request():
+        sent_labels = json.loads(http_request.body)['label']
+    else:
+        sent_labels = parse_multipart_data(http_request)['label']
+    assert sent_labels == ['science-run', DEFAULT_JOB_LABEL]
 
 
 @responses.activate
