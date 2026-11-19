@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 import copy
 import datetime as dt
 import io
@@ -2865,6 +2865,106 @@ def test_download_batch_mixed_statuses_and_no_outputs(mocker):
     results = client.download_batch(list(fake_results.keys()))
 
     assert results == fake_results
+
+
+def mock_download_all_writing_files(mocker, client, outputs_by_job_id):
+    """Mocks ``download_all`` to write each job's outputs, given as a list of
+    (filename, contents) pairs, into the requested directory."""
+
+    def fake_download_all(job_id, directory='', overwrite=False):
+        for name, contents in outputs_by_job_id[job_id]:
+            filename = os.path.join(directory, name)
+            with open(filename, 'w') as f:
+                f.write(contents)
+            future = Future()
+            future.set_result(filename)
+            yield future
+
+    return mocker.patch.object(client, 'download_all', side_effect=fake_download_all)
+
+
+def test_download_batch_combine_csv(mocker, tmp_path):
+    client = Client(should_validate_auth=False)
+    mock_download_all_writing_files(
+        mocker,
+        client,
+        {
+            'job-1': [('1_a.csv', 'lat,lon\n1,2\n'), ('2_b.csv', 'lat,lon\n3,4\n')],
+            'failed-job': [],
+            'job-2': [('3_c.csv', 'lat,lon,extra\n5,6,7\n')],
+        },
+    )
+
+    result = client.download_batch(
+        ['job-1', 'failed-job', 'job-2'], directory=str(tmp_path), combine_csv='combined.csv'
+    )
+
+    assert result == os.path.join(str(tmp_path), 'combined.csv')
+    with open(result) as f:
+        assert f.read().splitlines() == ['lat,lon,extra', '1,2,', '3,4,', '5,6,7']
+    # Only the combined file is left behind; the individual outputs are discarded.
+    assert os.listdir(tmp_path) == ['combined.csv']
+
+
+def test_download_batch_combine_csv_keeps_outputs_with_the_same_filename(mocker, tmp_path):
+    client = Client(should_validate_auth=False)
+    mock_download_all_writing_files(
+        mocker,
+        client,
+        {
+            'job-1': [('matchup.csv', 'lat,lon\n1,2\n')],
+            'job-2': [('matchup.csv', 'lat,lon\n3,4\n')],
+        },
+    )
+
+    result = client.download_batch(
+        ['job-1', 'job-2'], directory=str(tmp_path), combine_csv='combined.csv'
+    )
+
+    with open(result) as f:
+        assert f.read().splitlines() == ['lat,lon', '1,2', '3,4']
+
+
+def test_download_batch_combine_csv_rejects_non_csv_outputs(mocker, tmp_path):
+    client = Client(should_validate_auth=False)
+    mock_download_all_writing_files(
+        mocker,
+        client,
+        {'job-1': [('1_a.csv', 'lat,lon\n1,2\n'), ('2_b.nc', 'not a csv')]},
+    )
+
+    with pytest.raises(ValueError, match='2_b.nc'):
+        client.download_batch(['job-1'], directory=str(tmp_path), combine_csv='combined.csv')
+
+    assert os.listdir(tmp_path) == []
+
+
+def test_download_batch_combine_csv_does_not_overwrite_by_default(mocker, tmp_path):
+    client = Client(should_validate_auth=False)
+    download_all_mock = mock_download_all_writing_files(
+        mocker, client, {'job-1': [('1_a.csv', 'lat,lon\n1,2\n')]}
+    )
+    existing = tmp_path / 'combined.csv'
+    existing.write_text('old\n')
+
+    with pytest.raises(FileExistsError):
+        client.download_batch(['job-1'], directory=str(tmp_path), combine_csv='combined.csv')
+
+    assert existing.read_text() == 'old\n'
+    download_all_mock.assert_not_called()
+
+
+def test_download_batch_combine_csv_overwrites_when_requested(mocker, tmp_path):
+    client = Client(should_validate_auth=False)
+    mock_download_all_writing_files(mocker, client, {'job-1': [('1_a.csv', 'lat,lon\n1,2\n')]})
+    existing = tmp_path / 'combined.csv'
+    existing.write_text('old\n')
+
+    client.download_batch(
+        ['job-1'], directory=str(tmp_path), overwrite=True, combine_csv='combined.csv'
+    )
+
+    assert existing.read_text().splitlines() == ['lat,lon', '1,2']
 
 
 def test_client_environment_not_affected_by_env_var():
