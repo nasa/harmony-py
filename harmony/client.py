@@ -138,6 +138,18 @@ class BatchStatus(NamedTuple):
     job_ids: Dict[str, List[str]]
 
 
+class CombinedCsvResult(NamedTuple):
+    """The result of ``download_batch()`` with ``combine_csv``.
+
+    ``filename`` is the path of the combined CSV file. ``job_ids_without_outputs`` lists, in
+    batch order, the jobs that contributed no rows because they had no output files (e.g. a
+    job that failed or found no matching granules).
+    """
+
+    filename: str
+    job_ids_without_outputs: List[str]
+
+
 class ProcessingFailedException(Exception):
     """Indicates a Harmony job has failed during processing"""
 
@@ -1394,11 +1406,19 @@ class Client:
                     yield self.executor.submit(self._download_file, url, directory, overwrite)
 
                 if num_files == 0:
-                    print('\nThere is no file to download.', file=sys.stderr)
-                    status, message = self.job_status_message(job_id_or_result_json)
-                    print(f'\nJob status is {status} with message: {message}.', file=sys.stderr)
+                    job_id = job_id_or_result_json
+                    print(f'\nThere is no file to download for job {job_id}.', file=sys.stderr)
+                    status, message = self.job_status_message(job_id)
+                    print(
+                        f'\nJob {job_id} status is {status} with message: {message}.',
+                        file=sys.stderr,
+                    )
             except ProcessingFailedException:
-                print('\nJob Status is failed. There is no file to download.', file=sys.stderr)
+                print(
+                    f'\nJob {job_id_or_result_json} status is failed. There is no file to '
+                    'download.',
+                    file=sys.stderr,
+                )
         else:
             for link in job_id_or_result_json.get('links', []):
                 if link['rel'] == 'data':
@@ -1432,7 +1452,8 @@ class Client:
         directory: str = '',
         overwrite: bool = False,
         combine_csv: Optional[str] = None,
-    ) -> Union[Mapping[str, List[Future]], str]:
+        include_job_id: bool = True,
+    ) -> Union[Mapping[str, List[Future]], CombinedCsvResult]:
         """Downloads the output files for a batch of jobs.
 
         Each job's outputs are resolved and downloaded the same way as ``download_all()``,
@@ -1449,7 +1470,9 @@ class Client:
         saving one file per output, this call waits for every download to finish and
         combines them into a single CSV file named ``combine_csv``, using
         ``harmony.util.combine_csv_files()``. Rows are written in ``job_ids`` order, and the
-        individual output files are not kept.
+        individual output files are not kept. A job with no output files contributes no
+        rows, so its job ID is printed in a warning and returned in
+        ``CombinedCsvResult.job_ids_without_outputs``.
 
         Args:
             job_ids: The Harmony Job IDs to download outputs for.
@@ -1459,21 +1482,28 @@ class Client:
             downloaded file. Defaults to False.
             combine_csv: Optional. The filename of a single CSV file to combine all the
             jobs' CSV outputs into, saved in ``directory``.
+            include_job_id: Optional. Only used with ``combine_csv``. If True, adds a
+            ``job_id`` column as the combined file's first column, holding the ID of the job
+            each row came from. Defaults to True; set it to False to leave the column out.
 
         Returns:
             A dict mapping each job ID to a list of Futures, each of which will return the
             filename (with path) for one of that job's output files. A job with no output
             files (e.g. one that failed) maps to an empty list.
 
-            If ``combine_csv`` is given, the filename (with path) of the combined CSV file.
+            If ``combine_csv`` is given, a ``CombinedCsvResult`` with the filename (with
+            path) of the combined CSV file and the IDs of the jobs that had no output files.
 
         :raises
             FileExistsError: If ``combine_csv`` is given, the combined file already exists
             and ``overwrite`` is False.
-            ValueError: If ``combine_csv`` is given and any job output is not a CSV file.
+            ValueError: If ``combine_csv`` is given and any job output is not a CSV file, or
+            ``include_job_id`` is True and a job output already has a ``job_id`` column.
         """
         if combine_csv:
-            return self._download_batch_as_combined_csv(job_ids, directory, overwrite, combine_csv)
+            return self._download_batch_as_combined_csv(
+                job_ids, directory, overwrite, combine_csv, include_job_id
+            )
 
         futures_by_job_id = {
             job_id: self.executor.submit(self._download_job_files, job_id, directory, overwrite)
@@ -1482,8 +1512,13 @@ class Client:
         return {job_id: future.result() for job_id, future in futures_by_job_id.items()}
 
     def _download_batch_as_combined_csv(
-        self, job_ids: List[str], directory: str, overwrite: bool, combine_csv: str
-    ) -> str:
+        self,
+        job_ids: List[str],
+        directory: str,
+        overwrite: bool,
+        combine_csv: str,
+        include_job_id: bool,
+    ) -> CombinedCsvResult:
         """Downloads the CSV outputs for a batch of jobs and combines them into one CSV file.
 
         Args:
@@ -1492,9 +1527,12 @@ class Client:
             working directory.
             overwrite: If True, will overwrite an existing file named ``combine_csv``.
             combine_csv: The filename of the combined CSV file.
+            include_job_id: If True, adds a ``job_id`` column as the combined file's first
+            column.
 
         Returns:
-            The filename (with path) of the combined CSV file.
+            The filename (with path) of the combined CSV file and the IDs of the jobs that had
+            no output files.
         """
         filename = os.path.join(directory, combine_csv) if directory else combine_csv
         if not overwrite and os.path.isfile(filename):
@@ -1515,11 +1553,16 @@ class Client:
                 futures_by_job_id[job_id] = self.executor.submit(
                     self._download_job_files, job_id, job_directory, True
                 )
-            output_filenames = [
-                future.result()
-                for job_future in futures_by_job_id.values()
-                for future in job_future.result()
-            ]
+            output_filenames = []
+            output_job_ids = []
+            job_ids_without_outputs = []
+            for job_id, job_future in futures_by_job_id.items():
+                futures = job_future.result()
+                if not futures:
+                    job_ids_without_outputs.append(job_id)
+                for future in futures:
+                    output_filenames.append(future.result())
+                    output_job_ids.append(job_id)
             non_csv_outputs = [
                 os.path.basename(output_filename)
                 for output_filename in output_filenames
@@ -1531,9 +1574,31 @@ class Client:
                     f'not: {", ".join(non_csv_outputs)}'
                 )
             temporary_filename = os.path.join(staging_directory, 'combined')
-            combine_csv_files(output_filenames, temporary_filename)
+            if include_job_id:
+                try:
+                    combine_csv_files(
+                        output_filenames,
+                        temporary_filename,
+                        id_column='job_id',
+                        ids=output_job_ids,
+                    )
+                except ValueError as e:
+                    raise ValueError(
+                        'A job output already has a job_id column. Set include_job_id to '
+                        'False to combine the outputs without adding one.'
+                    ) from e
+            else:
+                combine_csv_files(output_filenames, temporary_filename)
             os.replace(temporary_filename, filename)
-        return filename
+
+        if job_ids_without_outputs:
+            print(
+                f'\n{len(job_ids_without_outputs)} of {len(futures_by_job_id)} jobs had no '
+                f'output files, so {filename} has no rows for them: '
+                f'{", ".join(job_ids_without_outputs)}',
+                file=sys.stderr,
+            )
+        return CombinedCsvResult(filename, job_ids_without_outputs)
 
     def download_intermediate_files(
         self,

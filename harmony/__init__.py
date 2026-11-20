@@ -19,5 +19,5 @@ from harmony.request import (
     JobsRequest,
     StepsRequest,
 )
-from harmony.client import BatchStatus, Client
-from harmony.util import s3_components
+from harmony.client import BatchStatus, Client, CombinedCsvResult
+from harmony.util import combine_csv_files, s3_components
