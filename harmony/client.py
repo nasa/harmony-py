@@ -37,7 +37,7 @@ from requests.exceptions import JSONDecodeError
 import requests.models
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from shapely.wkt import loads
 from typing import (
     Any,
@@ -108,16 +108,21 @@ progressbar_widgets = [
 boolean_params = ['forceAsync', 'concatenate', 'skipPreview', 'ignoreErrors', 'pixelSubset']
 
 
+def _to_utc(value: datetime) -> datetime:
+    """Convert a timezone-aware datetime to UTC; naive datetimes are taken as UTC already."""
+    return value.astimezone(timezone.utc) if value.utcoffset() is not None else value
+
+
 def temporal_to_edr_datetime(temporal: dict) -> str:
     datetime_format = '%Y-%m-%dT%H:%M:%SZ'
 
     if 'start' in temporal and temporal['start'] is not None:
-        start_str = temporal['start'].strftime(datetime_format)
+        start_str = _to_utc(temporal['start']).strftime(datetime_format)
     else:
         start_str = '..'
 
     if 'stop' in temporal and temporal['stop'] is not None:
-        stop_str = temporal['stop'].strftime(datetime_format)
+        stop_str = _to_utc(temporal['stop']).strftime(datetime_format)
     else:
         stop_str = '..'
 
