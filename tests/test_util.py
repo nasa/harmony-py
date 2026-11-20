@@ -44,6 +44,18 @@ def test_combine_csv_files_keeps_quoted_values(tmp_path):
     assert output.read_text().splitlines() == ['name,note', 'x,"has, comma"']
 
 
+def test_combine_csv_files_writes_lf_line_endings(tmp_path):
+    first = tmp_path / 'first.csv'
+    first.write_bytes(b'a,b\n1,2\n')
+    second = tmp_path / 'second.csv'
+    second.write_bytes(b'a,b\r\n3,4\r\n')
+    output = tmp_path / 'combined.csv'
+
+    combine_csv_files([str(first), str(second)], str(output), id_column='id', ids=['x', 'y'])
+
+    assert output.read_bytes() == b'id,a,b\nx,1,2\ny,3,4\n'
+
+
 def test_combine_csv_files_with_no_inputs(tmp_path):
     output = tmp_path / 'combined.csv'
 

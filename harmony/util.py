@@ -70,7 +70,7 @@ def combine_csv_files(
     The input files don't need to have identical columns. The output's columns are the
     union of the input files' columns, in the order they're first seen, and a row from a
     file without a given column has an empty value for it. Rows are written in the order
-    of ``input_filenames``.
+    of ``input_filenames``, and lines end with ``\\n``.
 
     Args:
         input_filenames: The CSV files to combine. Each must start with a header row.
@@ -102,7 +102,7 @@ def combine_csv_files(
             return
         if id_column is not None:
             fieldnames = {id_column: None, **fieldnames}
-        writer = csv.DictWriter(output_file, fieldnames=list(fieldnames))
+        writer = csv.DictWriter(output_file, fieldnames=list(fieldnames), lineterminator='\n')
         writer.writeheader()
         for index, filename in enumerate(input_filenames):
             with open(filename, newline='', encoding='utf-8') as input_file:
