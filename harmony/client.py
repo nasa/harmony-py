@@ -1593,7 +1593,7 @@ class Client:
             while not response:
                 try:
                     response = self._get_json(next_url)
-                except BaseException:
+                except Exception:
                     response = None
                     get_json_try_count += 1
                     if get_json_try_count < GET_JSON_RETRY_LIMIT:
