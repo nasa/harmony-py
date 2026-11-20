@@ -2930,12 +2930,7 @@ def test_download_batch_combine_csv(mocker, tmp_path):
 
     assert result.filename == os.path.join(str(tmp_path), 'combined.csv')
     with open(result.filename) as f:
-        assert f.read().splitlines() == [
-            'job_id,lat,lon,extra',
-            'job-1,1,2,',
-            'job-1,3,4,',
-            'job-2,5,6,7',
-        ]
+        assert f.read().splitlines() == ['lat,lon,extra', '1,2,', '3,4,', '5,6,7']
     # Only the combined file is left behind; the individual outputs are discarded.
     assert os.listdir(tmp_path) == ['combined.csv']
 
@@ -2976,7 +2971,7 @@ def test_download_batch_combine_csv_no_warning_when_every_job_has_outputs(
     assert capsys.readouterr().err == ''
 
 
-def test_download_batch_combine_csv_without_job_id(mocker, tmp_path):
+def test_download_batch_combine_csv_include_job_id(mocker, tmp_path):
     client = Client(should_validate_auth=False)
     mock_download_all_writing_files(
         mocker,
@@ -2992,11 +2987,26 @@ def test_download_batch_combine_csv_without_job_id(mocker, tmp_path):
         ['job-1', 'failed-job', 'job-2'],
         directory=str(tmp_path),
         combine_csv='combined.csv',
-        include_job_id=False,
+        include_job_id=True,
     )
 
     with open(result.filename) as f:
-        assert f.read().splitlines() == ['lat,lon', '1,2', '3,4', '5,6']
+        assert f.read().splitlines() == [
+            'job_id,lat,lon',
+            'job-1,1,2',
+            'job-1,3,4',
+            'job-2,5,6',
+        ]
+
+
+def test_download_batch_include_job_id_requires_combine_csv(mocker):
+    client = Client(should_validate_auth=False)
+    download_all_mock = mocker.patch.object(client, 'download_all', return_value=iter([]))
+
+    with pytest.raises(ValueError, match='include_job_id requires combine_csv'):
+        client.download_batch(['job-1'], include_job_id=True)
+
+    download_all_mock.assert_not_called()
 
 
 def test_download_batch_combine_csv_rejects_outputs_with_a_job_id_column(mocker, tmp_path):
@@ -3006,22 +3016,20 @@ def test_download_batch_combine_csv_rejects_outputs_with_a_job_id_column(mocker,
     )
 
     with pytest.raises(ValueError, match='Set include_job_id to False'):
-        client.download_batch(['job-1'], directory=str(tmp_path), combine_csv='combined.csv')
+        client.download_batch(
+            ['job-1'], directory=str(tmp_path), combine_csv='combined.csv', include_job_id=True
+        )
 
     assert os.listdir(tmp_path) == []
 
 
-def test_download_batch_combine_csv_keeps_an_existing_job_id_column_without_include_job_id(
-    mocker, tmp_path
-):
+def test_download_batch_combine_csv_keeps_an_existing_job_id_column_by_default(mocker, tmp_path):
     client = Client(should_validate_auth=False)
     mock_download_all_writing_files(
         mocker, client, {'job-1': [('1_a.csv', 'job_id,lat,lon\nabc,1,2\n')]}
     )
 
-    result = client.download_batch(
-        ['job-1'], directory=str(tmp_path), combine_csv='combined.csv', include_job_id=False
-    )
+    result = client.download_batch(['job-1'], directory=str(tmp_path), combine_csv='combined.csv')
 
     with open(result.filename) as f:
         assert f.read().splitlines() == ['job_id,lat,lon', 'abc,1,2']
@@ -3043,7 +3051,7 @@ def test_download_batch_combine_csv_keeps_outputs_with_the_same_filename(mocker,
     )
 
     with open(result.filename) as f:
-        assert f.read().splitlines() == ['job_id,lat,lon', 'job-1,1,2', 'job-2,3,4']
+        assert f.read().splitlines() == ['lat,lon', '1,2', '3,4']
 
 
 def test_download_batch_combine_csv_rejects_non_csv_outputs(mocker, tmp_path):
@@ -3085,7 +3093,7 @@ def test_download_batch_combine_csv_overwrites_when_requested(mocker, tmp_path):
         ['job-1'], directory=str(tmp_path), overwrite=True, combine_csv='combined.csv'
     )
 
-    assert existing.read_text().splitlines() == ['job_id,lat,lon', 'job-1,1,2']
+    assert existing.read_text().splitlines() == ['lat,lon', '1,2']
 
 
 def test_client_environment_not_affected_by_env_var():
