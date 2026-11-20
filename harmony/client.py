@@ -1452,7 +1452,7 @@ class Client:
         directory: str = '',
         overwrite: bool = False,
         combine_csv: Optional[str] = None,
-        include_job_id: bool = True,
+        include_job_id: bool = False,
     ) -> Union[Mapping[str, List[Future]], CombinedCsvResult]:
         """Downloads the output files for a batch of jobs.
 
@@ -1484,7 +1484,7 @@ class Client:
             jobs' CSV outputs into, saved in ``directory``.
             include_job_id: Optional. Only used with ``combine_csv``. If True, adds a
             ``job_id`` column as the combined file's first column, holding the ID of the job
-            each row came from. Defaults to True; set it to False to leave the column out.
+            each row came from. Defaults to False.
 
         Returns:
             A dict mapping each job ID to a list of Futures, each of which will return the
@@ -1497,9 +1497,12 @@ class Client:
         :raises
             FileExistsError: If ``combine_csv`` is given, the combined file already exists
             and ``overwrite`` is False.
-            ValueError: If ``combine_csv`` is given and any job output is not a CSV file, or
+            ValueError: If ``include_job_id`` is True without ``combine_csv``, or
+            ``combine_csv`` is given and any job output is not a CSV file, or
             ``include_job_id`` is True and a job output already has a ``job_id`` column.
         """
+        if include_job_id and not combine_csv:
+            raise ValueError('include_job_id requires combine_csv.')
         if combine_csv:
             return self._download_batch_as_combined_csv(
                 job_ids, directory, overwrite, combine_csv, include_job_id
