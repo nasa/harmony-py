@@ -1925,6 +1925,22 @@ def side_effect_func_for_get_json_with_error(url: str):
     raise Exception('something bad happened')
 
 
+@pytest.mark.parametrize('error', [KeyboardInterrupt('stop'), SystemExit('stop')])
+def test_iterator_propagates_interrupts_without_retrying(mocker, monkeypatch, error):
+    monkeypatch.setenv('GET_JSON_RETRY_LIMIT', '3')
+    get_json_mock = mocker.patch.object(Client, '_get_json', side_effect=error)
+    sleep_mock = mocker.patch('harmony.client.time.sleep')
+    client = Client(should_validate_auth=False)
+    try:
+        with pytest.raises(type(error)) as raised:
+            next(client.iterator('example-job'))
+        assert raised.value is error
+        get_json_mock.assert_called_once_with(client._status_url('example-job'))
+        sleep_mock.assert_not_called()
+    finally:
+        client.executor.shutdown(wait=True)
+
+
 def test_iterator_retry(mocker):
     os.environ['GET_JSON_RETRY_SLEEP'] = '0'
     os.environ['GET_JSON_RETRY_LIMIT'] = '2'
