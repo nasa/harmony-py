@@ -29,6 +29,7 @@ from harmony.request import (
     DeleteLabelsRequest,
     JobsRequest,
     StepsRequest,
+    WKT,
 )
 from harmony.client import Client, ProcessingFailedException, DEFAULT_JOB_LABEL
 from harmony.config import Environment
@@ -2337,6 +2338,39 @@ def test_request_with_shapefile_as_url(examples_dir):
     with pytest.raises(Exception) as e:
         Client(should_validate_auth=False).request_as_url(request)
     assert str(e.value) == 'Cannot include shapefile as URL query parameter'
+
+
+@responses.activate
+@pytest.mark.parametrize(
+    'harmony_request',
+    [
+        JobsRequest(labels=[]),
+        StepsRequest(job_id='abcd-1234', status=[], work_item=[]),
+        Request(collection=Collection('foobar'), granule_name=[], extend=[]),
+        Request(
+            collection=Collection('foobar'),
+            spatial=WKT('POINT(-40 10)'),
+            granule_name=[],
+            extend=[],
+        ),
+    ],
+)
+def test_empty_list_parameters_can_be_prepared_and_submitted(harmony_request):
+    client = Client(should_validate_auth=False)
+    body = (
+        expected_job('foobar', 'abcd-1234')
+        if isinstance(harmony_request, Request)
+        else {'ok': True}
+    )
+    responses.add(
+        harmony_request.http_method.value, client._submit_url(harmony_request), status=200, json=body
+    )
+
+    client.request_as_url(harmony_request)
+    client.request_as_curl(harmony_request)
+    expected = 'abcd-1234' if isinstance(harmony_request, Request) else body
+    assert client.submit(harmony_request) == expected
+    assert len(responses.calls) == 1
 
 
 @responses.activate
