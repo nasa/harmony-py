@@ -66,6 +66,8 @@ class SessionWithHeaderRedirection(Session):
         super().__init__()
         if token:
             self.headers.update({'Authorization': f'Bearer {token}'})
+            # An explicit auth hook prevents Requests from overriding the token with .netrc.
+            self.auth = lambda request: request
         elif auth:
             self.auth = auth
         else:
@@ -76,7 +78,7 @@ class SessionWithHeaderRedirection(Session):
         Override Session.rebuild_auth. Strips the Authorization header if neither
         original URL nor redirected URL belong to an Earthdata Login (EDL) host. Also
         allows the default requests behavior of searching for relevant .netrc
-        credentials if and only if a username and password weren't provided during
+        credentials if and only if authentication wasn't provided during
         object instantiation.
 
         Args:
